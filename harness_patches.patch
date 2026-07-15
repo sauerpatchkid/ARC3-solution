@@ -1,0 +1,27 @@
+diff --git a/agents/__init__.py b/agents/__init__.py
+index 1a07e36..3afadf9 100644
+--- a/agents/__init__.py
++++ b/agents/__init__.py
+@@ -12,6 +12,10 @@ from .templates.llm_agents import LLM, FastLLM, GuidedLLM, ReasoningLLM
+ from .templates.random_agent import Random
+ from .templates.reasoning_agent import ReasoningAgent
+ from .templates.smolagents import SmolCodingAgent, SmolVisionAgent
++import sys
++import os
++sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
++from custom_agent import *
+ 
+ load_dotenv()
+ 
+diff --git a/agents/structs.py b/agents/structs.py
+index 68f1fd9..505f513 100644
+--- a/agents/structs.py
++++ b/agents/structs.py
+@@ -211,6 +211,7 @@ class FrameData(BaseModel):
+     action_input: ActionInput = Field(default_factory=lambda: ActionInput())
+     guid: Optional[str] = None
+     full_reset: bool = False
++    available_actions: list[GameAction] = Field(default_factory=list)
+ 
+     def is_empty(self) -> bool:
+         return len(self.frame) == 0
