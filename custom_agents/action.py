@@ -1,5 +1,4 @@
 import atexit
-import json
 import random
 import time
 from typing import Any
@@ -21,6 +20,7 @@ from agents.structs import FrameData, GameAction, GameState
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.dirname(__file__))  # Add current directory to path
 from utils import setup_experiment_directory, setup_logging_for_experiment, get_environment_directory
+from eval_common import env_flag, resolve_seed, resolve_max_actions, write_run_config, TransitionLogger
 from view_utils import save_action_visualization
 
 """
@@ -43,75 +43,6 @@ Sampling:
 
 This enables more efficient exploration than random, especially for coordinate-based actions.
 """
-
-def _env_flag(name: str, default: bool) -> bool:
-    """Read a boolean flag from an environment variable ('1'/'true'/'yes'/'on')."""
-    val = os.getenv(name)
-    if val is None:
-        return default
-    return val.strip().lower() in ("1", "true", "yes", "on")
-
-
-def _stable_game_offset(game_id: str) -> int:
-    """Deterministic per-game integer (Python's hash() is randomized per process)."""
-    return int(hashlib.md5(game_id.encode("utf-8")).hexdigest()[:8], 16)
-
-
-class TransitionLogger:
-    """Logs every (frame, action, next_frame, changed) transition to compressed
-    .npz shards. Frames are stored as 64x64 uint8 color indices (NOT one-hot):
-    ~4KB raw per frame, much less after compression. This corpus is the offline
-    training/eval data for Phase 2+ and the debugging record for everything.
-    """
-
-    def __init__(self, out_dir: str, flush_every: int = 1000):
-        self.out_dir = out_dir
-        self.flush_every = flush_every
-        self.shard_idx = 0
-        os.makedirs(out_dir, exist_ok=True)
-        self._reset_buffers()
-
-    def _reset_buffers(self):
-        self.frames = []
-        self.actions = []
-        self.next_frames = []
-        self.changed = []
-        self.levels = []
-        self.action_nums = []
-        self.wall_ms = []
-        self.model_ms = []
-
-    def log(self, frame, action_idx, next_frame, changed, level, action_num,
-            wall_ms, model_ms):
-        self.frames.append(frame)
-        self.actions.append(action_idx)
-        self.next_frames.append(next_frame)
-        self.changed.append(1 if changed else 0)
-        self.levels.append(level)
-        self.action_nums.append(action_num)
-        self.wall_ms.append(wall_ms)
-        self.model_ms.append(model_ms)
-        if len(self.frames) >= self.flush_every:
-            self.flush()
-
-    def flush(self):
-        if not self.frames:
-            return
-        path = os.path.join(self.out_dir, f"shard_{self.shard_idx:05d}.npz")
-        np.savez_compressed(
-            path,
-            frames=np.stack(self.frames).astype(np.uint8),
-            actions=np.array(self.actions, dtype=np.int32),
-            next_frames=np.stack(self.next_frames).astype(np.uint8),
-            changed=np.array(self.changed, dtype=np.uint8),
-            levels=np.array(self.levels, dtype=np.int32),
-            action_nums=np.array(self.action_nums, dtype=np.int64),
-            wall_ms=np.array(self.wall_ms, dtype=np.float32),
-            model_ms=np.array(self.model_ms, dtype=np.float32),
-        )
-        self.shard_idx += 1
-        self._reset_buffers()
-
 
 class ActionModel(nn.Module):
     """CNN that predicts which actions will result in new frames with shared conv backbone."""
@@ -176,24 +107,16 @@ class Action(Agent):
     """Agent using action model to predict which actions lead to new frames."""
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        # --- Seeding (reproducible when GOOSE_SEED is set) ---
-        # Each game gets a distinct but deterministic stream: base seed + a
-        # stable per-game offset (md5-based; Python's hash() is randomized).
-        env_seed = os.getenv("GOOSE_SEED")
-        if env_seed is not None:
-            seed = int(env_seed) + _stable_game_offset(self.game_id)
-        else:
-            seed = int(time.time() * 1000000) + _stable_game_offset(self.game_id)
+        # --- Seeding (reproducible when EVAL_SEED is set; see eval_common) ---
+        seed, self.seed_source = resolve_seed(self.game_id)
         self.seed = seed
         random.seed(seed)
         np.random.seed(seed % (2**32 - 1))
         torch.manual_seed(seed % (2**32 - 1))
         self.start_time = time.time()
         
-        # Action cap: env-configurable for the tiered eval protocol.
-        # Unset or 0 => unlimited (original behavior: stop on WIN or 8h).
-        cap = int(os.getenv("GOOSE_MAX_ACTIONS", "0"))
-        self.MAX_ACTIONS = cap if cap > 0 else float('inf')
+        # Action cap: EVAL_MAX_ACTIONS; unset/0 => unlimited (stop on WIN or 8h).
+        self.MAX_ACTIONS = resolve_max_actions()
         
         # Device configuration
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -218,9 +141,9 @@ class Action(Agent):
         # log_metrics: cheap TensorBoard scalars (loss, score, buffer, fps). Default ON.
         # save_action_visualizations: expensive PNG heatmaps. Default OFF.
         # log_transitions: the on-disk transition corpus. Default ON.
-        self.log_metrics = _env_flag("GOOSE_LOG_METRICS", True)
-        self.save_action_visualizations = _env_flag("GOOSE_SAVE_VIS", False)
-        self.log_transitions = _env_flag("GOOSE_LOG_TRANSITIONS", True)
+        self.log_metrics = env_flag("EVAL_LOG_METRICS", True)
+        self.save_action_visualizations = env_flag("EVAL_SAVE_VIS", False)
+        self.log_transitions = env_flag("EVAL_LOG_TRANSITIONS", True)
         self.vis_save_frequency = 100  # Save images every N steps
         self.vis_samples_per_save = 1  # Number of visualization samples to save each time
         
@@ -256,20 +179,20 @@ class Action(Agent):
         self._last_model_ms = 0.0
         
         # Record the exact run configuration for reproducibility
-        run_config = {
-            'game_id': self.game_id,
-            'seed': self.seed,
-            'seed_source': 'env' if env_seed is not None else 'time',
-            'max_actions': None if self.MAX_ACTIONS == float('inf') else self.MAX_ACTIONS,
-            'log_metrics': self.log_metrics,
-            'save_action_visualizations': self.save_action_visualizations,
-            'log_transitions': self.log_transitions,
-            'train_frequency': self.train_frequency,
-            'batch_size': self.batch_size,
-            'buffer_capacity': self.experience_buffer.maxlen,
-        }
-        with open(os.path.join(env_dir, 'run_config.json'), 'w') as f:
-            json.dump(run_config, f, indent=2)
+        write_run_config(
+            env_dir,
+            agent='stochastic_goose',
+            game_id=self.game_id,
+            seed=self.seed,
+            seed_source=self.seed_source,
+            max_actions=self.MAX_ACTIONS,
+            log_metrics=self.log_metrics,
+            save_action_visualizations=self.save_action_visualizations,
+            log_transitions=self.log_transitions,
+            train_frequency=self.train_frequency,
+            batch_size=self.batch_size,
+            buffer_capacity=self.experience_buffer.maxlen,
+        )
         
         # Action mapping: ACTION1-ACTION5
         self.action_list = [GameAction.ACTION1, GameAction.ACTION2, GameAction.ACTION3, 

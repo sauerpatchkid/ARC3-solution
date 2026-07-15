@@ -51,17 +51,17 @@ make action
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `GOOSE_SEED` | unset (time-based) | Base seed. Each game adds a deterministic md5-derived offset, so multi-game runs get distinct but reproducible streams. Set `PYTHONHASHSEED=0` too (the Makefile target does). |
-| `GOOSE_MAX_ACTIONS` | 0 (unlimited) | Hard per-game action cap. |
-| `GOOSE_LOG_METRICS` | true | TensorBoard scalars (loss, score, buffer size, timing). |
-| `GOOSE_LOG_TRANSITIONS` | true | Write the transition corpus (see §4). |
-| `GOOSE_SAVE_VIS` | false | Expensive PNG heatmaps; smoke-test debugging only. |
+| `EVAL_SEED` | unset (time-based) | Base seed. Each game adds a deterministic md5-derived offset, so multi-game runs get distinct but reproducible streams. Set `PYTHONHASHSEED=0` too (the Makefile target does). |
+| `EVAL_MAX_ACTIONS` | 0 (unlimited) | Hard per-game action cap. |
+| `EVAL_LOG_METRICS` | true | TensorBoard scalars (loss, score, buffer size, timing). |
+| `EVAL_LOG_TRANSITIONS` | true | Write the transition corpus (see §4). |
+| `EVAL_SAVE_VIS` | false | Expensive PNG heatmaps; smoke-test debugging only. |
 
 Every run writes `runs/<timestamp>/<game_id>/run_config.json` recording the seed, flags, and cap, plus the git commit + uncommitted diff (via `utils.py`) — no run is ever mystery data.
 
 ## 4. The transition corpus
 
-With `GOOSE_LOG_TRANSITIONS=true`, every transition (before any dedup/filtering) is logged to compressed shards:
+With `EVAL_LOG_TRANSITIONS=true`, every transition (before any dedup/filtering) is logged to compressed shards:
 
 ```
 runs/<timestamp>/<game_id>/transitions/shard_00000.npz, shard_00001.npz, ...
@@ -92,14 +92,14 @@ uv run inspect_corpus.py <run1>/transitions --verify-seed <run2>/transitions
 
 For the three-baseline comparison to be valid, every agent must:
 
-1. **Honor the same knobs.** Read `GOOSE_SEED` (with the same md5 per-game offset — copy `_stable_game_offset()` from `custom_agents/action.py`) and `GOOSE_MAX_ACTIONS`. Seed *all* RNGs you use (`random`, `numpy`, `torch` if applicable). Run under `PYTHONHASHSEED=0`.
-2. **Emit the same corpus.** Copy the `TransitionLogger` class verbatim from `custom_agents/action.py` and log every transition with the schema above — including agents with no model (random agent: `model_ms=0` for pure sampling time, or time your selection code). Log *before* any agent-internal filtering.
-3. **Write `run_config.json`** with at minimum: game_id, seed, seed_source, max_actions, agent name.
+1. **Honor the same knobs — by importing, not reimplementing.** `from eval_common import resolve_seed, resolve_max_actions, env_flag` (repo root). `resolve_seed(game_id)` handles `EVAL_SEED` plus the per-game md5 offset; `resolve_max_actions()` handles `EVAL_MAX_ACTIONS`. Seed *all* RNGs your agent uses (`random`, `numpy`, `torch` if applicable) from that one seed. Run under `PYTHONHASHSEED=0`. Do NOT write your own seeding logic or copy these functions into your codebase — import them, so the contract cannot drift.
+2. **Emit the same corpus — same rule: import it.** `from eval_common import TransitionLogger`. Log every transition with the schema above, *before* any agent-internal filtering. Agents with no model (random) log `model_ms=0.0` or time their selection code. **Schema authority is executable, not prose: your shards must load and print cleanly under `inspect_corpus.py`. If that script errors on your corpus, your agent is out of contract — no exceptions, no local variants.**
+3. **Write `run_config.json`** via `from eval_common import write_run_config` — required fields: agent, game_id, seed, seed_source, max_actions; add agent-specific extras freely.
 4. **Count RESET actions against the cap** (the harness's `action_counter` does this naturally — don't circumvent it).
 5. **Random agent definition** (so it's not a strawman): uniform over the frame's `available_actions`; if ACTION6 is drawn, uniform over all 4096 coordinates. Same masking information Goose gets.
 6. **Pass the reproducibility test** before your numbers count: same game + same seed twice → `inspect_corpus.py --verify-seed` reports identical action sequences.
 
-Suggested: keep the `GOOSE_*` names even in non-Goose agents (ugly but unambiguous), or we rename all to `EVAL_*` together — decide at the protocol meeting, then it's frozen.
+All contract code lives in one file: **`eval_common.py`** (repo root, dependency-free beyond numpy). It is the single source of truth; changes to it require team agreement.
 
 ## 6. Evaluation protocol (agreed 3-tier design)
 
@@ -119,7 +119,8 @@ Dev set, cap, and seeds are decided once at the team meeting and never changed.
 ## 8. Repo layout & docs
 
 ```
-custom_agents/action.py    # the agent + our instrumentation (all changes commented)
+eval_common.py             # THE SHARED CONTRACT: seeding, caps, TransitionLogger (import from here)
+custom_agents/action.py    # the agent + our instrumentation (imports eval_common)
 inspect_corpus.py          # corpus stats + seed-verification tool
 harness_patches.patch      # the two required submodule edits (apply per §2)
 Makefile                   # install / action / baseline / tensorboard / clean
