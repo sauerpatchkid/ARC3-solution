@@ -1,3 +1,5 @@
+import atexit
+import json
 import random
 import time
 from typing import Any
@@ -41,6 +43,75 @@ Sampling:
 
 This enables more efficient exploration than random, especially for coordinate-based actions.
 """
+
+def _env_flag(name: str, default: bool) -> bool:
+    """Read a boolean flag from an environment variable ('1'/'true'/'yes'/'on')."""
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _stable_game_offset(game_id: str) -> int:
+    """Deterministic per-game integer (Python's hash() is randomized per process)."""
+    return int(hashlib.md5(game_id.encode("utf-8")).hexdigest()[:8], 16)
+
+
+class TransitionLogger:
+    """Logs every (frame, action, next_frame, changed) transition to compressed
+    .npz shards. Frames are stored as 64x64 uint8 color indices (NOT one-hot):
+    ~4KB raw per frame, much less after compression. This corpus is the offline
+    training/eval data for Phase 2+ and the debugging record for everything.
+    """
+
+    def __init__(self, out_dir: str, flush_every: int = 1000):
+        self.out_dir = out_dir
+        self.flush_every = flush_every
+        self.shard_idx = 0
+        os.makedirs(out_dir, exist_ok=True)
+        self._reset_buffers()
+
+    def _reset_buffers(self):
+        self.frames = []
+        self.actions = []
+        self.next_frames = []
+        self.changed = []
+        self.levels = []
+        self.action_nums = []
+        self.wall_ms = []
+        self.model_ms = []
+
+    def log(self, frame, action_idx, next_frame, changed, level, action_num,
+            wall_ms, model_ms):
+        self.frames.append(frame)
+        self.actions.append(action_idx)
+        self.next_frames.append(next_frame)
+        self.changed.append(1 if changed else 0)
+        self.levels.append(level)
+        self.action_nums.append(action_num)
+        self.wall_ms.append(wall_ms)
+        self.model_ms.append(model_ms)
+        if len(self.frames) >= self.flush_every:
+            self.flush()
+
+    def flush(self):
+        if not self.frames:
+            return
+        path = os.path.join(self.out_dir, f"shard_{self.shard_idx:05d}.npz")
+        np.savez_compressed(
+            path,
+            frames=np.stack(self.frames).astype(np.uint8),
+            actions=np.array(self.actions, dtype=np.int32),
+            next_frames=np.stack(self.next_frames).astype(np.uint8),
+            changed=np.array(self.changed, dtype=np.uint8),
+            levels=np.array(self.levels, dtype=np.int32),
+            action_nums=np.array(self.action_nums, dtype=np.int64),
+            wall_ms=np.array(self.wall_ms, dtype=np.float32),
+            model_ms=np.array(self.model_ms, dtype=np.float32),
+        )
+        self.shard_idx += 1
+        self._reset_buffers()
+
 
 class ActionModel(nn.Module):
     """CNN that predicts which actions will result in new frames with shared conv backbone."""
@@ -105,14 +176,24 @@ class Action(Agent):
     """Agent using action model to predict which actions lead to new frames."""
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        seed = int(time.time() * 1000000) + hash(self.game_id) % 1000000
+        # --- Seeding (reproducible when GOOSE_SEED is set) ---
+        # Each game gets a distinct but deterministic stream: base seed + a
+        # stable per-game offset (md5-based; Python's hash() is randomized).
+        env_seed = os.getenv("GOOSE_SEED")
+        if env_seed is not None:
+            seed = int(env_seed) + _stable_game_offset(self.game_id)
+        else:
+            seed = int(time.time() * 1000000) + _stable_game_offset(self.game_id)
+        self.seed = seed
         random.seed(seed)
         np.random.seed(seed % (2**32 - 1))
         torch.manual_seed(seed % (2**32 - 1))
         self.start_time = time.time()
         
-        # No max action limit.
-        self.MAX_ACTIONS = float('inf')
+        # Action cap: env-configurable for the tiered eval protocol.
+        # Unset or 0 => unlimited (original behavior: stop on WIN or 8h).
+        cap = int(os.getenv("GOOSE_MAX_ACTIONS", "0"))
+        self.MAX_ACTIONS = cap if cap > 0 else float('inf')
         
         # Device configuration
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -133,8 +214,13 @@ class Action(Agent):
         # Setup logger
         self.logger = logging.getLogger(f"ActionAgent_{self.game_id}")
         
-        # Configuration for visualization
-        self.save_action_visualizations = False  # Set to False to disable image generation
+        # --- Logging configuration (was one conflated flag; now three) ---
+        # log_metrics: cheap TensorBoard scalars (loss, score, buffer, fps). Default ON.
+        # save_action_visualizations: expensive PNG heatmaps. Default OFF.
+        # log_transitions: the on-disk transition corpus. Default ON.
+        self.log_metrics = _env_flag("GOOSE_LOG_METRICS", True)
+        self.save_action_visualizations = _env_flag("GOOSE_SAVE_VIS", False)
+        self.log_transitions = _env_flag("GOOSE_LOG_TRANSITIONS", True)
         self.vis_save_frequency = 100  # Save images every N steps
         self.vis_samples_per_save = 1  # Number of visualization samples to save each time
         
@@ -155,6 +241,35 @@ class Action(Agent):
         # Track previous state/action for experience creation
         self.prev_frame = None
         self.prev_action_idx = None
+        # Raw (uint8 color-index) copy of the previous frame, for the corpus
+        self.prev_frame_raw = None
+        
+        # --- Transition corpus logger ---
+        self.transition_logger = None
+        if self.log_transitions:
+            self.transition_logger = TransitionLogger(
+                os.path.join(env_dir, 'transitions'))
+            atexit.register(self.transition_logger.flush)
+        
+        # Per-action timing: wall-clock between decisions, model-only compute
+        self._last_decision_time = None
+        self._last_model_ms = 0.0
+        
+        # Record the exact run configuration for reproducibility
+        run_config = {
+            'game_id': self.game_id,
+            'seed': self.seed,
+            'seed_source': 'env' if env_seed is not None else 'time',
+            'max_actions': None if self.MAX_ACTIONS == float('inf') else self.MAX_ACTIONS,
+            'log_metrics': self.log_metrics,
+            'save_action_visualizations': self.save_action_visualizations,
+            'log_transitions': self.log_transitions,
+            'train_frequency': self.train_frequency,
+            'batch_size': self.batch_size,
+            'buffer_capacity': self.experience_buffer.maxlen,
+        }
+        with open(os.path.join(env_dir, 'run_config.json'), 'w') as f:
+            json.dump(run_config, f, indent=2)
         
         # Action mapping: ACTION1-ACTION5
         self.action_list = [GameAction.ACTION1, GameAction.ACTION2, GameAction.ACTION3, 
@@ -298,7 +413,7 @@ class Action(Agent):
         self.optimizer.step()
         
         # Log training metrics
-        if self.save_action_visualizations:
+        if self.log_metrics:
             self.writer.add_scalar('Training/total_loss', total_loss.item(), self.action_counter)
             self.writer.add_scalar('Training/main_loss', main_loss.item(), self.action_counter)
             self.writer.add_scalar('Training/action_entropy', action_entropy.item(), self.action_counter)
@@ -330,10 +445,18 @@ class Action(Agent):
     ) -> GameAction:
 
         """Choose action using action model predictions."""
+        # Wall-clock between successive decisions (includes server round-trip)
+        now = time.time()
+        wall_ms = (now - self._last_decision_time) * 1000.0 if self._last_decision_time else 0.0
+        self._last_decision_time = now
+        
         # Check if score has changed and log score at action count
         if latest_frame.score != self.current_score:
-            if self.save_action_visualizations:
+            if self.log_metrics:
                 self.writer.add_scalar('Agent/score', latest_frame.score, self.action_counter)
+                self.writer.add_scalar('Agent/actions_at_level_up', self.action_counter, latest_frame.score)
+            if self.transition_logger is not None:
+                self.transition_logger.flush()
             self.logger.info(f"Score changed from {self.current_score} to {latest_frame.score} at action {self.action_counter}")
             print(f"Score changed from {self.current_score} to {latest_frame.score} at action {self.action_counter}")
             
@@ -356,6 +479,7 @@ class Action(Agent):
             # Reset previous tracking
             self.prev_frame = None
             self.prev_action_idx = None
+            self.prev_frame_raw = None
             
             
             self.current_score = latest_frame.score
@@ -364,6 +488,7 @@ class Action(Agent):
             # Reset previous tracking on game reset
             self.prev_frame = None
             self.prev_action_idx = None
+            self.prev_frame_raw = None
             action = GameAction.RESET
             action.reasoning = "Game needs reset."
             return action
@@ -382,18 +507,36 @@ class Action(Agent):
             action.reasoning = f"Skipped weird frame, random {action.value}"
             return action
         
+        # Raw uint8 color-index view of the current frame (last animation frame),
+        # used for cheap change detection and for the transition corpus.
+        current_frame_raw = np.array(latest_frame.frame, dtype=np.uint8)[-1]
+        
         # Create experience from previous action if we have previous data
         if self.prev_frame is not None:
+            # Frame-changed label, computed once on raw index frames
+            # (equivalent to comparing one-hot tensors, but 16x cheaper)
+            frame_changed = not np.array_equal(self.prev_frame_raw, current_frame_raw)
+            
+            # --- Transition corpus: log EVERY transition, before any dedup ---
+            # Stores next_frame explicitly (the buffer only keeps the 0/1 label);
+            # Phase 2's per-cell change-mask training depends on this.
+            if self.transition_logger is not None:
+                self.transition_logger.log(
+                    frame=self.prev_frame_raw,
+                    action_idx=self.prev_action_idx,
+                    next_frame=current_frame_raw,
+                    changed=frame_changed,
+                    level=self.current_score,
+                    action_num=self.action_counter,
+                    wall_ms=wall_ms,
+                    model_ms=self._last_model_ms,
+                )
+            
             # Compute hash for uniqueness check
             experience_hash = self._compute_experience_hash(self.prev_frame, self.prev_action_idx)
             
             # Only store if unique
             if experience_hash not in self.experience_hashes:
-                # Convert current frame to numpy bool for comparison
-                current_frame_np = current_frame.cpu().numpy().astype(bool)
-                frame_changed = not np.array_equal(self.prev_frame, current_frame_np)
-                # if frame_changed:
-                    # print(f"Action: {self.prev_action_idx} got a new positive reward!")
                 experience = {
                     'state': self.prev_frame,  # Already numpy bool
                     'action_idx': self.prev_action_idx,  # Unified action index
@@ -403,11 +546,12 @@ class Action(Agent):
                 self.experience_hashes.add(experience_hash)
                 
                 # Log replay buffer size periodically
-                if self.save_action_visualizations:
+                if self.log_metrics:
                     self.writer.add_scalar('Agent/replay_buffer_size', len(self.experience_buffer), self.action_counter)
                     self.writer.add_scalar('Agent/replay_unique_hashes', len(self.experience_hashes), self.action_counter)
         
         # Get action predictions from action model
+        model_t0 = time.time()
         with torch.no_grad():
             combined_logits = self.action_model(current_frame.unsqueeze(0))
             combined_logits = combined_logits.squeeze(0)  # (5 + 4096,)
@@ -429,6 +573,7 @@ class Action(Agent):
         
         # Store current frame and action for next experience creation
         self.prev_frame = current_frame.cpu().numpy().astype(bool)
+        self.prev_frame_raw = current_frame_raw
         # Store unified action index: 0-4 for ACTION1-5, 5+ for coordinates
         if action_idx < 5:
             self.prev_action_idx = action_idx
@@ -439,6 +584,14 @@ class Action(Agent):
         # Train model periodically
         if self.action_counter % self.train_frequency == 0:
             self._train_action_model()
+        
+        # Model-only compute time for this decision (inference + any training);
+        # this is the number that transfers to the offline Kaggle sandbox,
+        # where server round-trip latency doesn't exist.
+        self._last_model_ms = (time.time() - model_t0) * 1000.0
+        if self.log_metrics and self.action_counter % 100 == 0:
+            self.writer.add_scalar('Timing/model_ms', self._last_model_ms, self.action_counter)
+            self.writer.add_scalar('Timing/wall_ms', wall_ms, self.action_counter)
         
         # Save action probability visualizations periodically 
         if self.save_action_visualizations and self.action_counter % self.vis_save_frequency == 0:
@@ -468,7 +621,7 @@ class Action(Agent):
             # self.logger.info(f"Saved {VIS_SAMPLES_PER_SAVE} action visualizations at step {self.action_counter}")
         
         # Log metrics
-        if self.save_action_visualizations:
+        if self.log_metrics:
             self.writer.add_scalar('Agent/total_actions', self.action_counter, self.action_counter)
             
             # Extract action and coordinate probabilities for logging

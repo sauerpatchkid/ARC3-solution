@@ -11,3 +11,7 @@ tensorboard:
 
 clean:
 	rm -r ./runs
+
+baseline:
+	PYTHONHASHSEED=0 GOOSE_SEED=$(SEED) GOOSE_MAX_ACTIONS=$(CAP) \
+	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
