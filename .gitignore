@@ -2,4 +2,4 @@ __pycache__/
 logs.log
 recordings/
 logs
-runs
+runs*:Zone.Identifier

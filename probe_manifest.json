@@ -1,0 +1,132 @@
+{
+  "cap": 1000,
+  "seed": 0,
+  "started": "2026-07-15 14:38:09",
+  "games": {
+    "sk48-d8078629": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_143814",
+      "status": "ok",
+      "seconds": 77.6
+    },
+    "su15-1944f8ab": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_143930",
+      "status": "ok",
+      "seconds": 98.3
+    },
+    "lp85-305b61c3": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144108",
+      "status": "ok",
+      "seconds": 60.3
+    },
+    "m0r0-492f87ba": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144207",
+      "status": "ok",
+      "seconds": 61.8
+    },
+    "lf52-271a04aa": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144309",
+      "status": "ok",
+      "seconds": 83.9
+    },
+    "tn36-ef4dde99": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144433",
+      "status": "ok",
+      "seconds": 57.2
+    },
+    "ft09-0d8bbf25": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144530",
+      "status": "ok",
+      "seconds": 80.5
+    },
+    "ka59-38d34dbb": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144651",
+      "status": "ok",
+      "seconds": 58.6
+    },
+    "ar25-0c556536": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144749",
+      "status": "ok",
+      "seconds": 100.4
+    },
+    "tu93-0768757b": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_144930",
+      "status": "ok",
+      "seconds": 85.0
+    },
+    "re86-8af5384d": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145055",
+      "status": "ok",
+      "seconds": 64.6
+    },
+    "cn04-2fe56bfb": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145200",
+      "status": "ok",
+      "seconds": 62.1
+    },
+    "s5i5-18d95033": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145302",
+      "status": "ok",
+      "seconds": 64.3
+    },
+    "sb26-7fbdac44": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145406",
+      "status": "ok",
+      "seconds": 83.2
+    },
+    "sp80-589a99af": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145529",
+      "status": "ok",
+      "seconds": 71.6
+    },
+    "bp35-0a0ad940": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145641",
+      "status": "ok",
+      "seconds": 89.5
+    },
+    "ls20-9607627b": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145810",
+      "status": "ok",
+      "seconds": 62.2
+    },
+    "dc22-fdcac232": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_145913",
+      "status": "ok",
+      "seconds": 59.3
+    },
+    "vc33-5430563c": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150012",
+      "status": "ok",
+      "seconds": 59.5
+    },
+    "sc25-635fd71a": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150111",
+      "status": "ok",
+      "seconds": 70.9
+    },
+    "cd82-fb555c5d": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150222",
+      "status": "ok",
+      "seconds": 75.3
+    },
+    "g50t-5849a774": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150338",
+      "status": "ok",
+      "seconds": 81.8
+    },
+    "tr87-cd924810": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150459",
+      "status": "ok",
+      "seconds": 59.9
+    },
+    "wa30-ee6fef47": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150559",
+      "status": "ok",
+      "seconds": 56.4
+    },
+    "r11l-495a7899": {
+      "run_dir": "/home/mattd/ARC3-solution/runs/20260715_150656",
+      "status": "ok",
+      "seconds": 71.3
+    }
+  }
+}
