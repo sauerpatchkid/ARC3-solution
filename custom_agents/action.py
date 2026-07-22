@@ -113,6 +113,7 @@ class Action(Agent):
         random.seed(seed)
         np.random.seed(seed % (2**32 - 1))
         torch.manual_seed(seed % (2**32 - 1))
+        torch.cuda.manual_seed_all(seed % (2**32 - 1))
         self.start_time = time.time()
         
         # Action cap: EVAL_MAX_ACTIONS; unset/0 => unlimited (stop on WIN or 8h).
@@ -278,7 +279,9 @@ class Action(Agent):
         # Take the last frame (in case of an animation of frames)
         frame = frame[-1]
         
-        assert frame.shape == (self.grid_size, self.grid_size)
+        if frame.shape != (self.grid_size, self.grid_size):
+            self.logger.warning(f"Unexpected frame shape {frame.shape}; skipping")
+            return None
         
         # One-hot encode: (64, 64) -> (16, 64, 64)
         tensor = torch.zeros(self.num_colours, self.grid_size, self.grid_size, dtype=torch.float32)
