@@ -17,3 +17,6 @@ suite_summary.json
 suite_manifest.json
 probe_results.csv
 probe_manifest.json
+sweep_night*_summary.*
+sweep_night*.log
+sweep_night*.manifest

@@ -12,7 +12,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
-import hashlib
+import xxhash
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ARC-AGI-3-Agents'))
 from agents.agent import Agent
@@ -292,14 +292,12 @@ class Action(Agent):
         
         return tensor.to(self.device)
 
-    def _compute_experience_hash(self, frame: np.array, action_idx: int) -> str:
+    def _compute_experience_hash(self, frame: np.array, action_idx: int) -> int:
         """Compute hash for frame+action combination to ensure uniqueness."""
         assert frame.shape == (self.num_colours, self.grid_size, self.grid_size)
-        frame_bytes = frame.tobytes()
-        
-        # Create hash from frame + action combination
-        hash_input = frame_bytes + str(action_idx).encode('utf-8')
-        return hashlib.md5(hash_input).hexdigest()
+        h = xxhash.xxh64(frame.tobytes())
+        h.update(action_idx.to_bytes(4, 'little'))
+        return h.intdigest()
 
     def _train_action_model(self):
         """Train the action model on collected experiences with hierarchical click selection."""
@@ -310,8 +308,8 @@ class Action(Agent):
         batch_indices = np.random.choice(len(self.experience_buffer), self.batch_size, replace=False)
         batch = [self.experience_buffer[i] for i in batch_indices]
         
-        # Prepare batch data - convert numpy arrays to tensors and move to GPU
-        states = torch.stack([torch.from_numpy(exp['state']).float().to(self.device) for exp in batch])
+        # Prepare batch data — stack on CPU, transfer to GPU in one shot
+        states = torch.from_numpy(np.stack([exp['state'] for exp in batch])).float().to(self.device)
         action_indices = torch.tensor([exp['action_idx'] for exp in batch], dtype=torch.long, device=self.device)
         rewards = torch.tensor([exp['reward'] for exp in batch], dtype=torch.float32, device=self.device)
         
@@ -344,16 +342,13 @@ class Action(Agent):
         total_loss.backward()
         self.optimizer.step()
         
-        # Log training metrics
-        if self.log_metrics:
+        if self.log_metrics and self.action_counter % 100 == 0:
             self.writer.add_scalar('Training/total_loss', total_loss.item(), self.action_counter)
             self.writer.add_scalar('Training/main_loss', main_loss.item(), self.action_counter)
             self.writer.add_scalar('Training/action_confidence', action_confidence.item(), self.action_counter)
             self.writer.add_scalar('Training/coord_confidence', coord_confidence.item(), self.action_counter)
             self.writer.add_scalar('Training/action_confidence_coeff', action_conf_coeff, self.action_counter)
             self.writer.add_scalar('Training/coord_confidence_coeff', coord_conf_coeff, self.action_counter)
-        
-            # Simple accuracy calculation
             accuracy = ((torch.sigmoid(selected_logits) > 0.5) == rewards).float().mean()
             self.writer.add_scalar('Training/accuracy', accuracy.item(), self.action_counter)
 
@@ -398,6 +393,8 @@ class Action(Agent):
                 self.experience_buffer.clear()
                 self.experience_hashes.clear()
                 self.action_model = ActionModel(input_channels=self.num_colours, grid_size=self.grid_size).to(self.device)
+                if self.device.type == 'cuda':
+                    self.action_model = torch.compile(self.action_model, backend='cudagraphs')
                 self.optimizer = optim.Adam(self.action_model.parameters(), lr=0.0001)
                 msg = "Initialized" if first_init else "Reset"
                 self.logger.info(f"{msg} model, optimizer, and buffer for new level")
@@ -481,8 +478,7 @@ class Action(Agent):
                 self.experience_buffer.append(experience)
                 self.experience_hashes.add(experience_hash)
                 
-                # Log replay buffer size periodically
-                if self.log_metrics:
+                if self.log_metrics and self.action_counter % 100 == 0:
                     self.writer.add_scalar('Agent/replay_buffer_size', len(self.experience_buffer), self.action_counter)
                     self.writer.add_scalar('Agent/replay_unique_hashes', len(self.experience_hashes), self.action_counter)
         
@@ -554,18 +550,14 @@ class Action(Agent):
                     self.action_counter,
                     sample_id=i+1
                 )
-        # Log metrics
-        if self.log_metrics:
+        # Log per-action metrics (gated to every 100 actions to reduce I/O)
+        if self.log_metrics and self.action_counter % 100 == 0:
             self.writer.add_scalar('Agent/total_actions', self.action_counter, self.action_counter)
-            
-            # Extract action and coordinate probabilities for logging
             action_probs_only = all_probs[:5]
             coord_probs_only = all_probs[5:]
-            
             if action_idx < 5:
                 self.writer.add_scalar('Agent/selected_action_prob', action_probs_only[action_idx], self.action_counter)
             else:
-                # Selected coordinate action - log coordinate probability
                 self.writer.add_scalar('Agent/selected_coord_prob', coord_probs_only[coord_idx], self.action_counter)
                 self.writer.add_scalar('Agent/coord_entropy', -(coord_probs_only * np.log(coord_probs_only + 1e-8)).sum(), self.action_counter)
         
