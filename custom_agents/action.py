@@ -321,23 +321,21 @@ class Action(Agent):
         selected_logits = combined_logits.gather(1, action_indices.unsqueeze(1)).squeeze(1)
         main_loss = F.binary_cross_entropy_with_logits(selected_logits, rewards)
         
-        # Light entropy regularization - encourage exploration via high sigmoid values
+        # Mean-sigmoid confidence bonus (not entropy): subtracting rewards higher
+        # predicted-change probabilities across the action space.
         all_probs = torch.sigmoid(combined_logits)
-        
+
         # Split into action and coordinate spaces
         action_probs = all_probs[:, :5]
         coord_probs = all_probs[:, 5:]
-        
-        # Calculate entropy bonus based on raw sigmoid values (higher values = more confident exploration)
-        action_entropy = action_probs.mean()  # Mean sigmoid activation (0-1 range)
-        coord_entropy = coord_probs.mean()    # Mean sigmoid activation (0-1 range)
-        
-        # Get dynamic entropy coefficients from scheduler
-        action_coeff=0.0001
-        coord_coeff=0.00001
-        
-        # Apply dynamic entropy regularization
-        total_loss = main_loss - action_coeff * action_entropy - coord_coeff * coord_entropy
+
+        action_confidence = action_probs.mean()
+        coord_confidence = coord_probs.mean()
+
+        action_conf_coeff = 0.0001
+        coord_conf_coeff = 0.00001
+
+        total_loss = main_loss - action_conf_coeff * action_confidence - coord_conf_coeff * coord_confidence
         
         # Backward pass
         total_loss.backward()
@@ -347,10 +345,10 @@ class Action(Agent):
         if self.log_metrics:
             self.writer.add_scalar('Training/total_loss', total_loss.item(), self.action_counter)
             self.writer.add_scalar('Training/main_loss', main_loss.item(), self.action_counter)
-            self.writer.add_scalar('Training/action_entropy', action_entropy.item(), self.action_counter)
-            self.writer.add_scalar('Training/coord_entropy', coord_entropy.item(), self.action_counter)
-            self.writer.add_scalar('Training/action_entropy_coeff', action_coeff, self.action_counter)
-            self.writer.add_scalar('Training/coord_entropy_coeff', coord_coeff, self.action_counter)
+            self.writer.add_scalar('Training/action_confidence', action_confidence.item(), self.action_counter)
+            self.writer.add_scalar('Training/coord_confidence', coord_confidence.item(), self.action_counter)
+            self.writer.add_scalar('Training/action_confidence_coeff', action_conf_coeff, self.action_counter)
+            self.writer.add_scalar('Training/coord_confidence_coeff', coord_conf_coeff, self.action_counter)
         
             # Simple accuracy calculation
             accuracy = ((torch.sigmoid(selected_logits) > 0.5) == rewards).float().mean()
