@@ -3,3 +3,7 @@ logs.log
 recordings/
 logs
 runs*:Zone.Identifier
+environment_files/
+*.npz
+*:Zone.Identifier
+runs/

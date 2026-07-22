@@ -144,6 +144,10 @@ class Action(Agent):
         self.log_metrics = env_flag("EVAL_LOG_METRICS", True)
         self.save_action_visualizations = env_flag("EVAL_SAVE_VIS", False)
         self.log_transitions = env_flag("EVAL_LOG_TRANSITIONS", True)
+        # Persistence ablation: reset model+optimizer+buffer at each level
+        # boundary (default) vs. carry them forward across levels. Set
+        # EVAL_RESET_ON_LEVEL=0 to DISABLE resets (the persistence arm).
+        self.reset_on_level = env_flag("EVAL_RESET_ON_LEVEL", True)
         self.vis_save_frequency = 100  # Save images every N steps
         self.vis_samples_per_save = 1  # Number of visualization samples to save each time
         
@@ -189,6 +193,7 @@ class Action(Agent):
             log_metrics=self.log_metrics,
             save_action_visualizations=self.save_action_visualizations,
             log_transitions=self.log_transitions,
+            reset_on_level=self.reset_on_level,
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -382,29 +387,32 @@ class Action(Agent):
                 self.transition_logger.flush()
             self.logger.info(f"Score changed from {self.current_score} to {latest_frame.score} at action {self.action_counter}")
             print(f"Score changed from {self.current_score} to {latest_frame.score} at action {self.action_counter}")
-            
-            # Clear experience buffer when reaching new level
-            self.experience_buffer.clear()
-            self.experience_hashes.clear()
-            self.logger.info(f"Cleared experience buffer - new level reached")
-            print("Cleared experience buffer - new level reached")
-            
-            self.logger.info(f"Reset entropy scheduler for new level - starting with high exploration")
-            print("Reset entropy scheduler for new level - starting with high exploration")
-            
-            # Reset network and optimizer for new level
-            # TODO: Try not resetting the networks here. Perhaps it performs even better.
-            self.action_model = ActionModel(input_channels=self.num_colours, grid_size=self.grid_size).to(self.device)
-            self.optimizer = optim.Adam(self.action_model.parameters(), lr=0.0001)
-            self.logger.info(f"Reset action model and optimizer for new level")
-            print("Reset action model and optimizer for new level")
-            
-            # Reset previous tracking
+
+            # The action model is created lazily on the FIRST score change
+            # (-1 -> 0), so it must be built when it doesn't exist yet. On later
+            # level-ups, reset only if EVAL_RESET_ON_LEVEL is enabled.
+            first_init = self.action_model is None
+            if first_init or self.reset_on_level:
+                # Fresh start: clear buffer and (re)build model + optimizer.
+                self.experience_buffer.clear()
+                self.experience_hashes.clear()
+                self.action_model = ActionModel(input_channels=self.num_colours, grid_size=self.grid_size).to(self.device)
+                self.optimizer = optim.Adam(self.action_model.parameters(), lr=0.0001)
+                msg = "Initialized" if first_init else "Reset"
+                self.logger.info(f"{msg} model, optimizer, and buffer for new level")
+                print(f"{msg} model, optimizer, and buffer for new level")
+            else:
+                # Persistence arm: carry model, optimizer, and buffer across the
+                # level boundary (no reset).
+                self.logger.info("Persisting model, optimizer, and buffer across level boundary")
+                print("Persisting model, optimizer, and buffer across level boundary")
+
+            # Always clear per-step tracking so we never log a transition that
+            # spans a level boundary (that jump is not a within-level dynamic).
             self.prev_frame = None
             self.prev_action_idx = None
             self.prev_frame_raw = None
-            
-            
+
             self.current_score = latest_frame.score
         
         if latest_frame.state in [GameState.NOT_PLAYED, GameState.GAME_OVER]:

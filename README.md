@@ -1,134 +1,127 @@
-# ARC-AGI-3 Capstone — Team B: Instrumented StochasticGoose Baseline
+# ARC3-solution — Team B (StochasticGoose track)
 
-Fork of [DriesSmit/ARC3-solution](https://github.com/DriesSmit/ARC3-solution) (StochasticGoose, winner of the ARC-AGI-3 developer preview, by Dries Smit / Tufa Labs). This fork adds the instrumentation and evaluation machinery for our SJSU CMPE 295 capstone: reproducible seeding, action caps, a transition corpus, and timing metrics — the foundation for our three-baseline comparison (**StochasticGoose / Blind Squirrel / random**) and the upgrade ablations that follow.
+Team B's fork of the StochasticGoose agent for the ARC-AGI-3 capstone (ARC Prize
+2026). This README covers setup, the shared evaluation contract, running the
+agent locally or against the hosted API, scoring runs, and the overnight sweep.
 
-**If you're implementing another baseline agent (random, Blind Squirrel): read §5, "The comparability contract." Your agent must honor the same environment variables and emit the same corpus schema, or our numbers won't be comparable.**
+The companion `arc3_project_plan.md` holds the research plan and roadmap.
 
 ---
 
-## 1. What StochasticGoose is (30 seconds)
+## 1. Repository layout
 
-A CNN takes the current 64×64 game frame and predicts, for each of ~4101 possible moves (5 buttons + 4096 click cells), the probability that the move will *change the frame at all*. The agent samples its next move in proportion to those probabilities, observes whether the frame changed, and uses that free 0/1 label to train online during play. Buffer and model are fully reset at each new level. It learns *which* actions do something — never *what* they do. Details: upstream README + our code walkthrough doc.
+```
+ARC3-solution/
+├── ARC-AGI-3-Agents/          # git SUBMODULE (arcprize harness) - do not edit
+├── custom_agents/
+│   ├── action.py              # StochasticGoose agent (the "brain")
+│   ├── utils.py, view_utils.py
+├── eval_common.py             # shared evaluation contract (seeds, caps, corpus)
+├── run_local.py               # NEW: run the agent against the LOCAL engine
+├── compute_metrics.py         # NEW: score a run's transition corpus
+├── run_overnight.sh           # NEW: overnight sweep orchestrator
+├── summarize_overnight.py     # NEW: aggregate a sweep into one report
+├── suite_summary.csv          # per-run metric rows (append-only)
+├── runs/                      # run outputs (gitignored)
+└── environment_files/         # locally cached game code (gitignored)
+```
 
-## 2. Setup (WSL2 / Linux)
+## 2. Setup
 
-Tested on Windows 11 + WSL2 (Ubuntu 24.04) with an RTX 5090; any CUDA Linux box should work.
+Prereqs: WSL2 + Ubuntu, an NVIDIA GPU with the Windows driver, `uv`, and `make`.
 
 ```bash
-# prerequisites: git, make, build-essential, uv (https://docs.astral.sh/uv/)
-git clone --recurse-submodules https://github.com/sauerpatchkid/ARC3-solution.git
+git clone --recurse-submodules <your-fork-url> ARC3-solution
 cd ARC3-solution
-
-# API key (free, from https://three.arcprize.org/user)
-cp ARC-AGI-3-Agents/.env.example ARC-AGI-3-Agents/.env
-#   edit .env: ARC_API_KEY=<your key>
-#   NOTE: the file is .env.example (dot), upstream README says .env-example — ours is correct
-
-# apply the two required harness patches (submodule edits, tracked as a patch file here)
-git -C ARC-AGI-3-Agents apply ../harness_patches.patch
-
-make install
+# if you forgot --recurse-submodules:
+git submodule update --init --recursive
+make install                      # uv sync -> Python 3.12 venv at .venv
 ```
 
-Gotchas we hit so you don't have to:
-- **WSL users:** clone into the Linux filesystem (`~/...`), never `/mnt/c/...` — file I/O there is several times slower and the corpus logger will feel it. Torch + CUDA ≈ 8.4 GB installed; make sure the drive hosting your WSL vhdx has 20+ GB free (a full disk mid-install corrupted our first ext4 filesystem).
-- **RTX 5090 / Blackwell:** if torch complains about `sm_120` kernels, reinstall with `uv pip install torch --index-url https://download.pytorch.org/whl/cu128`.
-- GPU passthrough in WSL uses the *Windows* NVIDIA driver only; verify with `nvidia-smi` inside Ubuntu.
+Put an ARC API key in `ARC-AGI-3-Agents/.env` (needed for the hosted API and for
+the local engine's one-time game download). Copy `.env.example` (dot, not hyphen).
 
-Verify: `uv run python -c "import torch; print(torch.cuda.is_available())"` → `True`.
+## 3. The evaluation contract (`eval_common.py`)
 
-## 3. Running the instrumented agent
+Every agent in the Team B comparison imports these so the protocol can't drift.
+Behaviour is controlled by environment variables:
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `EVAL_SEED` | base seed; each game adds a stable offset | time-based (not reproducible) |
+| `EVAL_MAX_ACTIONS` | hard per-game action cap (0 = unlimited) | unlimited |
+| `EVAL_LOG_METRICS` | TensorBoard scalars on/off | on |
+| `EVAL_LOG_TRANSITIONS` | write the transition corpus | on |
+| `EVAL_SAVE_VIS` | expensive PNG heatmaps | off |
+| `EVAL_RESET_ON_LEVEL` | reset model+optimizer+buffer at each level (StochasticGoose only) | on |
+
+Always run with `PYTHONHASHSEED=0` for reproducibility.
+
+A run writes to `runs/<timestamp>/<game>/`: `transitions/` (the `.npz` corpus),
+`run_config.json` (exact configuration), and `tensorboard/`.
+
+## 4. Running the agent
+
+### 4a. Local engine (fast, recommended for dev)
+`run_local.py` runs the game **in-process** via the `arc-agi` engine, removing the
+~50 ms/action HTTP round trip. Throughput goes from ~15 act/s (API) to ~60 act/s
+(local, compute-bound on an RTX 5090).
 
 ```bash
-# smoke test: one game, fixed seed, 2000-action cap (~2.5 min at typical server fps)
-make baseline GAME=vc33 SEED=0 CAP=2000
-
-# original behavior (all games, no cap, stop on WIN or 8h):
-make action
+EVAL_SEED=0 EVAL_MAX_ACTIONS=10000 PYTHONHASHSEED=0 \
+    uv run python run_local.py --game ft09
 ```
 
-`make baseline` expands to environment variables that control everything:
+Flags: `--offline` (fully airgapped; needs a previously cached game), `--render
+terminal`. Note: `run_local.py` builds a minimal in-memory `agents` package so it
+does not trigger the harness's fragile package init (LangGraph/Pillow); this is
+why no submodule patch is required.
 
-| Env var | Default | Meaning |
-|---|---|---|
-| `EVAL_SEED` | unset (time-based) | Base seed. Each game adds a deterministic md5-derived offset, so multi-game runs get distinct but reproducible streams. Set `PYTHONHASHSEED=0` too (the Makefile target does). |
-| `EVAL_MAX_ACTIONS` | 0 (unlimited) | Hard per-game action cap. |
-| `EVAL_LOG_METRICS` | true | TensorBoard scalars (loss, score, buffer size, timing). |
-| `EVAL_LOG_TRANSITIONS` | true | Write the transition corpus (see §4). |
-| `EVAL_SAVE_VIS` | false | Expensive PNG heatmaps; smoke-test debugging only. |
-
-Every run writes `runs/<timestamp>/<game_id>/run_config.json` recording the seed, flags, and cap, plus the git commit + uncommitted diff (via `utils.py`) — no run is ever mystery data.
-
-## 4. The transition corpus
-
-With `EVAL_LOG_TRANSITIONS=true`, every transition (before any dedup/filtering) is logged to compressed shards:
-
-```
-runs/<timestamp>/<game_id>/transitions/shard_00000.npz, shard_00001.npz, ...
+### 4b. Hosted API (original path, unchanged)
+```bash
+EVAL_SEED=0 EVAL_MAX_ACTIONS=10000 PYTHONHASHSEED=0 \
+    uv run ARC-AGI-3-Agents/main.py --agent=action --game=ft09
 ```
 
-Each shard (≤1000 transitions) contains parallel arrays:
+**Do not mix API and local numbers in one comparison** — the game seed differs
+(the server picks it; local sets it from `EVAL_SEED`), so the two play different
+level instances. Keep all agents in a comparison on the same path.
 
-| Key | Shape / dtype | Meaning |
-|---|---|---|
-| `frames` | (N, 64, 64) uint8 | Frame before the action (color indices 0–15, **not** one-hot; last animation frame) |
-| `actions` | (N,) int32 | Unified action index: 0–4 = ACTION1–5; 5 + (64·y + x) = click at (x, y) |
-| `next_frames` | (N, 64, 64) uint8 | Frame after the action (this is what the upstream buffer *doesn't* store — required for forward-dynamics training) |
-| `changed` | (N,) uint8 | 1 if any cell differs between frame and next_frame |
-| `levels` | (N,) int32 | Game score (= level) at the time of the action |
-| `action_nums` | (N,) int64 | Global action counter |
-| `wall_ms` | (N,) float32 | Wall-clock since previous decision (includes server round-trip) |
-| `model_ms` | (N,) float32 | Model-only compute (inference + any training step) — the number that transfers to the offline Kaggle sandbox |
+## 5. Scoring a run
 
-Inspect any corpus:
+`compute_metrics.py` reads a run's corpus and reports the Team B metric set:
+level completions (+ action index of each level-up), unique canonical states and
+discovery-curve AUC, meaningful (decorative-corrected) change rate, redundancy,
+early-vs-late action entropy, and timing/throughput. It writes `metrics.json`
+next to the corpus and can append a row to `suite_summary.csv`.
 
 ```bash
-uv run inspect_corpus.py runs/<ts>/<game_id>/transitions
-# reproducibility check between two runs:
-uv run inspect_corpus.py <run1>/transitions --verify-seed <run2>/transitions
+uv run python compute_metrics.py runs/<ts>/ft09/transitions \
+    --game ft09 --agent goose --seed 0 --suite suite_summary.csv
 ```
 
-## 5. The comparability contract (baseline implementers: this is your spec)
+## 6. Overnight sweep
 
-For the three-baseline comparison to be valid, every agent must:
+`run_overnight.sh` runs a games x seeds x reset-arms sweep, scores each run, and
+aggregates everything into one report. Edit the CONFIG block at the top to change
+seeds/cap/games.
 
-1. **Honor the same knobs — by importing, not reimplementing.** `from eval_common import resolve_seed, resolve_max_actions, env_flag` (repo root). `resolve_seed(game_id)` handles `EVAL_SEED` plus the per-game md5 offset; `resolve_max_actions()` handles `EVAL_MAX_ACTIONS`. Seed *all* RNGs your agent uses (`random`, `numpy`, `torch` if applicable) from that one seed. Run under `PYTHONHASHSEED=0`. Do NOT write your own seeding logic or copy these functions into your codebase — import them, so the contract cannot drift.
-2. **Emit the same corpus — same rule: import it.** `from eval_common import TransitionLogger`. Log every transition with the schema above, *before* any agent-internal filtering. Agents with no model (random) log `model_ms=0.0` or time their selection code. **Schema authority is executable, not prose: your shards must load and print cleanly under `inspect_corpus.py`. If that script errors on your corpus, your agent is out of contract — no exceptions, no local variants.**
-3. **Write `run_config.json`** via `from eval_common import write_run_config` — required fields: agent, game_id, seed, seed_source, max_actions; add agent-specific extras freely.
-4. **Count RESET actions against the cap** (the harness's `action_counter` does this naturally — don't circumvent it).
-5. **Random agent definition** (so it's not a strawman): uniform over the frame's `available_actions`; if ACTION6 is drawn, uniform over all 4096 coordinates. Same masking information Goose gets.
-6. **Pass the reproducibility test** before your numbers count: same game + same seed twice → `inspect_corpus.py --verify-seed` reports identical action sequences.
-
-All contract code lives in one file: **`eval_common.py`** (repo root, dependency-free beyond numpy). It is the single source of truth; changes to it require team agreement.
-
-## 6. Evaluation protocol (agreed 3-tier design)
-
-- **Tier 0 — smoke (~5 min):** 1 game × 1 seed × 2K cap. Regression check after changes. Suggested game: `vc33` (click-only, easiest for AI).
-- **Tier 1 — dev eval (overnight):** frozen dev set (~8 of the 25 public games, chosen after a 1-seed × 2K pilot over all 25) × 3 fixed seeds (0, 1, 2) × 10K action cap. Metrics: levels solved within cap, actions at each level-up (progress curve), wall/model ms (median + p95), plus per-agent internals kept out of cross-agent tables. **No RHAE at this tier** — capped runs aren't comparable to official scorecards.
-- **Tier 2 — full benchmark (milestones only):** all 25 public games, official protocol, real RHAE via server scorecards.
-
-Dev set, cap, and seeds are decided once at the team meeting and never changed.
-
-## 7. Findings so far (from smoke tests, Jul 15)
-
-- **Model compute is ~4% of wall-clock** (median 2.1 ms model vs 54 ms wall at ~14 fps): the bottleneck is server round-trip, which doesn't exist in the offline Kaggle sandbox. Goose's true offline speed is likely hundreds of actions/sec.
-- **vc33 is click-only** (`available_actions = [6]`) and contains a per-action progress indicator: exactly 1 cell changes per action (median), never the clicked cell, so the global "did anything change?" signal is constant 1.0 and carries **zero information**. On such games baseline Goose is structurally equivalent to the random agent — a testable Tier 1 prediction and the cleanest motivation for the per-cell change-mask upgrade (Phase 2).
-- Known upstream quirks documented in our code-walkthrough doc: hash-dedup set never prunes on buffer eviction; time-based seeding (fixed here); `torch.cuda.empty_cache()` every train step; only the last animation frame is used.
-- Scorecard API returned zeros on a capped run — under investigation before Tier 2; does not affect Tier 1.
-
-## 8. Repo layout & docs
-
-```
-eval_common.py             # THE SHARED CONTRACT: seeding, caps, TransitionLogger (import from here)
-custom_agents/action.py    # the agent + our instrumentation (imports eval_common)
-inspect_corpus.py          # corpus stats + seed-verification tool
-harness_patches.patch      # the two required submodule edits (apply per §2)
-Makefile                   # install / action / baseline / tensorboard / clean
-ARC-AGI-3-Agents/          # official harness (submodule, pinned)
+```bash
+# foreground:
+bash run_overnight.sh
+# background (real overnight):
+nohup bash run_overnight.sh > overnight.log 2>&1 &
 ```
 
-Companion docs (shared drive / on request): Team B project plan v2 (phase ladder, deadlines) and the StochasticGoose code walkthrough (line-level reference, quirks list, metrics plan).
+It prints an ETA and per-run summaries, appends rows to `suite_summary.csv`, and
+at the end calls `summarize_overnight.py` to produce
+`overnight_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
+actions-to-each-level and a persistence-ablation verdict.
 
-## 9. Credits & license
+## 7. Baseline comparison
 
-StochasticGoose by Dries Smit (Tufa Labs), adviser Jack Cole — [upstream repo](https://github.com/DriesSmit/ARC3-solution). Official harness by the ARC Prize Foundation. Instrumentation and evaluation machinery: Team B, SJSU CMPE 295 (2026). License: upstream terms apply to inherited code; our additions intended for CC0/MIT-0 release per ARC Prize 2026 eligibility rules (final licensing to be confirmed at team meeting — flag before adding substantial new code).
+Three baselines share the contract and metric set: **random**, **Blind Squirrel**,
+and **StochasticGoose**. Run each locally with the same `EVAL_SEED` set so they
+face identical game instances, score them all with `compute_metrics.py`, and
+compare via `suite_summary.csv`. A corpus is valid iff `inspect_corpus.py` loads
+it without error.
