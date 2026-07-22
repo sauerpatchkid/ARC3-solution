@@ -352,9 +352,6 @@ class Action(Agent):
             # Simple accuracy calculation
             accuracy = ((torch.sigmoid(selected_logits) > 0.5) == rewards).float().mean()
             self.writer.add_scalar('Training/accuracy', accuracy.item(), self.action_counter)
-        
-        # Clean up GPU memory
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
     def _has_time_elapsed(self) -> bool:
         """Check if 8 hours have elapsed since start."""
@@ -468,10 +465,14 @@ class Action(Agent):
             
             # Only store if unique
             if experience_hash not in self.experience_hashes:
+                if len(self.experience_buffer) == self.experience_buffer.maxlen:
+                    evicted = self.experience_buffer[0]
+                    self.experience_hashes.discard(evicted['hash'])
                 experience = {
-                    'state': self.prev_frame,  # Already numpy bool
-                    'action_idx': self.prev_action_idx,  # Unified action index
-                    'reward': 1.0 if frame_changed else 0.0
+                    'state': self.prev_frame,            # numpy bool
+                    'action_idx': self.prev_action_idx,  # unified action index
+                    'reward': 1.0 if frame_changed else 0.0,
+                    'hash': experience_hash,
                 }
                 self.experience_buffer.append(experience)
                 self.experience_hashes.add(experience_hash)
@@ -499,7 +500,7 @@ class Action(Agent):
                 selected_action = GameAction.ACTION6
                 y, x = coords
                 selected_action.set_data({"x": x, "y": y})
-                selected_action.reasoning = f"ACTION6 at ({x}, {y}) (prob: {all_probs[coord_idx]:.3f})"
+                selected_action.reasoning = f"ACTION6 at ({x}, {y}) (prob: {all_probs[5 + coord_idx]:.3f})"
                 
         
         # Store current frame and action for next experience creation
