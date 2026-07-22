@@ -21,7 +21,8 @@ ARC3-solution/
 ├── compute_metrics.py         # NEW: score a run's transition corpus
 ├── run_overnight.sh           # NEW: overnight sweep orchestrator
 ├── summarize_overnight.py     # NEW: aggregate a sweep into one report
-├── suite_summary.csv          # per-run metric rows (append-only)
+├── legacy/                    # archived API-path suite results
+│   └── suite_summary_api.csv  # 50-column per-run table from the API path
 ├── runs/                      # run outputs (gitignored)
 └── environment_files/         # locally cached game code (gitignored)
 ```
@@ -75,7 +76,9 @@ EVAL_SEED=0 EVAL_MAX_ACTIONS=10000 PYTHONHASHSEED=0 \
 Flags: `--offline` (fully airgapped; needs a previously cached game), `--render
 terminal`. Note: `run_local.py` builds a minimal in-memory `agents` package so it
 does not trigger the harness's fragile package init (LangGraph/Pillow); this is
-why no submodule patch is required.
+why no submodule patch is required. The local engine requires the `arc-agi`
+package (which provides `arcengine`); these are not in `requirements.txt` and
+must be installed separately (`uv pip install arc-agi`).
 
 ### 4b. Hosted API (original path, unchanged)
 ```bash
@@ -93,11 +96,11 @@ level instances. Keep all agents in a comparison on the same path.
 level completions (+ action index of each level-up), unique canonical states and
 discovery-curve AUC, meaningful (decorative-corrected) change rate, redundancy,
 early-vs-late action entropy, and timing/throughput. It writes `metrics.json`
-next to the corpus and can append a row to `suite_summary.csv`.
+next to the corpus and can append a row to a shared CSV (e.g. `local_suite.csv`).
 
 ```bash
 uv run python compute_metrics.py runs/<ts>/ft09/transitions \
-    --game ft09 --agent goose --seed 0 --suite suite_summary.csv
+    --game ft09 --agent goose --seed 0 --suite local_suite.csv
 ```
 
 ## 6. Overnight sweep
@@ -113,7 +116,7 @@ bash run_overnight.sh
 nohup bash run_overnight.sh > overnight.log 2>&1 &
 ```
 
-It prints an ETA and per-run summaries, appends rows to `suite_summary.csv`, and
+It prints an ETA and per-run summaries, appends rows to `local_suite.csv`, and
 at the end calls `summarize_overnight.py` to produce
 `overnight_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
 actions-to-each-level and a persistence-ablation verdict.
@@ -123,5 +126,5 @@ actions-to-each-level and a persistence-ablation verdict.
 Three baselines share the contract and metric set: **random**, **Blind Squirrel**,
 and **StochasticGoose**. Run each locally with the same `EVAL_SEED` set so they
 face identical game instances, score them all with `compute_metrics.py`, and
-compare via `suite_summary.csv`. A corpus is valid iff `inspect_corpus.py` loads
+compare via `local_suite.csv`. A corpus is valid iff `inspect_corpus.py` loads
 it without error.

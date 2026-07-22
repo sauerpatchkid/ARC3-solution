@@ -11,22 +11,24 @@ and computes the Team B metric set:
   6. Timing: wall/model ms med+p95, actions/sec             (cost + speed)
 
 Corpus-only, so it can never perturb a run. Writes metrics.json beside the
-corpus and optionally appends one row to a shared suite_summary.csv.
+corpus and optionally appends one row to a shared local_suite.csv.
 
   python compute_metrics.py runs/<ts>/<game>/transitions \
-      --game ls20 --agent goose --seed 0 --suite suite_summary.csv
+      --game ls20 --agent goose --seed 0 --suite local_suite.csv
 
-Knobs: DECOR_THRESHOLD (a cell changing in >this fraction of transitions is
-treated as decorative and masked before hashing/meaningful-change - the
-lightweight stand-in for a real canonicalizer); EARLY_LATE_FRAC (entropy window).
-numpy-only; two streaming passes; low memory.
+Indicator-cell detection uses the unified canonicalizer from metrics_common.py
+(fixed tickers via DECOR_THRESHOLD + rotating-ticker heuristic), matching
+summarize_runs.py so meaningful_change_rate is comparable across pipelines.
+EARLY_LATE_FRAC controls the entropy window. numpy-only; two streaming passes;
+low memory.
 """
 import argparse, csv, glob, hashlib, json, math, os
 from collections import Counter
 from datetime import datetime, timezone
 import numpy as np
 
-DECOR_THRESHOLD = 0.95
+from metrics_common import find_indicator_cells, DECOR_THRESHOLD
+
 EARLY_LATE_FRAC = 0.20
 
 def shard_paths(d):
@@ -47,13 +49,21 @@ def entropy_bits(counter):
 def pass1(paths):
     n, raw_changed = 0, 0
     diff_count = np.zeros((64, 64), dtype=np.int64)
+    tiny_count = 0
+    tiny_cell_counts = np.zeros((64, 64), dtype=np.int64)
     wall_all, model_all, levelups = [], [], []
     prev_level = None
     for s in iter_shards(paths):
         f, nf = s["frames"], s["next_frames"]
         m = f.shape[0]; n += m
         raw_changed += int(s["changed"].sum())
-        diff_count += (f != nf).sum(axis=0).astype(np.int64)
+        diff = (f != nf)
+        diff_count += diff.sum(axis=0).astype(np.int64)
+        per_t = diff.sum(axis=(1, 2))
+        tiny = (per_t > 0) & (per_t <= 2)
+        tiny_count += int(tiny.sum())
+        if tiny.any():
+            tiny_cell_counts += diff[tiny].sum(axis=0).astype(np.int64)
         wall_all.append(s["wall_ms"]); model_all.append(s["model_ms"])
         lv_arr, an_arr = s["levels"], s["action_nums"]
         for i in range(m):
@@ -64,6 +74,7 @@ def pass1(paths):
     wall = np.concatenate(wall_all) if wall_all else np.array([0.0])
     model = np.concatenate(model_all) if model_all else np.array([0.0])
     return {"n": n, "diff_count": diff_count,
+            "tiny_count": tiny_count, "tiny_cell_counts": tiny_cell_counts,
             "raw_change_rate": raw_changed/n if n else 0.0,
             "levelups": levelups, "wall": wall, "model": model}
 
@@ -86,6 +97,8 @@ def pass2(paths, mask, n):
             if t >= late_start: late_c[a] += 1
             t += 1
     tot = len(unique)
+    # Normalized by final unique-state count: not directly comparable across
+    # runs with different coverage — always report unique_states alongside.
     auc = (auc_running / (n * tot)) if (n and tot) else 0.0
     e_e, e_l = entropy_bits(early_c), entropy_bits(late_c)
     return {"unique_states": tot, "discovery_auc": auc,
@@ -97,7 +110,10 @@ def pass2(paths, mask, n):
 def compute(corpus_dir):
     paths = shard_paths(corpus_dir); p1 = pass1(paths); n = p1["n"]
     if n == 0: raise SystemExit("corpus is empty")
-    mask = (p1["diff_count"] / n) > DECOR_THRESHOLD
+    freq = p1["diff_count"] / n
+    tiny_frac = p1["tiny_count"] / n if n else 0.0
+    mask = find_indicator_cells(freq=freq, tiny_frac=tiny_frac,
+                                tiny_cell_counts=p1["tiny_cell_counts"])
     p2 = pass2(paths, mask, n)
     wall, model = p1["wall"], p1["model"]
     wall_sec, model_sec = float(wall.sum())/1000.0, float(model.sum())/1000.0

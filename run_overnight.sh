@@ -19,7 +19,7 @@ CAP=200000
 # (it serves as the exploration contrast game).
 FT09_ARMS=("on" "off")
 LS20_ARMS=("on")
-SUITE="suite_summary.csv"
+SUITE="local_suite.csv"
 # ---------------------------------------------------------------------------
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
