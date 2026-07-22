@@ -1,4 +1,6 @@
-"""summarize_runs.py — comprehensive statistics from evaluation-suite corpora.
+"""LEGACY (API path): superseded by run_local.py + compute_metrics.py. Kept for provenance.
+
+summarize_runs.py — comprehensive statistics from evaluation-suite corpora.
 
 Reads suite_manifest.json (from run_suite.py), analyzes every run's transition
 corpus, and produces:
@@ -33,8 +35,7 @@ import os
 
 import numpy as np
 
-GRID = 64
-N_CELLS = GRID * GRID
+from metrics_common import find_indicator_cells, GRID, N_CELLS
 
 
 # ----------------------------------------------------------------- loading
@@ -80,37 +81,16 @@ def pct(x, n):
 
 # ----------------------------------------------------------------- analysis
 
-def find_indicator_cells(diff):
-    """Cells belonging to a per-action progress indicator, two signatures:
-
-    A) FIXED ticker: a cell that changes on >=95% of all transitions.
-    B) ROTATING ticker (vc33-style): each tick hits a *different* cell of a
-       compact strip, so no single cell is high-frequency — but transitions
-       with only 1-2 changed cells dominate the run, and a SMALL set of cells
-       accounts for nearly all of them. Detected as: if >=30% of transitions
-       change <=2 cells, take the smallest cell set covering 95% of those
-       tiny transitions; if that set is compact (<=128 cells), it's a ticker.
-       (A game whose *real* mechanic is 1-cell changes spread widely, like
-       ft09, produces a huge covering set and is correctly NOT flagged.)
-
-    Heuristic, so both raw and corrected rates are always reported alongside
-    the detected cell count — anomalies stay visible.
-    """
+def _find_indicator_cells_from_diff(diff):
+    """Adapter: compute aggregates from the full diff array, then delegate."""
+    n = diff.shape[0]
     freq = diff.mean(axis=0)
-    fixed = freq >= 0.95
     per_t = diff.sum(axis=(1, 2))
     tiny = (per_t > 0) & (per_t <= 2)
-    if tiny.mean() >= 0.30:
-        cellcounts = diff[tiny].sum(axis=0).ravel().astype(float)
-        if cellcounts.sum() > 0:
-            order = np.argsort(-cellcounts)
-            covered = np.cumsum(cellcounts[order]) / cellcounts.sum()
-            k = int(np.searchsorted(covered, 0.95)) + 1
-            if k <= 128:
-                rot = np.zeros(N_CELLS, dtype=bool)
-                rot[order[:k]] = True
-                return fixed | rot.reshape(GRID, GRID)
-    return fixed
+    tiny_frac = float(tiny.mean())
+    tiny_cell_counts = diff[tiny].sum(axis=0).astype(np.int64) if tiny.any() else np.zeros((GRID, GRID), dtype=np.int64)
+    return find_indicator_cells(freq=freq, tiny_frac=tiny_frac,
+                                tiny_cell_counts=tiny_cell_counts)
 
 
 def analyze_run(c, cap):
@@ -145,7 +125,7 @@ def analyze_run(c, cap):
 
     # -- change signal
     s["change_rate_raw"] = round(float(ch_any.mean()), 4)
-    indicator = find_indicator_cells(diff)
+    indicator = _find_indicator_cells_from_diff(diff)
     s["indicator_cells"] = int(indicator.sum())
     meaningful = diff & ~indicator[None, :, :]
     mf_any = meaningful.any(axis=(1, 2))
