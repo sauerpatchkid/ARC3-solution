@@ -1,4 +1,6 @@
-"""probe_games.py — characterize every public ARC-AGI-3 game from short runs.
+"""LEGACY (API path): one-time game-selection tooling. Kept for provenance.
+
+probe_games.py — characterize every public ARC-AGI-3 game from short runs.
 
 Runs the instrumented agent briefly on every available game, then computes a
 per-game taxonomy from the transition corpora: action space, change rate,

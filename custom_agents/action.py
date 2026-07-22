@@ -160,11 +160,14 @@ class Action(Agent):
         self.optimizer = None
 
         # Experience buffer for training with uniqueness tracking
+        # NOTE: each state is stored as a one-hot bool tensor (16×64×64 ≈ 64 KB).
+        # Storing the uint8 index frame (64×64) and one-hot-ing at train time would
+        # cut buffer RAM ~16×, but changes the hash input and thus which experiences
+        # are stored — not behavior-preserving. Deferred.
         self.experience_buffer = deque(maxlen=200000)
         self.experience_hashes = set()  # Track unique frame+action combinations
         self.batch_size = 64
-        # TODO: Update this to a smaller value?
-        self.train_frequency = 5  # Train every N actions
+        self.train_frequency = 5
         
         # Track previous state/action for experience creation
         self.prev_frame = None
@@ -551,8 +554,6 @@ class Action(Agent):
                     self.action_counter,
                     sample_id=i+1
                 )
-            # self.logger.info(f"Saved {VIS_SAMPLES_PER_SAVE} action visualizations at step {self.action_counter}")
-        
         # Log metrics
         if self.log_metrics:
             self.writer.add_scalar('Agent/total_actions', self.action_counter, self.action_counter)
@@ -567,9 +568,5 @@ class Action(Agent):
                 # Selected coordinate action - log coordinate probability
                 self.writer.add_scalar('Agent/selected_coord_prob', coord_probs_only[coord_idx], self.action_counter)
                 self.writer.add_scalar('Agent/coord_entropy', -(coord_probs_only * np.log(coord_probs_only + 1e-8)).sum(), self.action_counter)
-                # self.writer.add_scalar('Agent/max_coord_prob', coord_probs_only.max(), self.action_counter)
-            
-            # self.writer.add_scalar('Agent/max_action_prob', action_probs_only.max(), self.action_counter)
-            # self.writer.add_scalar('Agent/coord_sum_prob', coord_probs_only.sum(), self.action_counter)
         
         return selected_action

@@ -7,3 +7,13 @@ environment_files/
 *.npz
 *:Zone.Identifier
 runs/
+local_suite.csv
+overnight_*.manifest
+overnight_*_summary.*
+overnight.log
+metrics.json
+suite_summary.csv
+suite_summary.json
+suite_manifest.json
+probe_results.csv
+probe_manifest.json

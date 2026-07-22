@@ -1,4 +1,6 @@
-"""run_suite.py — drive a games x seeds evaluation suite under the eval contract.
+"""LEGACY (API path): superseded by run_local.py + compute_metrics.py. Kept for provenance.
+
+run_suite.py — drive a games x seeds evaluation suite under the eval contract.
 
 Overnight quartet (default): vc33, ft09, g50t, dc22 x seeds 0,1,2 x 25000 actions.
 
