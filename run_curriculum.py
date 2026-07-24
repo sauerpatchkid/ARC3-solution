@@ -23,13 +23,13 @@ else in the repo (EVAL_SEED / EVAL_MAX_ACTIONS / PYTHONHASHSEED):
     EVAL_SEED=0 EVAL_MAX_ACTIONS=200000 PYTHONHASHSEED=0 \
         uv run python run_curriculum.py --games ft09,dc22,ls20
 
-Outputs, all under one runs/<timestamp>/ tree:
+Outputs, all under one results/runs/<timestamp>/ tree:
     <game>/transitions/   the .npz corpus for that leg of the curriculum
     <game>/metrics.json   per-game scores (from compute_metrics.compute)
     <game>/tensorboard/   per-game learning curves
     curriculum_summary.md / .csv   the transfer table (read this)
 
-Optional flags: --suite curriculum_suite.csv (append per-game metric rows),
+Optional flags: --suite results/curriculum_suite.csv (append per-game metric rows),
 --offline, --render terminal.
 
 ------------------------------------------------------------------------------

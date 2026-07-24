@@ -1,8 +1,8 @@
 """Inspect a transition corpus produced by TransitionLogger.
 
 Usage:
-    uv run inspect_corpus.py runs/<timestamp>/<game_id>/transitions
-    uv run inspect_corpus.py runs/<timestamp>/<game_id>/transitions --verify-seed other/transitions
+    uv run inspect_corpus.py results/runs/<timestamp>/<game_id>/transitions
+    uv run inspect_corpus.py results/runs/<timestamp>/<game_id>/transitions --verify-seed other/transitions
 
 Prints shard count, transition count, change-rate, per-level counts, and
 timing stats. With --verify-seed, checks that two runs took identical action

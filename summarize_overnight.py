@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """summarize_overnight.py - aggregate an overnight sweep into one report.
 
-Reads the manifest written by run_overnight.sh (tab-separated:
+Reads the manifest written by sweep.sh (tab-separated:
 run_dir <TAB> game <TAB> seed <TAB> arm), loads each run's metrics.json,
 computes actions-to-each-level, aggregates across seeds by (game, arm), prints
 a readable summary, and writes <out>.md and <out>.csv.
 
 Usage:
-  python summarize_overnight.py overnight_<stamp>.manifest --out overnight_<stamp>_summary
+  python summarize_overnight.py results/sweeps/sweep_<stamp>.manifest \
+      --out results/sweeps/sweep_<stamp>_summary
 """
 import argparse
 import csv
@@ -62,7 +63,8 @@ def mean(xs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("manifest")
-    ap.add_argument("--out", default="overnight_summary")
+    ap.add_argument("--out", default=os.path.join(
+        os.getenv("EVAL_RESULTS_DIR", "results"), "sweeps", "summary"))
     args = ap.parse_args()
 
     rows = load_manifest(args.manifest)
@@ -155,6 +157,9 @@ def main():
         emit("- NOTE: small seed counts + GPU nondeterminism -> directional, not conclusive.")
         emit("")
 
+    outdir = os.path.dirname(args.out)
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
     with open(args.out + ".md", "w") as f:
         f.write("\n".join(out_lines) + "\n")
 

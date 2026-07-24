@@ -24,10 +24,26 @@ def save_git_info(base_dir):
     print(f"Saved git info to {path}")
 
 
-def setup_experiment_directory(base_output_dir='runs'):
+# --- Results layout -------------------------------------------------------
+# Everything a run produces lives under ONE top-level folder (gitignored):
+#
+#   results/runs/<timestamp>/<game>/   per-run trees (corpus, tensorboard, metrics)
+#   results/sweeps/                    sweep manifests, summaries, logs
+#   results/local_suite.csv            append-only per-run metric table
+#   results/curriculum_suite.csv       same, for run_curriculum.py
+#
+# Override the root with EVAL_RESULTS_DIR (e.g. to point at a scratch disk).
+RESULTS_DIR = os.getenv('EVAL_RESULTS_DIR', 'results')
+RUNS_DIR = os.path.join(RESULTS_DIR, 'runs')
+SWEEPS_DIR = os.path.join(RESULTS_DIR, 'sweeps')
+
+
+def setup_experiment_directory(base_output_dir=None):
     """
     Create directories for outputs and logging. Returns base_dir and environment-specific paths.
     """
+    if base_output_dir is None:
+        base_output_dir = RUNS_DIR
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_dir = os.path.join(base_output_dir, timestamp)
     

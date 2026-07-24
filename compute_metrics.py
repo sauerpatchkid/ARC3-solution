@@ -13,8 +13,8 @@ and computes the Team B metric set:
 Corpus-only, so it can never perturb a run. Writes metrics.json beside the
 corpus and optionally appends one row to a shared local_suite.csv.
 
-  python compute_metrics.py runs/<ts>/<game>/transitions \
-      --game ls20 --agent goose --seed 0 --suite local_suite.csv
+  python compute_metrics.py results/runs/<ts>/<game>/transitions \
+      --game ls20 --agent goose --seed 0 --suite results/local_suite.csv
 
 Indicator-cell detection uses the unified canonicalizer from metrics_common.py
 (fixed tickers via DECOR_THRESHOLD + rotating-ticker heuristic), matching
@@ -151,6 +151,9 @@ def append_suite(path, m, game, agent, seed):
            "game": game, "agent": agent, "seed": seed,
            **{k: m.get(k) for k in SUITE_COLUMNS if k not in
               ("timestamp","game","agent","seed")}}
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     exists = os.path.exists(path)
     with open(path, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=SUITE_COLUMNS)

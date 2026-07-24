@@ -18,8 +18,8 @@ Local engine (fast path, ~120 act/s):
 ```bash
 EVAL_SEED=0 EVAL_MAX_ACTIONS=2000 PYTHONHASHSEED=0 \
     uv run python run_local.py --game ls20
-uv run python compute_metrics.py runs/<ts>/ls20/transitions \
-    --game ls20 --agent goose --seed 0
+uv run python compute_metrics.py results/runs/<ts>/ls20/transitions \
+    --game ls20 --agent goose --seed 0 --suite results/local_suite.csv
 ```
 
 Curriculum (persistent brain across several games, for transfer):
@@ -30,7 +30,13 @@ EVAL_SEED=0 EVAL_MAX_ACTIONS=200000 PYTHONHASHSEED=0 \
 
 Overnight sweep (games × seeds × reset-arms → aggregate summary):
 ```bash
-nohup bash sweep.sh > sweep.log 2>&1 &
+make sweep
+```
+
+Long-horizon probe (ft09 + tu93, 1 seed, 1M actions each, ~2h/game):
+
+```bash
+make long
 ```
 
 API path (unchanged, slower): `make action`
@@ -45,6 +51,7 @@ API path (unchanged, slower): `make action`
 | `EVAL_LOG_TRANSITIONS` | on | `.npz` transition corpus |
 | `EVAL_SAVE_VIS` | off | expensive PNG heatmaps |
 | `EVAL_RESET_ON_LEVEL` | on | reset model/optimizer/buffer at level boundary |
+| `EVAL_RESULTS_DIR` | `results` | root for ALL run output |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -52,12 +59,21 @@ Always run with `PYTHONHASHSEED=0`.
 
 - **ft09** — learnable, reliable level completions. Test both reset arms.
 - **ls20** — null contrast, completes nothing. Exploration-only.
+- **tu93** — the only other game that has completed a level (1 of 4 seeds
+  reached L2, at ~126k actions). Pair with ft09 for long-horizon runs.
 
 ## Key conventions
 
-- `local_suite.csv` is the local pipeline's append-only metric table (gitignored).
+- ALL run output goes under `results/` (gitignored, override with
+  `EVAL_RESULTS_DIR`). Nothing writes results to the repo root:
+    - `results/runs/<ts>/<game>/` — corpus, `run_config.json`, tensorboard,
+      `metrics.json`
+    - `results/sweeps/` — manifests, `sweep_<stamp>_summary.{md,csv}`, logs
+    - `results/local_suite.csv` — append-only per-run metric table
+    - `results/curriculum_suite.csv` — same, for `run_curriculum.py`
+    - `results/recordings/` — API-path replays (`RECORDINGS_DIR` in the
+      submodule's `.env`)
 - Legacy API-path outputs (`suite_summary_api.csv`) are archived in `legacy/`.
-- Run outputs (`runs/`, `metrics.json`, overnight artifacts) are gitignored.
 - The `arc-agi` package (provides `arcengine`) is needed for the local engine
   but not declared in `requirements.txt` — install separately.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters

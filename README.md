@@ -28,7 +28,11 @@ ARC3-solution/
 ├── legacy/                    # archived API-path scripts + results
 │   ├── suite_summary_api.csv  # 50-column per-run table from the API path
 │   └── run_suite.py, summarize_runs.py, probe_games.py
-├── runs/                      # run outputs (gitignored)
+├── results/                   # ALL run output (gitignored)
+│   ├── runs/<ts>/<game>/      #   per-run trees (corpus, tensorboard, metrics)
+│   ├── sweeps/                #   sweep manifests, summaries, logs
+│   ├── recordings/            #   API-path replay recordings
+│   └── local_suite.csv        #   append-only per-run metric table
 └── environment_files/         # locally cached game code (gitignored)
 ```
 
@@ -63,8 +67,10 @@ Behaviour is controlled by environment variables:
 
 Always run with `PYTHONHASHSEED=0` for reproducibility.
 
-A run writes to `runs/<timestamp>/<game>/`: `transitions/` (the `.npz` corpus),
-`run_config.json` (exact configuration), and `tensorboard/`.
+A run writes to `results/runs/<timestamp>/<game>/`: `transitions/` (the `.npz`
+corpus), `run_config.json` (exact configuration), and `tensorboard/`. Everything
+any driver produces lands under `results/`; set `EVAL_RESULTS_DIR` to relocate
+that root (e.g. onto a scratch disk).
 
 ## 4. Running the agent
 
@@ -108,7 +114,7 @@ EVAL_SEED=0 EVAL_MAX_ACTIONS=200000 PYTHONHASHSEED=0 \
 ```
 
 Edit the `GAMES` list at the top of the file or pass `--games`. It writes one
-`runs/<ts>/` tree (a `<game>/` subdir per leg) plus `curriculum_summary.{md,csv}`.
+`results/runs/<ts>/` tree (a `<game>/` subdir per leg) plus `curriculum_summary.{md,csv}`.
 The transfer signal is `first_levelup_action` falling down the sequence — read it
 against the same games played cold (the solo sweeps), since order/difficulty
 confound the raw curve.
@@ -119,11 +125,11 @@ confound the raw curve.
 level completions (+ action index of each level-up), unique canonical states and
 discovery-curve AUC, meaningful (decorative-corrected) change rate, redundancy,
 early-vs-late action entropy, and timing/throughput. It writes `metrics.json`
-next to the corpus and can append a row to a shared CSV (e.g. `local_suite.csv`).
+next to the corpus and can append a row to a shared CSV (e.g. `results/local_suite.csv`).
 
 ```bash
-uv run python compute_metrics.py runs/<ts>/ft09/transitions \
-    --game ft09 --agent goose --seed 0 --suite local_suite.csv
+uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
+    --game ft09 --agent goose --seed 0 --suite results/local_suite.csv
 ```
 
 ## 6. Overnight sweep
@@ -136,21 +142,28 @@ reset-on only.
 
 ```bash
 # default sweep, backgrounded for a real overnight:
-nohup bash sweep.sh > sweep.log 2>&1 &
+make sweep        # == nohup bash sweep.sh > results/sweeps/sweep.log 2>&1 &
 
 # a quicker characterization sweep via env overrides:
 GAMES="ka59 tn36 r11l wa30" SEEDS="0 1 2" CAP=50000 bash sweep.sh
 ```
 
-It prints an ETA and per-run summaries, appends rows to `local_suite.csv`, and
-at the end calls `summarize_overnight.py` to produce
-`sweep_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
+It prints an ETA and per-run summaries, appends rows to `results/local_suite.csv`,
+and at the end calls `summarize_overnight.py` to produce
+`results/sweeps/sweep_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
 actions-to-each-level and a persistence-ablation verdict.
+
+Long-horizon probe on the two games that actually complete levels (ft09, tu93),
+one seed, 1M actions each — ~2 h/game on a 5090:
+
+```bash
+make long         # == GAMES="ft09 tu93" SEEDS="0" CAP=1000000 bash sweep.sh
+```
 
 ## 7. Baseline comparison
 
 Three baselines share the contract and metric set: **random**, **Blind Squirrel**,
 and **StochasticGoose**. Run each locally with the same `EVAL_SEED` set so they
 face identical game instances, score them all with `compute_metrics.py`, and
-compare via `local_suite.csv`. A corpus is valid iff `inspect_corpus.py` loads
+compare via `results/local_suite.csv`. A corpus is valid iff `inspect_corpus.py` loads
 it without error.

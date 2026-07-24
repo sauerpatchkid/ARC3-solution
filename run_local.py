@@ -24,7 +24,7 @@ Run (smoke test):
 
 Then analyze the corpus it prints the path to:
   uv run python compute_metrics.py <that path> --game ls20 --agent goose \
-      --seed 0 --suite local_suite.csv
+      --seed 0 --suite results/local_suite.csv
 """
 import argparse
 import importlib.util

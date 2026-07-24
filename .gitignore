@@ -1,23 +1,28 @@
 __pycache__/
 logs.log
-recordings/
 logs
-runs*:Zone.Identifier
 environment_files/
+recordings/
 *.npz
 *:Zone.Identifier
+
+# All run output now lives under results/ (see utils.RESULTS_DIR).
+results/
+
+# Legacy top-level output locations, kept ignored so old working copies and
+# any stragglers don't get committed. New runs no longer write these.
 runs/
 local_suite.csv
+curriculum_suite.csv
+metrics.json
+sweep*.log
+sweep_*.manifest
+sweep_*_summary.*
 overnight_*.manifest
 overnight_*_summary.*
 overnight.log
-metrics.json
 suite_summary.csv
 suite_summary.json
 suite_manifest.json
 probe_results.csv
 probe_manifest.json
-sweep*.log
-sweep_*.manifest
-sweep_*_summary.*
-curriculum_suite.csv
