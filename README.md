@@ -4,7 +4,7 @@ Team B's fork of the StochasticGoose agent for the ARC-AGI-3 capstone (ARC Prize
 2026). This README covers setup, the shared evaluation contract, running the
 agent locally or against the hosted API, scoring runs, and the overnight sweep.
 
-The companion `arc3_project_plan.md` holds the research plan and roadmap.
+See `CLAUDE.md` for repo conventions, the focus games, and the metric definitions.
 
 ---
 
@@ -15,14 +15,19 @@ ARC3-solution/
 ├── ARC-AGI-3-Agents/          # git SUBMODULE (arcprize harness) - do not edit
 ├── custom_agents/
 │   ├── action.py              # StochasticGoose agent (the "brain")
-│   ├── utils.py, view_utils.py
+│   └── view_utils.py          # action-probability heatmap rendering
 ├── eval_common.py             # shared evaluation contract (seeds, caps, corpus)
-├── run_local.py               # NEW: run the agent against the LOCAL engine
-├── compute_metrics.py         # NEW: score a run's transition corpus
-├── run_overnight.sh           # NEW: overnight sweep orchestrator
-├── summarize_overnight.py     # NEW: aggregate a sweep into one report
-├── legacy/                    # archived API-path suite results
-│   └── suite_summary_api.csv  # 50-column per-run table from the API path
+├── utils.py                   # experiment-directory + logging helpers
+├── run_local.py               # run the agent vs the LOCAL engine (one game)
+├── run_curriculum.py          # play several games in a row, ONE persistent brain
+├── compute_metrics.py         # score a run's transition corpus
+├── metrics_common.py          # shared indicator-cell canonicalizer (both scorers)
+├── summarize_overnight.py     # aggregate a sweep into one report
+├── sweep.sh                   # unified overnight sweep orchestrator
+├── inspect_corpus.py          # corpus schema validator (contract authority)
+├── legacy/                    # archived API-path scripts + results
+│   ├── suite_summary_api.csv  # 50-column per-run table from the API path
+│   └── run_suite.py, summarize_runs.py, probe_games.py
 ├── runs/                      # run outputs (gitignored)
 └── environment_files/         # locally cached game code (gitignored)
 ```
@@ -65,8 +70,9 @@ A run writes to `runs/<timestamp>/<game>/`: `transitions/` (the `.npz` corpus),
 
 ### 4a. Local engine (fast, recommended for dev)
 `run_local.py` runs the game **in-process** via the `arc-agi` engine, removing the
-~50 ms/action HTTP round trip. Throughput goes from ~15 act/s (API) to ~60 act/s
-(local, compute-bound on an RTX 5090).
+~50 ms/action HTTP round trip. Throughput goes from ~15 act/s (API) to ~120 act/s
+(local, compute-bound on an RTX 5090 after the torch.compile / xxhash /
+batched-GPU-transfer optimizations).
 
 ```bash
 EVAL_SEED=0 EVAL_MAX_ACTIONS=10000 PYTHONHASHSEED=0 \
@@ -90,6 +96,23 @@ EVAL_SEED=0 EVAL_MAX_ACTIONS=10000 PYTHONHASHSEED=0 \
 (the server picks it; local sets it from `EVAL_SEED`), so the two play different
 level instances. Keep all agents in a comparison on the same path.
 
+### 4c. Cross-game curriculum (persistent brain)
+`run_curriculum.py` plays a list of games back-to-back with **one** agent brain —
+model, optimizer, and experience buffer carry across every game boundary — so
+learning on earlier games can transfer to later ones. It reuses `run_local.py`'s
+engine glue and scores each leg in-process with `compute_metrics.py`.
+
+```bash
+EVAL_SEED=0 EVAL_MAX_ACTIONS=200000 PYTHONHASHSEED=0 \
+    uv run python run_curriculum.py --games ft09,dc22,ls20
+```
+
+Edit the `GAMES` list at the top of the file or pass `--games`. It writes one
+`runs/<ts>/` tree (a `<game>/` subdir per leg) plus `curriculum_summary.{md,csv}`.
+The transfer signal is `first_levelup_action` falling down the sequence — read it
+against the same games played cold (the solo sweeps), since order/difficulty
+confound the raw curve.
+
 ## 5. Scoring a run
 
 `compute_metrics.py` reads a run's corpus and reports the Team B metric set:
@@ -105,20 +128,23 @@ uv run python compute_metrics.py runs/<ts>/ft09/transitions \
 
 ## 6. Overnight sweep
 
-`run_overnight.sh` runs a games x seeds x reset-arms sweep, scores each run, and
-aggregates everything into one report. Edit the CONFIG block at the top to change
-seeds/cap/games.
+`sweep.sh` runs a games × seeds × reset-arms sweep, scores each run, and
+aggregates everything into one report. Configure it with the CONFIG block at the
+top or by overriding `GAMES` / `SEEDS` / `CAP` on the command line. A game tagged
+`:both` runs both reset arms (the persistence ablation); untagged games run
+reset-on only.
 
 ```bash
-# foreground:
-bash run_overnight.sh
-# background (real overnight):
-nohup bash run_overnight.sh > overnight.log 2>&1 &
+# default sweep, backgrounded for a real overnight:
+nohup bash sweep.sh > sweep.log 2>&1 &
+
+# a quicker characterization sweep via env overrides:
+GAMES="ka59 tn36 r11l wa30" SEEDS="0 1 2" CAP=50000 bash sweep.sh
 ```
 
 It prints an ETA and per-run summaries, appends rows to `local_suite.csv`, and
 at the end calls `summarize_overnight.py` to produce
-`overnight_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
+`sweep_<stamp>_summary.{md,csv}` — aggregated per (game, arm) with
 actions-to-each-level and a persistence-ablation verdict.
 
 ## 7. Baseline comparison

@@ -5,17 +5,32 @@
 ARC-AGI-3 capstone agent. Three stages: the **agent** (`custom_agents/action.py`,
 CNN change predictor), the **corpus logger** (`TransitionLogger` in
 `eval_common.py`, writes `.npz` shards), and the **scorers** (`compute_metrics.py`
-for the local pipeline, `summarize_runs.py` for the legacy API path — both share
-the indicator-cell canonicalizer from `metrics_common.py`).
+for the local pipeline, `legacy/summarize_runs.py` for the legacy API path — both
+share the indicator-cell canonicalizer from `metrics_common.py`).
+
+Two multi-game drivers sit on top of `run_local.py`: `run_curriculum.py` (ONE
+persistent brain across a game list, for cross-game transfer) and `sweep.sh`
+(games × seeds × reset-arms, each a fresh process, for baseline tables).
 
 ## Running
 
-Local engine (fast path, ~60 act/s):
+Local engine (fast path, ~120 act/s):
 ```bash
 EVAL_SEED=0 EVAL_MAX_ACTIONS=2000 PYTHONHASHSEED=0 \
     uv run python run_local.py --game ls20
 uv run python compute_metrics.py runs/<ts>/ls20/transitions \
     --game ls20 --agent goose --seed 0
+```
+
+Curriculum (persistent brain across several games, for transfer):
+```bash
+EVAL_SEED=0 EVAL_MAX_ACTIONS=200000 PYTHONHASHSEED=0 \
+    uv run python run_curriculum.py --games ft09,dc22,ls20
+```
+
+Overnight sweep (games × seeds × reset-arms → aggregate summary):
+```bash
+nohup bash sweep.sh > sweep.log 2>&1 &
 ```
 
 API path (unchanged, slower): `make action`
