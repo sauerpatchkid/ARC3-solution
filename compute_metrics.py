@@ -4,11 +4,21 @@
 Reads a run's transitions/ folder (.npz shards from eval_common.TransitionLogger)
 and computes the Team B metric set:
   1. Level completions + action index at each level-up      (headline)
-  2. Unique canonical states + discovery-curve AUC          (exploration reach)
+  2. Unique canonical states, per-action coverage, novelty  (exploration reach)
   3. Meaningful (decorative-corrected) change rate          (doing anything real)
   4. Exact-repeat fraction / redundancy                     (wasted actions)
   5. Action entropy, early vs late window                   (learning signal)
   6. Timing: wall/model ms med+p95, actions/sec             (cost + speed)
+  7. Per-1k-action series for 2/3/4                         (stall detection)
+
+Read 2/3/4 TOGETHER, never alone: a high meaningful_change_rate just means the
+frame keeps changing, which an agent jiggling a decorative animation achieves at
+100%. `unique_states_per_action` is the coverage number; `discovery_auc` is
+normalized by final unique count and measures curve SHAPE only.
+
+`novelty_late_per_1k` (new canonical states per 1k actions over the final 10% of
+the run) is the leading stall indicator — it flattens thousands of actions before
+the level counter confirms the agent is stuck.
 
 Corpus-only, so it can never perturb a run. Writes metrics.json beside the
 corpus and optionally appends one row to a shared local_suite.csv.
@@ -30,6 +40,7 @@ import numpy as np
 from metrics_common import find_indicator_cells, DECOR_THRESHOLD
 
 EARLY_LATE_FRAC = 0.20
+WINDOW = 1000            # bucket size for the per-window time series
 
 def shard_paths(d):
     p = sorted(glob.glob(os.path.join(d, "shard_*.npz")))
@@ -83,29 +94,57 @@ def pass2(paths, mask, n):
     unique, seen_pairs = set(), set()
     repeats = meaningful = auc_running = t = 0
     early_c, late_c = Counter(), Counter()
+    # Per-window series. Run-level scalars average away exactly the collapse
+    # we're hunting on long runs, so track novelty / change / redundancy in
+    # WINDOW-action buckets as well.
+    n_buckets = (n + WINDOW - 1) // WINDOW
+    b_new = np.zeros(n_buckets, dtype=np.int64)      # newly-seen canonical states
+    b_meaningful = np.zeros(n_buckets, dtype=np.int64)
+    b_repeats = np.zeros(n_buckets, dtype=np.int64)
+    b_n = np.zeros(n_buckets, dtype=np.int64)
     for s in iter_shards(paths):
         f, nf, acts = s["frames"], s["next_frames"], s["actions"]
         for i in range(f.shape[0]):
+            b = t // WINDOW
             cf = f[i].copy(); cf[mask] = 0
             h = hashlib.blake2b(cf.tobytes(), digest_size=8).digest()
-            unique.add(h); auc_running += len(unique)
+            before = len(unique)
+            unique.add(h)
+            if len(unique) != before: b_new[b] += 1
+            auc_running += len(unique)
             a = int(acts[i]); pair = (h, a)
-            if pair in seen_pairs: repeats += 1
+            if pair in seen_pairs: repeats += 1; b_repeats[b] += 1
             else: seen_pairs.add(pair)
-            if np.any((f[i] != nf[i]) & ~mask): meaningful += 1
+            if np.any((f[i] != nf[i]) & ~mask): meaningful += 1; b_meaningful[b] += 1
             if t < early_n: early_c[a] += 1
             if t >= late_start: late_c[a] += 1
+            b_n[b] += 1
             t += 1
     tot = len(unique)
-    # Normalized by final unique-state count: not directly comparable across
-    # runs with different coverage — always report unique_states alongside.
+    # DEPRECATED for cross-run comparison: normalized by FINAL unique-state
+    # count, so it measures curve SHAPE, not coverage. A run that finds 172
+    # states can score 0.96 while one that finds 184k scores 0.49. Use
+    # unique_states_per_action for coverage; never report this one alone.
     auc = (auc_running / (n * tot)) if (n and tot) else 0.0
     e_e, e_l = entropy_bits(early_c), entropy_bits(late_c)
+    # Novelty in the final 10% of the run, per 1k actions — the stall detector.
+    tail = max(1, int(0.10 * n_buckets))
+    tail_new, tail_n = b_new[-tail:].sum(), b_n[-tail:].sum()
+    safe = np.maximum(b_n, 1)
     return {"unique_states": tot, "discovery_auc": auc,
+            "unique_states_per_action": tot/n if n else 0.0,
+            "novelty_late_per_1k": (tail_new/tail_n*WINDOW) if tail_n else 0.0,
             "meaningful_change_rate": meaningful/n if n else 0.0,
             "redundancy": repeats/n if n else 0.0,
             "entropy_early_bits": e_e, "entropy_late_bits": e_l,
-            "entropy_delta_bits": e_l - e_e}
+            "entropy_delta_bits": e_l - e_e,
+            "series": {
+                "window": WINDOW,
+                "novelty": b_new.tolist(),
+                "meaningful": np.round(b_meaningful/safe, 4).tolist(),
+                "redundancy": np.round(b_repeats/safe, 4).tolist(),
+                "n": b_n.tolist(),
+            }}
 
 def compute(corpus_dir):
     paths = shard_paths(corpus_dir); p1 = pass1(paths); n = p1["n"]
@@ -126,6 +165,8 @@ def compute(corpus_dir):
         "levelup_events": lus,
         "unique_states": p2["unique_states"],
         "discovery_auc": round(p2["discovery_auc"], 4),
+        "unique_states_per_action": round(p2["unique_states_per_action"], 6),
+        "novelty_late_per_1k": round(p2["novelty_late_per_1k"], 2),
         "raw_change_rate": round(p1["raw_change_rate"], 4),
         "meaningful_change_rate": round(p2["meaningful_change_rate"], 4),
         "redundancy": round(p2["redundancy"], 4),
@@ -138,13 +179,39 @@ def compute(corpus_dir):
         "model_ms_p95": round(float(np.percentile(model, 95)), 2),
         "actions_per_sec": round(n/wall_sec, 2) if wall_sec else None,
         "model_bound_aps": round(n/model_sec, 2) if model_sec else None,
+        # Per-window series (metrics.json only — too wide for the suite CSV).
+        "series": p2["series"],
     }
 
 SUITE_COLUMNS = ["timestamp","game","agent","seed","n_actions","levels_completed",
     "max_level","first_levelup_action","unique_states","discovery_auc",
+    "unique_states_per_action","novelty_late_per_1k",
     "raw_change_rate","meaningful_change_rate","redundancy","entropy_early_bits",
     "entropy_late_bits","entropy_delta_bits","wall_ms_med","wall_ms_p95",
     "model_ms_med","model_ms_p95","actions_per_sec","model_bound_aps"]
+
+def _migrate_suite(path):
+    """Rewrite an existing suite CSV to the current SUITE_COLUMNS.
+
+    The suite is append-only across schema changes, so when new columns are
+    added the old rows must be re-emitted under the new header (missing values
+    blank) or every subsequent row would be misaligned against it.
+    """
+    with open(path, newline="") as f:
+        rows = list(csv.reader(f))
+    if not rows:
+        return
+    header = rows[0]
+    if header == SUITE_COLUMNS:
+        return
+    old = [dict(zip(header, r)) for r in rows[1:] if r and r != header]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=SUITE_COLUMNS)
+        w.writeheader()
+        for r in old:
+            w.writerow({k: r.get(k, "") for k in SUITE_COLUMNS})
+    print(f"  migrated {path} to the current {len(SUITE_COLUMNS)}-column schema "
+          f"({len(old)} existing rows preserved)")
 
 def append_suite(path, m, game, agent, seed):
     row = {"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -155,6 +222,8 @@ def append_suite(path, m, game, agent, seed):
     if parent:
         os.makedirs(parent, exist_ok=True)
     exists = os.path.exists(path)
+    if exists:
+        _migrate_suite(path)
     with open(path, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=SUITE_COLUMNS)
         if not exists: w.writeheader()
@@ -167,8 +236,11 @@ def print_summary(m, game, agent, seed):
               f"first at action {m['first_levelup_action']})")
     else:
         print("  LEVELS COMPLETED: 0  (censored - none within cap)")
-    print(f"  unique states  : {m['unique_states']}  (AUC {m['discovery_auc']}, "
+    print(f"  unique states  : {m['unique_states']}  "
+          f"({m['unique_states_per_action']} per action, "
           f"{m['decorative_cells_masked']} decorative cells masked)")
+    print(f"  novelty (late) : {m['novelty_late_per_1k']} new states / 1k actions "
+          f"in the final 10%  [shape AUC {m['discovery_auc']}]")
     print(f"  change rate    : raw {m['raw_change_rate']} | meaningful {m['meaningful_change_rate']}")
     print(f"  redundancy     : {m['redundancy']}")
     print(f"  action entropy : early {m['entropy_early_bits']}b -> late "

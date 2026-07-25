@@ -33,10 +33,18 @@ Overnight sweep (games × seeds × reset-arms → aggregate summary):
 make sweep
 ```
 
-Long-horizon probe (ft09 + tu93, 1 seed, 1M actions each, ~2h/game):
+Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 
 ```bash
 make long
+```
+
+Matched random-policy floor (needed to turn any game-dependent metric into an
+uplift ratio) and the curve/AULC/RHAE analysis:
+
+```bash
+make random
+make curves MANIFEST=results/sweeps/sweep_<stamp>.manifest
 ```
 
 API path (unchanged, slower): `make action`
@@ -88,5 +96,28 @@ fixed tickers (cell changing in >=95% of transitions) plus rotating tickers
 >=30% of the run). Both pipelines now produce comparable `meaningful_change_rate`
 and `redundancy`.
 
-`discovery_auc` is normalized by final unique-state count — always report
-`unique_states` alongside it.
+**Never report an exploration metric alone.** A high `meaningful_change_rate`
+only means the frame keeps changing — an agent jiggling a decorative animation
+scores 100%. Read change rate, redundancy and coverage together.
+
+- `unique_states_per_action` — the coverage number. Use this, not `discovery_auc`.
+- `discovery_auc` — DEPRECATED for cross-run comparison. Normalized by FINAL
+  unique-state count, so it measures curve shape only. On the 4-seed baseline it
+  ranks tu93 (145 unique states) at 0.95 and ft09 (181k states) at 0.49 — exactly
+  backwards. Never report it without `unique_states_per_action` beside it.
+- `novelty_late_per_1k` — new canonical states per 1k actions over the final 10%.
+  The stall detector, and a leading indicator: it flattens thousands of actions
+  before the level counter confirms the agent is stuck. Baseline medians: tu93
+  0.0 (dead), dc22 2.4, ls20 7.4, g50t 9.9, ft09 955 (still discovering).
+- `series` in `metrics.json` — per-1000-action novelty / meaningful / redundancy.
+  Run-level scalars average away the collapse on long runs; plot the series.
+- Levels vs. budget, AULC, RHAE — `analyze_curves.py` (post-processing over the
+  `metrics.json` files, so it re-runs on historical runs for free). AULC is
+  defined in that file's docstring; always report it next to its `T_max`.
+- Uplift — every game-dependent metric above needs the matched random floor
+  (`make random`) to be comparable across games. Random is ~2700 act/s, so a
+  full 5-seed sweep is cheap.
+
+Censoring discipline: most runs never reach level k. Always report
+"k/n seeds reached" next to any actions-to-level median (both
+`summarize_overnight.py` and `analyze_curves.py` do).

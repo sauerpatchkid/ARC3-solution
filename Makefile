@@ -32,11 +32,28 @@ sweep:
 	nohup bash sweep.sh > $(RESULTS)/sweeps/sweep.log 2>&1 &
 
 # Long single-seed run on the two games that actually complete levels, to see
-# how far past level 2 the agent can get. ~2h/game on a 5090 at ~142 act/s.
+# how far past level 2 the agent can get. 2M actions is ~4h/game at ~142 act/s,
+# so ~8h for the pair - just under action.py's 7h55m per-process wall clock,
+# which each game gets fresh because sweep.sh runs one process per game.
 long:
 	mkdir -p $(RESULTS)/sweeps
-	GAMES="ft09 tu93" SEEDS="0" CAP=1000000 \
+	GAMES="ft09 tu93" SEEDS="0" CAP=2000000 \
 	nohup bash sweep.sh > $(RESULTS)/sweeps/long.log 2>&1 &
+
+# Matched random-policy floor: same games/seeds/contract, uniform over the same
+# masked 5+64x64 action space. ~2700 act/s (no model), so a full sweep is cheap.
+# Needed to turn change-rate / redundancy / coverage into uplift ratios.
+random:
+	mkdir -p $(RESULTS)/sweeps
+	AGENT=random GAMES="ft09 tu93 g50t dc22 ls20" SEEDS="0 1 2 3 4" CAP=200000 \
+	nohup bash sweep.sh > $(RESULTS)/sweeps/random.log 2>&1 &
+
+# Levels-vs-budget curves, AULC and (with --human-baselines) RHAE, from the
+# metrics.json files a sweep already wrote. Pure post-processing.
+#   make curves MANIFEST=results/sweeps/sweep_<stamp>.manifest
+curves:
+	uv run python analyze_curves.py $(MANIFEST) \
+	--out $(RESULTS)/sweeps/curves_$(notdir $(basename $(MANIFEST)))
 
 # Score a finished run's corpus and append a row to results/local_suite.csv.
 metrics:

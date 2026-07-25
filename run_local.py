@@ -139,9 +139,16 @@ def to_engine_action(haction, prev_action_idx):
     return getattr(EAction, haction.name), {}, False
 
 
-def build_agent(game_id):
-    """Import and instantiate the Action agent. Its __init__ does all the real
-    brain/logger/corpus setup; our stand-in base supplies game_id + counter."""
+def build_agent(game_id, kind="goose"):
+    """Instantiate the agent. Its __init__ does all the real brain/logger/corpus
+    setup; our stand-in base supplies game_id + counter.
+
+    'goose'  -> custom_agents/action.py, the StochasticGoose brain (default)
+    'random' -> random_agent.py, the matched uniform-random floor
+    """
+    if kind == "random":
+        from random_agent import RandomAgent
+        return RandomAgent(game_id=game_id)
     from action import Action
     return Action(game_id=game_id)
 
@@ -171,6 +178,9 @@ def make_env(arc, game_id, game_seed, render):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--game", required=True)
+    ap.add_argument("--agent", default="goose", choices=["goose", "random"],
+                    help="'goose' = the StochasticGoose brain (default); "
+                         "'random' = matched uniform-random floor, for uplift")
     ap.add_argument("--offline", action="store_true",
                     help="OperationMode.OFFLINE (needs local game files); default "
                          "plays locally + syncs scorecard via API")
@@ -181,9 +191,9 @@ def main():
     cap = resolve_max_actions()
     game_seed = seed % (2 ** 31 - 1)
 
-    agent = build_agent(args.game)
-    print(f"[run_local] game={args.game} seed={seed} ({seed_source}) "
-          f"cap={cap} device={getattr(agent, 'device', '?')}")
+    agent = build_agent(args.game, args.agent)
+    print(f"[run_local] agent={args.agent} game={args.game} seed={seed} "
+          f"({seed_source}) cap={cap} device={getattr(agent, 'device', '?')}")
 
     arc = make_arcade(args.offline)
     env = make_env(arc, args.game, game_seed, args.render)

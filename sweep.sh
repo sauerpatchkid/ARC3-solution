@@ -34,6 +34,7 @@ set -u
 GAMES="${GAMES:-ft09:both tu93 g50t dc22 ls20}"
 SEEDS="${SEEDS:-0 1 2 3 4}"
 CAP="${CAP:-200000}"
+AGENT="${AGENT:-goose}"          # goose | random (the matched uniform floor)
 RESULTS="${EVAL_RESULTS_DIR:-results}"
 SUITE="${SUITE:-$RESULTS/local_suite.csv}"
 # ---------------------------------------------------------------------------
@@ -46,6 +47,7 @@ MANIFEST="$SWEEPDIR/sweep_${STAMP}.manifest"
 
 echo "=================================================================="
 echo " Unified sweep"
+echo " Agent: $AGENT"
 echo " Games: $GAMES"
 echo " Seeds: $SEEDS   Cap: $CAP"
 echo " Manifest: $MANIFEST    Suite: $SUITE"
@@ -56,13 +58,13 @@ run_one () {
   echo ""
   echo ">>> game=$game seed=$seed arm=reset_$arm   started $(date +%H:%M:%S)"
   if [ "$arm" = "off" ]; then
-    label="goose_persist"
+    label="${AGENT}_persist"
     out=$(EVAL_RESET_ON_LEVEL=0 EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
-          uv run python run_local.py --game "$game" 2>&1)
+          uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
   else
-    label="goose"
+    label="$AGENT"
     out=$(EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
-          uv run python run_local.py --game "$game" 2>&1)
+          uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
   fi
   echo "$out" | grep -E 'Score changed|\[run_local\]' || true
   # run_local.py's last line is "[run_local] transitions: <path>/transitions" -
@@ -97,5 +99,10 @@ echo "=================================================================="
 echo " Sweep complete - aggregating"
 echo "=================================================================="
 uv run python summarize_overnight.py "$MANIFEST" --out "$SWEEPDIR/sweep_${STAMP}_summary"
+uv run python analyze_curves.py "$MANIFEST" --out "$SWEEPDIR/curves_${STAMP}" \
+  || echo "!! curve analysis failed (metrics + summary above are unaffected)"
 echo ""
-echo "Done. Per-run rows in $SUITE ; aggregate in $SWEEPDIR/sweep_${STAMP}_summary.{md,csv}"
+echo "Done."
+echo "  per-run rows : $SUITE"
+echo "  aggregate    : $SWEEPDIR/sweep_${STAMP}_summary.{md,csv}"
+echo "  curves/AULC  : $SWEEPDIR/curves_${STAMP}.{md,csv,png}"

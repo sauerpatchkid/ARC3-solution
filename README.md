@@ -21,6 +21,8 @@ ARC3-solution/
 ├── run_local.py               # run the agent vs the LOCAL engine (one game)
 ├── run_curriculum.py          # play several games in a row, ONE persistent brain
 ├── compute_metrics.py         # score a run's transition corpus
+├── analyze_curves.py          # levels-vs-budget curves, AULC, RHAE
+├── random_agent.py            # matched uniform-random floor (uplift baseline)
 ├── metrics_common.py          # shared indicator-cell canonicalizer (both scorers)
 ├── summarize_overnight.py     # aggregate a sweep into one report
 ├── sweep.sh                   # unified overnight sweep orchestrator
@@ -122,10 +124,17 @@ confound the raw curve.
 ## 5. Scoring a run
 
 `compute_metrics.py` reads a run's corpus and reports the Team B metric set:
-level completions (+ action index of each level-up), unique canonical states and
-discovery-curve AUC, meaningful (decorative-corrected) change rate, redundancy,
-early-vs-late action entropy, and timing/throughput. It writes `metrics.json`
-next to the corpus and can append a row to a shared CSV (e.g. `results/local_suite.csv`).
+level completions (+ action index of each level-up), unique canonical states with
+per-action coverage and late-run novelty, meaningful (decorative-corrected) change
+rate, redundancy, early-vs-late action entropy, timing/throughput, and per-1000-
+action series for the exploration metrics. It writes `metrics.json` next to the
+corpus and can append a row to a shared CSV (e.g. `results/local_suite.csv`).
+
+Read the exploration metrics together, never alone — a high change rate only
+means the frame keeps moving. Use `unique_states_per_action` for coverage;
+`discovery_auc` is normalized by final unique count and measures curve shape
+only (it ranks a 145-state run above a 181k-state one). `novelty_late_per_1k`
+is the stall detector.
 
 ```bash
 uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
@@ -154,16 +163,37 @@ and at the end calls `summarize_overnight.py` to produce
 actions-to-each-level and a persistence-ablation verdict.
 
 Long-horizon probe on the two games that actually complete levels (ft09, tu93),
-one seed, 1M actions each — ~2 h/game on a 5090:
+one seed, 2M actions each — ~4 h/game on a 5090:
 
 ```bash
-make long         # == GAMES="ft09 tu93" SEEDS="0" CAP=1000000 bash sweep.sh
+make long         # == GAMES="ft09 tu93" SEEDS="0" CAP=2000000 bash sweep.sh
 ```
+
+Set `AGENT=random` for the matched random-policy floor (`make random`). It has
+no model, so it runs at ~2700 act/s and a full 5-seed sweep costs minutes.
+
+Each sweep also calls `analyze_curves.py`, which writes
+`results/sweeps/curves_<stamp>.{md,csv,png}`: max-level-vs-action-budget on a
+log axis (median across seeds, min–max band), AULC per (game, arm), and
+actions-to-level-k with seed-censoring counts. Pass `--human-baselines` a JSON
+of `{game: {level: human_actions}}` to add per-level RHAE.
 
 ## 7. Baseline comparison
 
-Three baselines share the contract and metric set: **random**, **Blind Squirrel**,
-and **StochasticGoose**. Run each locally with the same `EVAL_SEED` set so they
-face identical game instances, score them all with `compute_metrics.py`, and
-compare via `results/local_suite.csv`. A corpus is valid iff `inspect_corpus.py` loads
-it without error.
+Three baselines share the contract and metric set: **random** (`random_agent.py`,
+`--agent random`), **Blind Squirrel**, and **StochasticGoose**. Run each locally
+with the same `EVAL_SEED` so they face identical game instances, score them all
+with `compute_metrics.py`, and compare via `results/local_suite.csv`. A corpus is
+valid iff `inspect_corpus.py` loads it without error.
+
+The random agent samples uniformly over the *same* masked 5 + 64×64 combined
+action space StochasticGoose samples from, so ACTION6 contributes all 4096 click
+coordinates individually. That is what makes it a matched floor for a click-heavy
+agent; uniform over `{ACTION1..ACTION6}` would be a different and much stronger
+prior. Its uplift ratios are what make change rate, redundancy and coverage
+comparable across heterogeneous games.
+
+**Cross-agent requirement:** every agent's corpus must be scored by *this*
+`compute_metrics.py`, not by its own tooling, or the canonicalizer differs and the
+comparison is meaningless. Since the scorer is corpus-only, that reduces to
+emitting the `.npz` schema `inspect_corpus.py` validates.
