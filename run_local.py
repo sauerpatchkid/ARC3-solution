@@ -119,7 +119,14 @@ class ShimFrame:
         self.frame = _extract_grid(obs)
         self.score = _extract_score(obs)
         self.state = _extract_state(obs)
-        self.available_actions = [HAction[a.name] for a in (action_space or [])]
+        # Drop actions the harness enum can't name. 6 of the 25 public games
+        # (ar25, bp35, lf52, sb26, sk48, su15) advertise ACTION7, which the
+        # harness GameAction doesn't define and the agent could not emit anyway
+        # (its head is 5 buttons + 4096 click coordinates). Without this filter
+        # those games raise KeyError on the first frame; with it they play a
+        # REDUCED action space, which must be disclosed when reporting them.
+        self.available_actions = [HAction[a.name] for a in (action_space or [])
+                                  if a.name in HAction.__members__]
 
 
 def to_engine_action(haction, prev_action_idx):
