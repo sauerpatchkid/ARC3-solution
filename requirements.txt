@@ -1,3 +1,21 @@
+# Baseline dependencies. `make install` installs these plus the harness extras.
+#
+# torch is PINNED on purpose: the whole point of the comparison is that every
+# agent ran on the same stack. Do not bump it without re-running the baselines.
+# (The LLM track needs a much newer torch, which is exactly why it lives in a
+# separate virtualenv, .venv-llm — see README "LLM track".)
 numpy==2.3.2
-tensorboard
 torch==2.8.0
+tensorboard==2.21.0
+
+# Used by the agent and the plotting/analysis scripts. These were previously
+# undeclared and only present because the harness happened to pull them in,
+# which broke fresh clones.
+xxhash==3.5.0       # custom_agents/action.py, experience-buffer hashing
+pillow==12.3.0      # custom_agents/view_utils.py, EVAL_SAVE_VIS heatmaps
+matplotlib==3.11.1  # analyze_curves.py
+
+# NOT installable from here: the local engine (`arcengine`, imported via
+# `arc_agi`) ships as the `arc-agi` package and is not on PyPI. Install it
+# separately; without it run_local.py cannot start. See README section 2.
+#   arc-agi==0.9.9

@@ -147,17 +147,23 @@ def to_engine_action(haction, prev_action_idx):
 
 
 def build_agent(game_id, kind="goose"):
-    """Instantiate the agent. Its __init__ does all the real brain/logger/corpus
-    setup; our stand-in base supplies game_id + counter.
+    """Instantiate a registered agent. Its __init__ does all the real
+    brain/logger/corpus setup; our stand-in base supplies game_id + counter.
 
-    'goose'  -> custom_agents/action.py, the StochasticGoose brain (default)
-    'random' -> random_agent.py, the matched uniform-random floor
+    Agents live in custom_agents/ and are looked up in that package's REGISTRY;
+    see custom_agents/__init__.py for how to add one. The import happens here,
+    not at module load, because agent modules import `agents.structs` — which
+    only exists after _install_minimal_agents_pkg() has run.
     """
-    if kind == "random":
-        from random_agent import RandomAgent
-        return RandomAgent(game_id=game_id)
-    from action import Action
-    return Action(game_id=game_id)
+    from custom_agents import load_agent
+    return load_agent(kind, game_id)
+
+
+def _agent_names():
+    """Registered agent names, for --agent's choices. Safe to call at import
+    time: custom_agents/__init__.py holds plain data and imports no agent."""
+    from custom_agents import available
+    return available()
 
 
 def make_arcade(offline):
@@ -185,8 +191,9 @@ def make_env(arc, game_id, game_seed, render):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--game", required=True)
-    ap.add_argument("--agent", default="goose", choices=["goose", "random"],
-                    help="'goose' = the StochasticGoose brain (default); "
+    ap.add_argument("--agent", default="goose", choices=_agent_names(),
+                    help="registered agent to run (see custom_agents/__init__.py "
+                         "to add your own). 'goose' = the StochasticGoose brain; "
                          "'random' = matched uniform-random floor, for uplift")
     ap.add_argument("--offline", action="store_true",
                     help="OperationMode.OFFLINE (needs local game files); default "

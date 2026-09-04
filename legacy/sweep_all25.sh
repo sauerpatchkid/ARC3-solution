@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ARCHIVED 2026-09-04 - superseded by the frozen benchmark:
+#
+#     make bench SUITE=full AGENT=goose
+#
+# which runs the same 25 games x 1 seed x 100k actions through sweep.sh, with the
+# same metrics and a manifest that `make compare` can read. Kept here only for
+# its game-availability preflight, which the benchmark path does not have.
 # sweep_all25.sh — one-shot overnight sweep: ALL 25 public games, 1 seed each.
 #
 # Drop-in and self-contained: it does not modify anything in the repo, it just

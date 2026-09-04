@@ -1,4 +1,9 @@
 __pycache__/
+
+# Virtualenvs. uv writes a self-ignoring .gitignore inside each one, but do not
+# rely on that: these are ~7 GB each and committing one would be unrecoverable.
+.venv/
+.venv-llm/
 logs.log
 logs
 environment_files/

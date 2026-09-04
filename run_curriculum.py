@@ -155,7 +155,7 @@ def play_game(agent, env, cap):
                   f"{aps:5.1f} act/s")
 
 
-def score_leg(env_dir, game, agent, suite, seed_label):
+def score_leg(env_dir, game, agent, suite, seed_label, label="goose_curriculum"):
     """Score a finished leg in-process with compute_metrics.compute. Returns the
     metrics dict, or None if the leg produced no usable corpus."""
     corpus = os.path.join(env_dir, "transitions")
@@ -169,10 +169,10 @@ def score_leg(env_dir, game, agent, suite, seed_label):
         return None
     import json
     with open(os.path.join(env_dir, "metrics.json"), "w") as f:
-        json.dump({"game": game, "agent": "goose_curriculum",
+        json.dump({"game": game, "agent": label,
                    "seed": seed_label, **m}, f, indent=2)
     if suite:
-        append_suite(suite, m, game, "goose_curriculum", seed_label)
+        append_suite(suite, m, game, label, seed_label)
     lvl = m["levels_completed"]
     first = m["first_levelup_action"]
     print(f"  [curriculum] {game}: levels={lvl} first_levelup={first} "
@@ -238,10 +238,12 @@ def main():
                          f"(default: {','.join(GAMES)})")
     ap.add_argument("--suite", default=None,
                     help="optional CSV to append per-game metric rows to "
-                         "(agent label: goose_curriculum)")
+                         "(agent label: <agent>_curriculum)")
     ap.add_argument("--offline", action="store_true",
                     help="OperationMode.OFFLINE (needs locally cached games)")
     ap.add_argument("--render", default=None, choices=[None, "terminal", "human"])
+    ap.add_argument("--agent", default="goose", choices=run_local._agent_names(),
+                    help="registered agent to run (see custom_agents/__init__.py)")
     args = ap.parse_args()
 
     games = [g.strip() for g in args.games.split(",")] if args.games else list(GAMES)
@@ -252,7 +254,7 @@ def main():
 
     # Build the ONE brain (seeded once, from the first game's id). Everything
     # after this reuses it — no second Action is ever constructed.
-    agent = run_local.build_agent(games[0])
+    agent = run_local.build_agent(games[0], args.agent)
     # Persistent-brain mode REQUIRES the persist arm: otherwise the first
     # level-up inside a game would wipe the transferred brain. This selects the
     # existing EVAL_RESET_ON_LEVEL=0 behavior; it does not change what the flag
@@ -297,7 +299,8 @@ def main():
             agent.writer.flush()
         except Exception:
             pass
-        m = score_leg(env_dir, game, agent, args.suite, seed_label)
+        m = score_leg(env_dir, game, agent, args.suite, seed_label,
+                      label=f"{args.agent}_curriculum")
         results.append((i, game, m))
 
     dt = time.time() - t0

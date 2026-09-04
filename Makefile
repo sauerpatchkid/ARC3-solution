@@ -1,7 +1,10 @@
 # Convenience targets. Override vars on the command line, e.g.
 #   make local GAME=ft09 CAP=2000
-#   make curriculum GAMES=ft09,dc22,ls20 CAP=200000
+#   make bench SUITE=standard AGENT=goose
 #   make metrics DIR=results/runs/<ts>/ft09/transitions GAME=ft09
+#
+# START HERE (new clone):
+#   make install && make check && make bench SUITE=smoke
 #
 # All outputs land under $(RESULTS) (gitignored):
 #   results/runs/ results/sweeps/ results/local_suite.csv results/curriculum_suite.csv
@@ -10,11 +13,69 @@ CAP     ?= 2000
 GAME    ?= ft09
 GAMES   ?= ft09,dc22,ls20
 RESULTS ?= results
+AGENT   ?= goose
+SUITE   ?= standard
+
+.PHONY: help install check suites bench bench-fg compare local curriculum \
+        sweep long random curves metrics tensorboard clean action baseline \
+        llm-scan
+
+help:
+	@echo "Baselines (what teammates use):"
+	@echo "  make install                        set up the venv"
+	@echo "  make check                          health check: isolation, agents, deps"
+	@echo "  make suites                         list the frozen benchmark suites"
+	@echo "  make bench SUITE=standard AGENT=x   run a frozen suite (backgrounded)"
+	@echo "  make bench-fg SUITE=smoke           same, in the foreground"
+	@echo "  make compare M1=<manifest> M2=<..>  put two agents side by side"
+	@echo "  make local GAME=ft09 CAP=2000       one ad-hoc run"
+	@echo ""
+	@echo "Analysis:"
+	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
+	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
+	@echo "  make tensorboard"
+	@echo ""
+	@echo "LLM track (Matt only; does not affect baselines):"
+	@echo "  make llm-scan                       corpus stats for the LLM track"
+	@echo ""
+	@echo "Add your own agent: see custom_agents/__init__.py and TEMPLATE.py"
 
 install:
 	uv venv
 	cd ARC-AGI-3-Agents && UV_PROJECT_ENVIRONMENT=../.venv uv sync --all-extras
 	uv pip install -r requirements.txt
+	@echo ""
+	@echo "Now run: make check"
+
+# Health check: llm_track isolation, agent registry, dependencies, suites.
+check:
+	uv run python check_repo.py
+
+# ---------------------------------------------------------------------------
+# THE FROZEN BENCHMARK — everyone runs the same games/seeds/budget so results
+# can be compared. Definitions live in benchmark.py; see that file before
+# changing anything.
+# ---------------------------------------------------------------------------
+suites:
+	uv run python benchmark.py
+
+# Backgrounded (suites other than 'smoke' take hours). Log + manifest paths
+# are printed immediately; the manifest is what `make compare` consumes.
+bench:
+	mkdir -p $(RESULTS)/sweeps
+	BENCH=$(SUITE) AGENT=$(AGENT) nohup bash sweep.sh \
+	  > $(RESULTS)/sweeps/bench_$(SUITE)_$(AGENT).log 2>&1 &
+	@echo "started: $(SUITE) suite, agent=$(AGENT)"
+	@echo "log:     $(RESULTS)/sweeps/bench_$(SUITE)_$(AGENT).log"
+	@echo "watch:   tail -f $(RESULTS)/sweeps/bench_$(SUITE)_$(AGENT).log"
+
+bench-fg:
+	BENCH=$(SUITE) AGENT=$(AGENT) bash sweep.sh
+
+# Side-by-side table. M1 is the baseline, M2+ are compared against it.
+compare:
+	uv run python compare.py $(M1) $(M2) $(M3) \
+	  --out $(RESULTS)/sweeps/comparison.md
 
 # Local engine, one game (fast dev path, ~120 act/s).
 local:
@@ -26,7 +87,8 @@ curriculum:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
 	uv run python run_curriculum.py --games=$(GAMES)
 
-# Backgrounded overnight sweep (edit sweep.sh CONFIG or override GAMES/SEEDS/CAP).
+# Ad-hoc exploratory sweep (your own GAMES/SEEDS/CAP; NOT comparable between
+# people - use `make bench` for anything you intend to report).
 sweep:
 	mkdir -p $(RESULTS)/sweeps
 	nohup bash sweep.sh > $(RESULTS)/sweeps/sweep.log 2>&1 &
@@ -75,3 +137,11 @@ baseline:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
 	RECORDINGS_DIR=$(RESULTS)/recordings \
 	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
+
+# --- LLM track (see 295B-llm-track-plan.md, llm_track/SCHEMA.md) -------------
+# Corpus statistics: decorative masks, signature dedupe, stratification
+# buckets and hindsight-anchor census. Read-only over results/runs.
+LLM_GAMES ?= ft09,ar25,cd82,lp85,ls20
+llm-scan:
+	uv run python -m llm_track.scan --games=$(LLM_GAMES) \
+	--limit=50 --sample=30000 --out $(RESULTS)/llm/scan_stage1.json
