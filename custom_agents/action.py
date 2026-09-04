@@ -376,6 +376,27 @@ class Action(Agent):
         
         # Check if score has changed and log score at action count
         if latest_frame.score != self.current_score:
+            # --- Log the level-COMPLETING transition before prev_* is cleared ---
+            # The action that ends a level is the single most informative
+            # transition in the corpus (it is the hindsight anchor the LLM
+            # track's judge calibrates against), and clearing prev_frame below
+            # used to drop it: action_num jumped by 2 at every boundary.
+            # Logging only - consumes no RNG and touches no model state, so
+            # action sequences are byte-identical to the pre-fix agent.
+            # `level` is the PRE-update score, i.e. the level being completed.
+            if self.prev_frame is not None and self.transition_logger is not None:
+                boundary_raw = np.array(latest_frame.frame, dtype=np.uint8)[-1]
+                if boundary_raw.shape == (self.grid_size, self.grid_size):
+                    self.transition_logger.log(
+                        frame=self.prev_frame_raw,
+                        action_idx=self.prev_action_idx,
+                        next_frame=boundary_raw,
+                        changed=not np.array_equal(self.prev_frame_raw, boundary_raw),
+                        level=self.current_score,
+                        action_num=self.action_counter,
+                        wall_ms=wall_ms,
+                        model_ms=self._last_model_ms,
+                    )
             if self.log_metrics:
                 self.writer.add_scalar('Agent/score', latest_frame.score, self.action_counter)
                 self.writer.add_scalar('Agent/actions_at_level_up', self.action_counter, latest_frame.score)
