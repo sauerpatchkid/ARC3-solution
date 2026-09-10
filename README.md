@@ -183,7 +183,13 @@ fragile package init — which is why no submodule patch is required, and why ag
 modules are imported lazily through the registry.
 
 **Hosted API path** (unchanged): `make action`, or
-`uv run ARC-AGI-3-Agents/main.py --agent=action --game=ft09`.
+`uv run ARC-AGI-3-Agents/main.py --agent=action --game=ft09`. It needs two small
+edits to the harness submodule, applied once after cloning (the local path does
+not need them):
+
+```bash
+git -C ARC-AGI-3-Agents apply ../harness_patches.patch
+```
 **Do not mix API and local numbers in one comparison** — the game seed differs, so
 the two play different level instances.
 
