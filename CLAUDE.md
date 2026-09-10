@@ -115,7 +115,32 @@ baseline comparability.
 
 ```bash
 make llm-scan            # corpus stats: masks, dedupe, buckets, anchors
+make llm-env             # (re)build .venv-llm — see the Python.h note below
+make llm-probe           # Probe A: pairs -> Qwen 4B + 9B judge -> report.md
 ```
+
+Probe A is the go/no-go gate for the whole track: do small Qwen models prefer
+the moves just before a level-up over earlier moves from the same level? Its
+go/no-go criteria are fixed in `llm_track/probe_report.py`'s docstring and were
+written before any model ran — do not edit them after seeing results.
+
+`.venv-llm` must be built on a uv-MANAGED Python, not the system one: vLLM's
+Triton backend compiles a C helper at startup and needs `Python.h`, and the
+system Python 3.12 has no headers (no python3.12-dev, no passwordless sudo).
+`make llm-env` does this; pins are in `llm_track/requirements-llm.txt`.
+
+**Probe A result (2026-09-10): NO-GO for the text-only judge.** Qwen3.5-4B and
+-9B both score 1.00 on the sanity tiers (the format is understood) but chance
+on anchors (4B 0.497, 9B 0.502, CI 0.485-0.518; the size rule scores 0.509). On
+~91% of anchor pairs they answer by position in both orders, i.e. they have no
+preference. A post-hoc check (`llm_track/probe_hindsight.py`, not
+pre-registered) shows the label is not the problem: moves 2-5 before a level-up
+bring the board toward its pre-solve state 75% of the time vs 48% for controls,
+and a rule that sees the board scores 0.64 on the same pairs. The progress
+signal is in the board state, which a single-move text description omits — so
+the evidence points at the design's planned fallback (show Qwen the board),
+not at abandoning the label. `results/` is gitignored; rerun `make llm-probe`
+to regenerate `report.md` and `hindsight.md`.
 
 Measured on the Stage-1 set: the serializer costs 0.11-0.29 ms/transition
 (2-6% of the agent's 5.2 ms model budget), and signature dedupe ranges from

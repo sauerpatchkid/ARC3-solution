@@ -27,8 +27,8 @@ import time
 
 import numpy as np
 
-from .corpus import (find_corpora, is_post_fix_boundary, iter_shards,
-                     level_events, load_scalars)
+from .corpus import (GOOSE, find_corpora, is_post_fix_boundary, iter_shards,
+                     largest_per_game, level_events, load_scalars)
 from .serializer import serialize, signature
 from .tickers import TickerScan
 
@@ -128,10 +128,9 @@ def main():
     ap.add_argument("--out", default=None, help="write JSON here")
     a = ap.parse_args()
 
-    corpora = find_corpora(a.results)
-    latest = {}
-    for game, d in corpora:                      # keep the newest run per game
-        latest[game] = d
+    # Each game's LARGEST Goose run, not its newest: the newest is often a
+    # short smoke test or another agent (see corpus.largest_per_game).
+    latest = largest_per_game(find_corpora(a.results, agent=GOOSE))
     games = sorted(latest) if a.all else [g for g in a.games.split(",") if g in latest]
 
     rows = []
