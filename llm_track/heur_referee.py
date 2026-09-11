@@ -35,11 +35,11 @@ import numpy as np
 
 from .corpus import (GOOSE, CorpusReader, find_corpora, game_of,
                      is_post_fix_boundary, iter_shards, level_events)
-from .heur_api import HISTORY, HeuristicAPI, Move, background_of, regions
+from .heur_api import API_DOC, HISTORY, HeuristicAPI, Move, background_of, regions
 from .probe_pairs import build_masks, segment_start
 from .serializer import serialize
 
-DEFAULT_DIR = "results/llm/referee/v1"
+DEFAULT_DIR = "results/llm/referee/v2"     # v2: rebuilt after the 2026-09-10 harvest
 SAMPLES_PER_CLASS = 300     # per completion: up to 300 "toward" + 300 "away" moves
 
 
@@ -257,6 +257,7 @@ class Referee:
             lay = regions(first, background_of(first), tick)
             for reg in lay:
                 reg.cells.flags.writeable = False
+                reg.mask.flags.writeable = False
             self._layout[e] = (first, lay)
         first, lay = self._layout[e]
         act, clk, ch, mv = (h[i] for h in self.h)
@@ -402,6 +403,20 @@ def selftest(d=DEFAULT_DIR):
         good = r["stage"] == want
         allok &= good
         print(f"   [{'PASS' if good else 'FAIL'}] {name:<20} -> {r['stage']}: {r['reason'][:70]}")
+    # Regression checks for fixes made after the first writer smoke runs.
+    r = evaluate("def score(board, api):\n    buttons, clicks = api.zeros()\n"
+                 "    buttons[5] = 1.0\n    return buttons, clicks",
+                 d, where=dict(game="ft09", level=0), max_samples=100)
+    good = r["stage"] == "runtime" and r["reason"].startswith("IndexError")
+    allok &= good
+    print(f"   [{'PASS' if good else 'FAIL'}] {'real error surfaces':<20} -> {r['stage']}: {r['reason'][:70]}")
+    example = "\n".join(line[4:] for line in
+                        API_DOC.split("not the answer for this game:\n\n")[1].splitlines())
+    r = evaluate(example, d, where=dict(game="ft09", level=0), max_samples=500)
+    good = r["stage"] == "graded"
+    allok &= good
+    print(f"   [{'PASS' if good else 'FAIL'}] {'API_DOC example runs':<20} -> {r['stage']}: "
+          f"{r.get('ms_mean')} ms/call")
     print(f"\n[selftest] sandbox checks {'all passed' if allok else 'FAILED'}")
     return allok
 

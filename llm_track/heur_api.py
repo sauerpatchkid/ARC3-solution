@@ -32,11 +32,13 @@ HISTORY = 8          # earlier moves exposed to a heuristic
 
 class Region:
     """A connected same-colour area of a board (8-connected)."""
-    __slots__ = ("colour", "size", "y0", "x0", "y1", "x1", "cells")
+    __slots__ = ("colour", "size", "y0", "x0", "y1", "x1", "cells", "mask")
 
     def __init__(self, colour, cells):
         self.colour = int(colour)
         self.cells = cells                            # (n, 2) int16: (row, col)
+        self.mask = np.zeros((GRID, GRID), dtype=bool)   # the region as a board-shaped mask
+        self.mask[cells[:, 0], cells[:, 1]] = True
         self.size = int(len(cells))
         self.y0, self.x0 = (int(v) for v in cells.min(axis=0))
         self.y1, self.x1 = (int(v) for v in cells.max(axis=0))
@@ -99,6 +101,10 @@ class HeuristicAPI:
         return np.zeros(N_BUTTONS), np.zeros((GRID, GRID))
 
 
+# API_DOC changes are tested on level-1 data only. 2026-09-11 smoke run: 3 of 4
+# candidates wrote to buttons[5] or buttons[6] (assuming a button slot for
+# ACTION6) and 1 used r.cells as if it were a board-shaped mask - hence the
+# explicit ACTION6 note, r.mask, and one example in a different game's style.
 API_DOC = """You write ONE Python function. `np` (numpy) is available; nothing can be imported.
 
     IDEA = "one line saying what the heuristic prefers and why"
@@ -107,6 +113,10 @@ API_DOC = """You write ONE Python function. `np` (numpy) is available; nothing c
                                         # clicks: 64x64 values, clicks[row, col]
         ...
         return buttons, clicks
+
+buttons has exactly 5 entries: buttons[0] is ACTION1 ... buttons[4] is ACTION5.
+There is NO entry for ACTION6: a click at (row, col) IS ACTION6, and its score
+is clicks[row, col].
 
 Higher = more promising. Only the ORDER within one board matters.
 `board` is the CURRENT board: a 64x64 numpy array of colour indices 0-15.
@@ -118,9 +128,11 @@ Higher = more promising. Only the ORDER within one board matters.
   api.layout          regions on api.first: connected same-colour areas
                       (background and ticker excluded), largest first. Each
                       region r has r.colour, r.size, r.y0, r.x0, r.y1, r.x1
-                      (inclusive bounding box) and r.cells (an n x 2 array of
-                      (row, col)). board[r.cells[:, 0], r.cells[:, 1]] gives the
-                      CURRENT colours of that area.
+                      (inclusive bounding box), r.mask (a 64x64 bool array
+                      that is True on the region) and r.cells (an n x 2 array
+                      of (row, col)). board[r.mask] gives the CURRENT colours of
+                      that area; clicks[r.mask & (board == 9)] = 1.0 scores the
+                      region's cells that are currently colour 9.
   api.history         up to 8 earlier moves in this level, oldest first. Each m
                       has m.action (1-5 button, 6 click), m.click ((row, col) or
                       None), m.changed (cells changed, ticker excluded) and
@@ -134,4 +146,17 @@ Rules:
   not Python loops over all 4,096 cells.
 - It must not give the same score to every option.
 - It is graded on a DIFFERENT level of the same game, so capture the game's rule,
-  not one specific board."""
+  not one specific board.
+- board, api.first, api.ticker and region masks are read-only: use .copy() first
+  if you want to modify one.
+
+Example, from a DIFFERENT game - it shows the style (whole-array numpy, no
+loops), not the answer for this game:
+
+    IDEA = "prefer clicking cells whose colour is rare on the board"
+    def score(board, api):
+        buttons, clicks = api.zeros()
+        counts = np.bincount(board.ravel(), minlength=16)
+        clicks = 1.0 / (1.0 + counts[board])
+        clicks[api.ticker] = 0.0
+        return buttons, clicks"""

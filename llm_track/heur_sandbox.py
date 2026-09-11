@@ -22,6 +22,7 @@ local model on the owner's machine.
 import ast
 import builtins
 import multiprocessing as mp
+import queue
 import time
 
 import numpy as np
@@ -36,6 +37,21 @@ _SAFE = ("abs", "all", "any", "bool", "dict", "enumerate", "filter", "float",
          "reversed", "round", "set", "sorted", "sum", "tuple", "zip",
          "ValueError", "Exception")
 SAFE_BUILTINS = {n: getattr(builtins, n) for n in _SAFE}
+
+
+def _numpy_only_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """numpy's C code imports its own submodules on demand (for example to build
+    an error message), looking up __import__ in the CALLER's builtins - which
+    here are ours. Without this, a plain IndexError in a heuristic surfaced as
+    "KeyError: '__import__'", and numpy functions that load a submodule on first
+    use failed outright. Heuristic source still cannot contain an import: the
+    static check rejects Import nodes and the name __import__."""
+    if name == "numpy" or name.startswith("numpy."):
+        return builtins.__import__(name, globals, locals, fromlist, level)
+    raise ImportError(f"import of {name!r} is not allowed")
+
+
+SAFE_BUILTINS["__import__"] = _numpy_only_import
 
 DENY_NAMES = {"__import__", "eval", "exec", "compile", "open", "input", "globals",
               "locals", "vars", "getattr", "setattr", "delattr", "breakpoint",
@@ -127,12 +143,15 @@ def _worker(src, referee_dir, where, max_samples, seed, q):
         q.put({"ok": False, "stage": "runtime", "reason": f"{type(e).__name__}: {e}"})
 
 
-def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed=0):
+def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed=0,
+             return_samples=False):
     """Validate, run in a child process, apply the gates, and grade.
 
     Returns a dict with ok, stage ('static' | 'runtime' | 'timeout' | 'gate' |
     'graded'), reason, and for graded code: auc, ci, n, n_events, ms_mean,
-    ms_p95, constant_frac, idea.
+    ms_p95, constant_frac, idea. With return_samples, also `idx` and `pct` (the
+    played move's percentile for each referee sample), which the writer uses to
+    show Qwen the moves its heuristic got most wrong.
     """
     ok, why = validate(src)
     if not ok:
@@ -141,9 +160,20 @@ def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed
     q = ctx.Queue()
     p = ctx.Process(target=_worker, args=(src, referee_dir, where or {}, max_samples, seed, q))
     p.start()
-    try:
-        res = q.get(timeout=timeout_s)
-    except Exception:
+    # Poll rather than block: a worker that dies without reporting (segfault,
+    # out-of-memory kill, a failed spawn) must fail fast, not after timeout_s.
+    res, deadline = None, time.time() + timeout_s
+    while res is None and time.time() < deadline:
+        try:
+            res = q.get(timeout=1.0)
+        except queue.Empty:
+            if not p.is_alive():
+                try:
+                    res = q.get(timeout=1.0)          # it may have reported just before exiting
+                except queue.Empty:
+                    return {"ok": False, "stage": "runtime",
+                            "reason": f"worker process exited (code {p.exitcode}) without a result"}
+    if res is None:
         p.terminate(); p.join(5)
         return {"ok": False, "stage": "timeout", "reason": f"no result within {timeout_s}s"}
     p.join(10)
@@ -165,4 +195,5 @@ def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed
 
     from .heur_referee import Referee
     grade = Referee(referee_dir, light=True).grade(res["idx"], res["pct"])
-    return {**out, **grade, "ok": True, "stage": "graded", "reason": "ok"}
+    extra = {"idx": res["idx"], "pct": res["pct"]} if return_samples else {}
+    return {**out, **grade, **extra, "ok": True, "stage": "graded", "reason": "ok"}

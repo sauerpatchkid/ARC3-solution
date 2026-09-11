@@ -54,28 +54,28 @@ GUTTER = (58, 58, 90)        # dark slate: not a game colour
 BOX = (0, 255, 255)          # cyan: not a game colour
 
 
-def render_board(frame):
-    """64x64 colour indices -> 512x512 RGB array."""
+def render_board(frame, cell=CELL):
+    """64x64 colour indices -> (64*cell)^2 RGB array (512x512 at the default)."""
     rgb = PAL[np.asarray(frame, dtype=np.uint8)]
-    return np.repeat(np.repeat(rgb, CELL, axis=0), CELL, axis=1)
+    return np.repeat(np.repeat(rgb, cell, axis=0), cell, axis=1)
 
 
-def render_move(frame, next_frame, mask):
+def render_move(frame, next_frame, mask, cell=CELL):
     """Before | after, with a cyan box around each changed non-ticker region."""
-    side = 64 * CELL
-    img = Image.new("RGB", (2 * side + GAP, side), GUTTER)
+    side, gap = 64 * cell, GAP * cell // CELL
+    img = Image.new("RGB", (2 * side + gap, side), GUTTER)
     for k, f in enumerate((frame, next_frame)):
-        img.paste(Image.fromarray(render_board(f)), (k * (side + GAP), 0))
+        img.paste(Image.fromarray(render_board(f, cell)), (k * (side + gap), 0))
     draw = ImageDraw.Draw(img)
     comps = sorted(connected_components((frame != next_frame) & ~mask), key=len, reverse=True)
     for c in comps[:MAX_COMPONENTS]:          # the same components the text describes
         y0, x0 = c.min(axis=0)
         y1, x1 = c.max(axis=0)
         for k in (0, 1):
-            ox = k * (side + GAP)
-            draw.rectangle([ox + max(int(x0) * CELL - 2, 0), max(int(y0) * CELL - 2, 0),
-                            ox + min((int(x1) + 1) * CELL + 1, side - 1),
-                            min((int(y1) + 1) * CELL + 1, side - 1)],
+            ox = k * (side + gap)
+            draw.rectangle([ox + max(int(x0) * cell - 2, 0), max(int(y0) * cell - 2, 0),
+                            ox + min((int(x1) + 1) * cell + 1, side - 1),
+                            min((int(y1) + 1) * cell + 1, side - 1)],
                            outline=BOX, width=2)
     return img
 

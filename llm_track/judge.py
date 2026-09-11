@@ -134,6 +134,24 @@ def combine(ans_xy, ans_yx):
     return v1, v2, (v1 if v1 == v2 else "tie")
 
 
+def setup_vllm_env():
+    """Environment fixes this machine needs before vLLM is imported.
+
+    FlashInfer's top-k/top-p sampler JIT-compiles CUDA code at warm-up and needs
+    nvcc, which is not installed system-wide; vLLM's PyTorch sampler does the
+    same job, so it is switched off. For any other JIT, torch's wheels ship a
+    pip nvcc (CUDA 13.4, which targets the 5090's sm_120) inside the venv, so
+    CUDA_HOME is pointed at it. Shared by judge.py and heur_writer.py.
+    """
+    os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+    import sys
+    cu = os.path.join(sys.prefix, "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}",
+                      "site-packages", "nvidia", "cu13")
+    if "CUDA_HOME" not in os.environ and os.path.exists(os.path.join(cu, "bin", "nvcc")):
+        os.environ["CUDA_HOME"] = cu
+        os.environ["PATH"] = os.path.join(cu, "bin") + os.pathsep + os.environ.get("PATH", "")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -154,19 +172,7 @@ def main():
     ap.add_argument("--gpu-mem", type=float, default=0.90)
     a = ap.parse_args()
 
-    # Greedy decoding never needs a top-k/top-p kernel, but vLLM warms up
-    # FlashInfer's sampler anyway, and that JIT-compiles CUDA code -> needs
-    # nvcc, which this machine does not have system-wide. Turn it off.
-    os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
-    # Fallback for any other JIT: torch's wheels ship a pip nvcc (CUDA 13.4,
-    # which targets the 5090's sm_120) inside the venv. Point CUDA_HOME at it.
-    import sys
-    cu = os.path.join(sys.prefix, "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}",
-                      "site-packages", "nvidia", "cu13")
-    if "CUDA_HOME" not in os.environ and os.path.exists(os.path.join(cu, "bin", "nvcc")):
-        os.environ["CUDA_HOME"] = cu
-        os.environ["PATH"] = os.path.join(cu, "bin") + os.pathsep + os.environ.get("PATH", "")
-
+    setup_vllm_env()
     from vllm import LLM, SamplingParams        # only exists in .venv-llm
     import vllm
 

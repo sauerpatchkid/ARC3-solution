@@ -22,7 +22,22 @@ a child process with a timeout) and `heur_referee.py` (70 recorded completions,
 27,466 moves labelled toward/away from the solved board). `make -C llm_track
 referee-selftest` checks it: the oracle control scores 1.000 on ft09, the sandbox
 rejects all 8 kinds of bad code, and the best one-line rule on ft09 level 2 (the
-held-out test level) scores 0.536. Next: the Qwen writing loop and Probe C.
+held-out test level) scores 0.536.
+
+**Probe C (2026-09-11): NO-GO.** `heur_writer.py` (`make -C llm_track probe-c`):
+Qwen3.5-9B saw level 1 of ft09 and wrote 4 rounds x 8 candidate heuristics, with
+feedback and one repair attempt each; the winner was picked on level 1 and graded
+once on level 2. C1 FAIL (level-2 AUC 0.500, CI 0.500-0.500), C2 FAIL (below the
+best one-line rule, 0.536), C3 PASS (valid code in all 4 rounds, 18 of 32
+graded). Qwen never beat a one-line rule even on level 1 (best 0.533 vs 0.534),
+feedback rounds did not improve it, and the winner hard-coded a board position
+from level 1. Its plans misread the mechanic ("swap with the workshop colour",
+"turn blue to red"); none encoded ft09's actual rule, making the framed block
+match the example patterns. Pipeline lessons, all found on level 1 only: with
+thinking on, Qwen spent its whole budget deliberating and wrote no code, so
+thinking is off; three API misreadings (a button slot for ACTION6, region cells
+as a mask) led to `r.mask`, an explicit ACTION6 note and one style example; a
+sandbox bug masked numpy errors as `KeyError: '__import__'` and is fixed.
 
 ## Commands
 

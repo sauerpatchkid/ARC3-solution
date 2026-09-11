@@ -11,7 +11,7 @@ GAMES      ?= ft09,ar25,cd82,lp85,ls20
 JUDGES     ?= Qwen/Qwen3.5-4B Qwen/Qwen3.5-9B
 IMG_JUDGES ?= Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B
 
-.PHONY: help env scan probe probe-img harvest harvest-plan referee referee-selftest
+.PHONY: help env scan probe probe-img harvest harvest-plan referee referee-selftest probe-c
 
 help:
 	@echo "LLM track (Matt's; isolated from the baselines - see llm_track/README.md)"
@@ -23,6 +23,7 @@ help:
 	@echo "  make -C llm_track harvest     overnight: more level completions (~9 h, backgrounded)"
 	@echo "  make -C llm_track referee     build the heuristics referee dataset from the recordings"
 	@echo "  make -C llm_track referee-selftest  check the referee and the sandbox"
+	@echo "  make -C llm_track probe-c     Probe C: Qwen-9B writes heuristics for ft09 (~30 min GPU)"
 
 # The serving venv. Separate from .venv on purpose (vLLM pins its own torch),
 # and built on a uv-MANAGED Python because vLLM's Triton backend compiles a C
@@ -75,9 +76,17 @@ harvest:
 # Heuristics (plan Phase 1). The referee labels every move in every recorded
 # level completion as toward / away from the solved board; heuristics are graded
 # against it. Rebuild after a harvest to include the new completions.
-REFEREE ?= $(RESULTS)/llm/referee/v1
+REFEREE ?= $(RESULTS)/llm/referee/v2
 referee:
 	cd $(ROOT) && uv run python -m llm_track.heur_referee build --dir $(REFEREE)
 
 referee-selftest:
 	cd $(ROOT) && uv run python -m llm_track.heur_referee selftest --dir $(REFEREE)
+
+# Probe C (heuristics plan step 2): Qwen-9B writes heuristics from ft09 level 1;
+# the winner is picked on level 1 and graded once on level 2. The pass/fail
+# criteria are in heur_writer.py's docstring, fixed before the first run.
+GAME ?= ft09
+probe-c:
+	cd $(ROOT) && HF_HUB_OFFLINE=1 .venv-llm/bin/python -m llm_track.heur_writer \
+	  --game $(GAME) --referee $(REFEREE)
