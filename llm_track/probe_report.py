@@ -26,6 +26,11 @@ GO / NO-GO — criteria fixed 2026-09-10, BEFORE any model was run:
   G4 format       9B scores >= 0.80 on each sanity tier
   GO if all four pass. Separately, if the 4B is within 0.05 of the 9B on the
   anchor tier, the 4B becomes the volume labeler (about 2x the throughput).
+
+  Applied per input mode to the LARGEST model tested in that mode: the 9B for
+  text; the 4B for images (2026-09-10: the image run tests 2B and 4B). The
+  thresholds are unchanged; "the smaller model within 0.05 of the larger"
+  generalises the 4B-vs-9B rule. Image labels are the files ending in _img.
 """
 import argparse
 import collections
@@ -95,6 +100,10 @@ def fmt(x, d=3):
     return "-" if x != x else f"{x:.{d}f}"
 
 
+def modality(tag):
+    return "image" if tag.endswith("_img") else "text"
+
+
 def model_rank(tag):
     """Sort models by size so the table reads small -> large."""
     for i, s in enumerate(("0.8B", "2B", "4B", "9B", "27B", "35B")):
@@ -115,7 +124,8 @@ def main():
     meta = json.load(open(os.path.join(a.dir, "meta.json")))
     label_files = sorted((p for p in glob.glob(os.path.join(a.dir, "labels_*.jsonl"))
                           if "_limit" not in p),
-                         key=lambda p: model_rank(os.path.basename(p)))
+                         key=lambda p: (os.path.basename(p).endswith("_img.jsonl"),
+                                        model_rank(os.path.basename(p))))
     if not label_files:
         raise SystemExit(f"no labels_*.jsonl in {a.dir} - run llm_track.judge first")
 
@@ -203,12 +213,15 @@ def main():
         L.append(f"- {tag}: {jm['pairs_per_sec']} pairs/s ({jm['n_calls']} calls in "
                  f"{jm['gen_sec']}s, model load {jm['load_sec']}s)")
 
-    # --- the pre-registered decision
-    big = next((t for t in reversed(tags) if "9B" in t), None)
+    # --- the pre-registered decision, per input mode
     L.append("\n## Decision (criteria fixed before running — see module docstring)\n")
-    if big is None:
-        L.append("No 9B labels yet: the decision needs the 9B.")
-    else:
+    L.append("Applied to the largest model tested in each input mode; thresholds "
+             "identical for text and images.\n")
+    for mode in ("text", "image"):
+        mtags = [t for t in tags if modality(t) == mode]     # sorted small -> large
+        if not mtags:
+            continue
+        big, small = mtags[-1], mtags[0]
         an = models[big]["tiers"]["anchor"]
         checks = [
             ("G1 signal: CI lower bound > 0.50", an["ci"][0] > 0.50,
@@ -219,23 +232,26 @@ def main():
              f"{fmt(an['consistency'], 2)}"),
         ]
         for t in ("sanity_ticker", "sanity_nochange"):
-            s = models[big]["tiers"][t]
-            if s:
-                checks.append((f"G4 format: {t} >= 0.80", s["score"] >= 0.80,
-                               f"{fmt(s['score'])}"))
+            s_ = models[big]["tiers"][t]
+            if s_:
+                checks.append((f"G4 format: {t} >= 0.80", s_["score"] >= 0.80,
+                               f"{fmt(s_['score'])}"))
+        L.append(f"\n### {mode} input — {big}\n")
         for name, ok, val in checks:
             L.append(f"- [{'PASS' if ok else 'FAIL'}] {name} ({val})")
         go = all(ok for _, ok, _ in checks)
-        L.append(f"\n**{'GO' if go else 'NO-GO'}** for building on the {big} judge.")
-        small = next((t for t in tags if "4B" in t), None)
-        if small:
+        L.append(f"\n**{'GO' if go else 'NO-GO'}** for building on the {big} judge "
+                 f"({mode} input).")
+        if small != big:
             d = models[small]["tiers"]["anchor"]["score"] - an["score"]
-            L.append(f"\n4B vs 9B on anchors: {d:+.3f}. " +
-                     ("Within 0.05 — use the 4B for volume labeling."
+            L.append(f"\n{small} vs {big} on anchors: {d:+.3f}. " +
+                     ("Within 0.05 — the smaller model is enough for volume labeling."
                       if abs(d) <= 0.05 else
-                      "More than 0.05 apart — the 9B stays the labeler."))
+                      "More than 0.05 apart — keep the larger model as the labeler."))
 
     # --- a few rationales, for the report (never consumed by anything)
+    img_tags = [t for t in tags if modality(t) == "image"]
+    big = (img_tags or tags)[-1] if tags else None
     if big:
         L.append(f"\n## Example anchor judgments ({big})\n")
         shown = collections.Counter()

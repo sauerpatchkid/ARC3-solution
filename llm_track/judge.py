@@ -30,10 +30,18 @@ PROMPT v2: REASON FIRST, LETTER LAST
   letter before writing any reasoning. v2 asks for the reason first. Prompt
   changes are only ever tested on hand-made pairs, never on pairs.jsonl.
 
-The model sees the move texts and nothing else — no game id, no level, no
+IMAGE MODE (--images, prompt v3)
+  The text probe was NO-GO and a post-hoc check put the missing signal in the
+  board state. With --images (images.json from probe_images.py) each move is
+  also shown as a picture of the whole board before/after, with the same pairs,
+  the same question and the same criteria. Labels go to labels_<model>_img.jsonl.
+  The text prompt is unchanged, so text results stay valid.
+
+The model sees the move texts (and pictures) and nothing else — no game id, no level, no
 hint of which side is the anchor.
 """
 import argparse
+import base64
 import json
 import os
 import re
@@ -71,14 +79,27 @@ MAX_TOKENS = 192
 MAX_NUM_SEQS = 64
 MAX_BATCHED_TOKENS = 4096
 
-USER = """Move A: {a}
-Move B: {b}
-
-Which move is more likely to be progress toward completing the level? Answer \
+QUESTION = """Which move is more likely to be progress toward completing the level? Answer \
 TIE only if they are equally promising.
 Reply with exactly two lines:
 line 1: a reason of at most 20 words, comparing the two moves
 line 2: your answer, exactly one of: A, B, TIE"""
+
+# Text mode, prompt v2 - byte-identical to what the text probe ran.
+USER = "Move A: {a}\nMove B: {b}\n\n" + QUESTION
+
+# Image mode, prompt v3: the same system prompt and question, plus one picture
+# per move and a legend tying the text's colour numbers to what is drawn.
+IMAGE_PROMPT_VERSION = 3
+IMAGE_NOTE = """
+
+Each move also comes with a picture of the whole board: BEFORE the move on the \
+left, AFTER it on the right. A cyan box marks where the board changed (cyan is \
+not a game colour). Colour numbers in the text are drawn as: 0 white, 1 light \
+gray, 2 gray, 3 dark gray, 4 darker gray, 5 black, 6 pink, 7 light pink, 8 red, \
+9 blue, 10 light blue, 11 yellow, 12 orange, 13 dark red, 14 green, 15 purple. \
+The goal is not stated; it may be implied by other things on the board, such as \
+patterns elsewhere on screen, so look at the whole board, not only the change."""
 
 # The whole last line must be the answer (optionally "line 2:" / "Answer:").
 _ANSWER = re.compile(r"^\W*(?:LINE\s*2\s*:)?\W*(?:ANSWER\s*:)?\W*(?:MOVE\s+)?"
@@ -99,8 +120,11 @@ def parse(text):
 
 
 def reason(text):
+    """First line, minus an echoed "line 1:" label (the 2B tends to repeat it)."""
     lines = _lines(text)
-    return lines[0] if len(lines) > 1 else ""
+    if len(lines) < 2:
+        return ""
+    return re.sub(r"^\W*line\s*1\s*:\s*", "", lines[0], flags=re.IGNORECASE)
 
 
 def combine(ans_xy, ans_yx):
@@ -117,9 +141,12 @@ def main():
     ap.add_argument("--pairs", default="results/llm/probeA/pairs.jsonl")
     ap.add_argument("--out", default=None, help="default: next to --pairs")
     ap.add_argument("--limit", type=int, default=None, help="first N pairs only (smoke test)")
-    ap.add_argument("--max-model-len", type=int, default=2048,
-                    help="REQUIRED to be small: the models default to 262K context, "
-                         "and vLLM would try to reserve KV cache for all of it")
+    ap.add_argument("--images", default=None,
+                    help="images.json from probe_images.py -> image mode (prompt v3)")
+    ap.add_argument("--max-model-len", type=int, default=None,
+                    help="default 2048 (text) / 4096 (images). REQUIRED to be small: "
+                         "the models default to 262K context, and vLLM would try to "
+                         "reserve KV cache for all of it")
     # 0.90, NOT derived from nvidia-smi: on WSL it reports Windows-side memory
     # CUDA can still use (it showed 6.6 GB "used" while torch measured 30.2 of
     # 31.8 GiB free). vLLM checks against its own measurement and errors
@@ -147,24 +174,47 @@ def main():
         pairs = [json.loads(ln) for ln in f]
     if a.limit:
         pairs = pairs[:a.limit]
-    tag = a.model.split("/")[-1]
+    tag = a.model.split("/")[-1] + ("_img" if a.images else "")
+    max_len = a.max_model_len or (4096 if a.images else 2048)
     out_dir = a.out or os.path.dirname(a.pairs)
     os.makedirs(out_dir, exist_ok=True)
     suffix = f"_limit{a.limit}" if a.limit else ""
     out_path = os.path.join(out_dir, f"labels_{tag}{suffix}.jsonl")
 
+    img_map, img_cache = None, {}
+    if a.images:
+        with open(a.images) as f:
+            img_map = json.load(f)
+        img_dir = os.path.dirname(a.images)
+
+    def data_url(name):
+        if name not in img_cache:
+            with open(os.path.join(img_dir, name), "rb") as f:
+                img_cache[name] = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        return img_cache[name]
+
     # Two conversations per pair: x shown as A, then y shown as A.
+    system = SYSTEM + (IMAGE_NOTE if a.images else "")
     convs = []
     for p in pairs:
-        for first, second in ((p["x"], p["y"]), (p["y"], p["x"])):
-            convs.append([{"role": "system", "content": SYSTEM},
-                          {"role": "user", "content": USER.format(
-                              a=first["text"], b=second["text"])}])
+        for s1, s2 in (("x", "y"), ("y", "x")):
+            first, second = p[s1], p[s2]
+            if a.images:
+                im = img_map[p["pair_id"]]
+                user = [{"type": "text", "text": "Move A:"},
+                        {"type": "image_url", "image_url": {"url": data_url(im[s1])}},
+                        {"type": "text", "text": first["text"] + "\n\nMove B:"},
+                        {"type": "image_url", "image_url": {"url": data_url(im[s2])}},
+                        {"type": "text", "text": second["text"] + "\n\n" + QUESTION}]
+            else:
+                user = USER.format(a=first["text"], b=second["text"])
+            convs.append([{"role": "system", "content": system},
+                          {"role": "user", "content": user}])
 
     t_load = time.time()
     llm = LLM(model=a.model, dtype="bfloat16", seed=0,
-              max_model_len=a.max_model_len, gpu_memory_utilization=a.gpu_mem,
-              limit_mm_per_prompt={"image": 0, "video": 0},
+              max_model_len=max_len, gpu_memory_utilization=a.gpu_mem,
+              limit_mm_per_prompt={"image": 2 if a.images else 0, "video": 0},
               max_num_seqs=MAX_NUM_SEQS, max_num_batched_tokens=MAX_BATCHED_TOKENS)
     load_sec = time.time() - t_load
     sp = SamplingParams(temperature=0.0, max_tokens=MAX_TOKENS)
@@ -199,9 +249,12 @@ def main():
         "sampling": {"temperature": 0.0, "max_tokens": MAX_TOKENS},
         "gpu_mem": a.gpu_mem, "max_num_seqs": MAX_NUM_SEQS,
         "max_num_batched_tokens": MAX_BATCHED_TOKENS,
-        "prompt_version": PROMPT_VERSION,
-        "thinking": False, "max_model_len": a.max_model_len,
-        "system_prompt": SYSTEM, "user_template": USER,
+        "mode": "image" if a.images else "text",
+        "prompt_version": IMAGE_PROMPT_VERSION if a.images else PROMPT_VERSION,
+        "thinking": False, "max_model_len": max_len,
+        "system_prompt": system,
+        "user_template": ("Move A:<image>{a}\n\nMove B:<image>{b}\n\n" + QUESTION
+                          if a.images else USER),
         "created": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
     with open(out_path.replace(".jsonl", ".meta.json"), "w") as f:
