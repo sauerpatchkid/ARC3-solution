@@ -13,8 +13,16 @@ nothing outside it depends on it (see *Isolation* below).
 Week 1 (serializer, corpus scan) is done. **Probe A, the go/no-go gate for the
 design's backbone (P1: "the LLM judges which move looks like progress"), came
 back NO-GO with both text and pictures.** The code is kept as a record of what
-was tried. The next direction (LLM-written heuristics, P2, or rule-finding, P3)
-has not been started.
+was tried.
+
+**Now: LLM-written heuristics (design P2), Phase 1.** Qwen-9B writes small
+scoring functions; the recorded games decide which ones survive. Step 1 is done:
+`heur_api.py` (what a heuristic may use), `heur_sandbox.py` (static checks, then
+a child process with a timeout) and `heur_referee.py` (70 recorded completions,
+27,466 moves labelled toward/away from the solved board). `make -C llm_track
+referee-selftest` checks it: the oracle control scores 1.000 on ft09, the sandbox
+rejects all 8 kinds of bad code, and the best one-line rule on ft09 level 2 (the
+held-out test level) scores 0.536. Next: the Qwen writing loop and Probe C.
 
 ## Commands
 
@@ -29,6 +37,14 @@ make -C llm_track probe-img   # Probe A, pictures: Qwen 2B + 4B -> report.md
 ```
 
 Everything writes under `results/llm/` (gitignored).
+
+## Data harvest
+
+Only ft09 has enough recorded level completions (31 level-1, 25 level-2) to
+grade a heuristic; every other game has one or two. `make -C llm_track harvest`
+runs plain, unmodified Goose overnight with new seeds (100+) on the games that
+complete levels, with per-game budgets sized from when their levels were
+reached (`harvest.sh` lists them). `harvest-plan` previews it without running.
 
 ## Isolation: why the baselines cannot be affected
 

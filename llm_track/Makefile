@@ -11,7 +11,7 @@ GAMES      ?= ft09,ar25,cd82,lp85,ls20
 JUDGES     ?= Qwen/Qwen3.5-4B Qwen/Qwen3.5-9B
 IMG_JUDGES ?= Qwen/Qwen3.5-2B Qwen/Qwen3.5-4B
 
-.PHONY: help env scan probe probe-img
+.PHONY: help env scan probe probe-img harvest harvest-plan referee referee-selftest
 
 help:
 	@echo "LLM track (Matt's; isolated from the baselines - see llm_track/README.md)"
@@ -19,6 +19,10 @@ help:
 	@echo "  make -C llm_track scan        corpus stats: masks, dedupe, buckets, anchors"
 	@echo "  make -C llm_track probe       Probe A, text: Qwen 4B + 9B -> $(OUT)/report.md"
 	@echo "  make -C llm_track probe-img   Probe A, pictures: Qwen 2B + 4B -> same report"
+	@echo "  make -C llm_track harvest-plan  preview the overnight data run (runs nothing)"
+	@echo "  make -C llm_track harvest     overnight: more level completions (~9 h, backgrounded)"
+	@echo "  make -C llm_track referee     build the heuristics referee dataset from the recordings"
+	@echo "  make -C llm_track referee-selftest  check the referee and the sandbox"
 
 # The serving venv. Separate from .venv on purpose (vLLM pins its own torch),
 # and built on a uv-MANAGED Python because vLLM's Triton backend compiles a C
@@ -56,3 +60,24 @@ probe-img:
 	    --pairs $(OUT)/pairs.jsonl --images $(OUT)/images/images.json || exit 1; \
 	done
 	cd $(ROOT) && uv run python -m llm_track.probe_report --dir $(OUT)
+
+# Overnight data collection: plain Goose with new seeds on the games that have
+# too few level completions for the heuristics' referee (see harvest.sh).
+harvest-plan:
+	cd $(ROOT) && DRY_RUN=1 bash llm_track/harvest.sh
+
+harvest:
+	mkdir -p $(ROOT)/$(RESULTS)/llm
+	cd $(ROOT) && nohup bash llm_track/harvest.sh > $(RESULTS)/llm/harvest.log 2>&1 &
+	@echo "harvest started in the background; watch: tail -f $(RESULTS)/llm/harvest.log"
+	@echo "to stop it: pkill -f llm_track/harvest.sh; pkill -f run_local.py"
+
+# Heuristics (plan Phase 1). The referee labels every move in every recorded
+# level completion as toward / away from the solved board; heuristics are graded
+# against it. Rebuild after a harvest to include the new completions.
+REFEREE ?= $(RESULTS)/llm/referee/v1
+referee:
+	cd $(ROOT) && uv run python -m llm_track.heur_referee build --dir $(REFEREE)
+
+referee-selftest:
+	cd $(ROOT) && uv run python -m llm_track.heur_referee selftest --dir $(REFEREE)
