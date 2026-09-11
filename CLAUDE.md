@@ -109,9 +109,8 @@ L1; tu93 reached 0 in that sweep.
 Matt's LLM work lives entirely in `llm_track/`: code, commands
 (`make -C llm_track help`), serving venv (`.venv-llm`), design docs
 (`llm_track/docs/`), and status and results (`llm_track/README.md`). Nothing in
-the baseline imports or runs it. Status (2026-09-10): Probe A came back NO-GO
-for the pairwise LLM judge with both text and pictures; the code is kept as a
-record of what was tried.
+the baseline imports or runs it. LLM-track status and results are recorded only
+in `llm_track/README.md`, so LLM work never needs to change this shared file.
 
 ## Key conventions
 
