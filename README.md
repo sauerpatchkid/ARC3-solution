@@ -225,17 +225,22 @@ Every sweep calls `analyze_curves.py` for levels-vs-budget on a log axis, AULC p
 
 ## 8. LLM track — and why it cannot affect your baselines
 
-`llm_track/` is Matt's LLM work (see `295B-llm-track-plan.md`). It is isolated by
-three mechanisms, so you can ignore it entirely:
+`llm_track/` is Matt's LLM work. Everything for it (code, commands in
+`llm_track/Makefile`, design docs, and status and results in
+`llm_track/README.md`) lives in that one folder, so you can ignore it entirely.
+It is isolated by four mechanisms:
 
 1. **No baseline file imports it.** `make check` fails if one ever does. The
    dependency arrow points one way: `llm_track/` reads the corpus and the
    canonicalizer, and nothing reads `llm_track/`.
-2. **Separate virtualenv.** Serving runs in `.venv-llm` (vLLM + its own torch
+2. **No baseline tooling runs it.** Its make targets live in `llm_track/Makefile`,
+   and `make check` also fails if the root Makefile or `sweep.sh` ever invokes
+   LLM code or its environment.
+3. **Separate virtualenv.** Serving runs in `.venv-llm` (vLLM + its own torch
    2.13/cu130) so it can never bump the baseline's pinned torch 2.8.0.
-3. **Offline only.** Nothing in the package is on any agent's per-action path.
+4. **Offline only.** Nothing in the package is on any agent's per-action path.
 
-When LLM features do reach the agent, they will be behind `EVAL_LLM_*` flags that
+If LLM features ever reach an agent, they will be behind `EVAL_LLM_*` flags that
 default to off and are recorded in `run_config.json`, so a baseline run is a
 baseline run.
 

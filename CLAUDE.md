@@ -23,8 +23,9 @@ things are load-bearing and must not be casually changed:
   suite instead. `make bench SUITE=x AGENT=y` runs one; `make compare` puts two
   side by side and refuses mismatched suites.
 - `check_repo.py` (`make check`) — enforces that no baseline file imports
-  `llm_track`, that every registered agent imports and has the runner's surface,
-  and that every third-party import is declared. Run it before pushing.
+  `llm_track` and no baseline tooling runs it, that every registered agent
+  imports and has the runner's surface, and that every third-party import is
+  declared. Run it before pushing.
 
 ## Running
 
@@ -103,49 +104,14 @@ L1; tu93 reached 0 in that sweep.
 - **tu93** — 1 of 4 seeds reached L2 at ~126k actions in the earlier sweep but 0
   in the 25-game sweep. Weak; use only for long-horizon runs paired with ft09.
 
-## LLM track (`llm_track/`)
+## LLM track (`llm_track/`) — isolated from the baseline
 
-Design docs: `295B-llm-track-plan.md` (option survey), `295B-llm-design-detailed.md`
-(component design), `llm_track/SCHEMA.md` (the C1 record contract).
-
-Offline/periodic only — nothing in this package is on the agent's per-action
-path yet. Serving runs in a SEPARATE venv (`.venv-llm`, vLLM 0.28 + its own
-torch 2.13/cu130) so it can never bump the agent's torch 2.8.0 and invalidate
-baseline comparability.
-
-```bash
-make llm-scan            # corpus stats: masks, dedupe, buckets, anchors
-make llm-env             # (re)build .venv-llm — see the Python.h note below
-make llm-probe           # Probe A: pairs -> Qwen 4B + 9B judge -> report.md
-```
-
-Probe A is the go/no-go gate for the whole track: do small Qwen models prefer
-the moves just before a level-up over earlier moves from the same level? Its
-go/no-go criteria are fixed in `llm_track/probe_report.py`'s docstring and were
-written before any model ran — do not edit them after seeing results.
-
-`.venv-llm` must be built on a uv-MANAGED Python, not the system one: vLLM's
-Triton backend compiles a C helper at startup and needs `Python.h`, and the
-system Python 3.12 has no headers (no python3.12-dev, no passwordless sudo).
-`make llm-env` does this; pins are in `llm_track/requirements-llm.txt`.
-
-**Probe A result (2026-09-10): NO-GO for the text-only judge.** Qwen3.5-4B and
--9B both score 1.00 on the sanity tiers (the format is understood) but chance
-on anchors (4B 0.497, 9B 0.502, CI 0.485-0.518; the size rule scores 0.509). On
-~91% of anchor pairs they answer by position in both orders, i.e. they have no
-preference. A post-hoc check (`llm_track/probe_hindsight.py`, not
-pre-registered) shows the label is not the problem: moves 2-5 before a level-up
-bring the board toward its pre-solve state 75% of the time vs 48% for controls,
-and a rule that sees the board scores 0.64 on the same pairs. The progress
-signal is in the board state, which a single-move text description omits — so
-the evidence points at the design's planned fallback (show Qwen the board),
-not at abandoning the label. `results/` is gitignored; rerun `make llm-probe`
-to regenerate `report.md` and `hindsight.md`.
-
-Measured on the Stage-1 set: the serializer costs 0.11-0.29 ms/transition
-(2-6% of the agent's 5.2 ms model budget), and signature dedupe ranges from
-38x (ls20) to 1.1x (ar25) — so the pair sampler must cap per bucket per game,
-not sample proportionally.
+Matt's LLM work lives entirely in `llm_track/`: code, commands
+(`make -C llm_track help`), serving venv (`.venv-llm`), design docs
+(`llm_track/docs/`), and status and results (`llm_track/README.md`). Nothing in
+the baseline imports or runs it. Status (2026-09-10): Probe A came back NO-GO
+for the pairwise LLM judge with both text and pictures; the code is kept as a
+record of what was tried.
 
 ## Key conventions
 
@@ -163,8 +129,9 @@ not sample proportionally.
 - ALL agents live in `custom_agents/` and are registered in its `__init__.py`
   (`random_agent.py` moved there from the repo root).
 - `llm_track/` must stay a leaf: it may import from the baseline, nothing in the
-  baseline may import it. `make check` enforces this. Serving lives in a
-  separate venv (`.venv-llm`) so it cannot bump the baseline's pinned torch.
+  baseline may import it, and baseline tooling (root Makefile, `sweep.sh`) must
+  never invoke it or `.venv-llm`. `make check` enforces both. Its commands live
+  in `llm_track/Makefile`, its docs and results in `llm_track/README.md`.
 - The `arc-agi` package (provides `arcengine`) is needed for the local engine
   but not declared in `requirements.txt` — install separately.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters

@@ -1,12 +1,12 @@
 # LLM-track serving environment (.venv-llm). NOT the baseline environment.
 #
-# Rebuild with:  make llm-env
+# Rebuild with:  make -C llm_track env
 #
 # Pinned to the versions verified on the RTX 5090 (2026-09). vllm pins its own
 # torch (2.13/cu130), which is exactly why this lives in a separate venv: it
 # must never touch the baseline's torch 2.8.0.
 #
-# The venv MUST be created on a uv-managed Python (make llm-env does this).
+# The venv MUST be created on a uv-managed Python (make -C llm_track env does this).
 # vLLM's Triton backend compiles a small C helper at startup and needs
 # Python.h; the system Python 3.12 here has no headers (no python3.12-dev).
 accelerate==1.14.0

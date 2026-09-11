@@ -17,8 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics tensorboard clean action baseline \
-        llm-scan llm-env llm-probe
+        sweep long random curves metrics tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -35,10 +34,7 @@ help:
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make tensorboard"
 	@echo ""
-	@echo "LLM track (Matt only; does not affect baselines):"
-	@echo "  make llm-scan                       corpus stats for the LLM track"
-	@echo "  make llm-env                        (re)build .venv-llm (vLLM serving env)"
-	@echo "  make llm-probe                      Probe A: can Qwen judge moves? -> report"
+	@echo "LLM track: Matt's, isolated in llm_track/ with its own Makefile - see llm_track/README.md"
 	@echo ""
 	@echo "Add your own agent: see custom_agents/__init__.py and TEMPLATE.py"
 
@@ -139,34 +135,3 @@ baseline:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
 	RECORDINGS_DIR=$(RESULTS)/recordings \
 	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
-
-# --- LLM track (see 295B-llm-track-plan.md, llm_track/SCHEMA.md) -------------
-# Corpus statistics: decorative masks, signature dedupe, stratification
-# buckets and hindsight-anchor census. Read-only over results/runs.
-LLM_GAMES ?= ft09,ar25,cd82,lp85,ls20
-llm-scan:
-	uv run python -m llm_track.scan --games=$(LLM_GAMES) \
-	--limit=50 --sample=30000 --out $(RESULTS)/llm/scan_stage1.json
-
-# The serving venv. Separate from .venv on purpose (vLLM pins its own torch),
-# and built on a uv-MANAGED Python because vLLM's Triton backend compiles a C
-# helper at startup that needs Python.h, which the system Python here lacks.
-llm-env:
-	uv python install 3.12
-	rm -rf .venv-llm
-	uv venv .venv-llm --python 3.12 --managed-python
-	VIRTUAL_ENV=.venv-llm uv pip install -r llm_track/requirements-llm.txt
-
-# Probe A (design section 7): build the frozen pair set, have Qwen3.5-4B and
-# -9B judge every pair in both orders, then score against the pre-registered
-# go/no-go criteria. Output: $(RESULTS)/llm/probeA/report.md
-LLM_JUDGES ?= Qwen/Qwen3.5-4B Qwen/Qwen3.5-9B
-llm-probe:
-	uv run python -m llm_track.probe_pairs --out $(RESULTS)/llm/probeA
-	for m in $(LLM_JUDGES); do \
-	  HF_HUB_OFFLINE=1 .venv-llm/bin/python -m llm_track.judge --model $$m \
-	    --pairs $(RESULTS)/llm/probeA/pairs.jsonl || exit 1; \
-	done
-	uv run python -m llm_track.probe_report --dir $(RESULTS)/llm/probeA
-	# post-hoc, NOT pre-registered: is the signal in the board the text omits?
-	uv run python -m llm_track.probe_hindsight --dir $(RESULTS)/llm/probeA
