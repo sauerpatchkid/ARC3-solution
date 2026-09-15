@@ -20,9 +20,9 @@ general; callers keep their `seen` sets across a refresh anyway (the plan
 accepts that lag), and the diagnostic in tools/label_diagnostic.py measures
 how far the end-of-run online mask is from the offline one.
 
-Pure numpy + xxhash; nothing here touches torch or the agent. NOT imported by
-custom_agents/action.py yet — that wiring is Plan B step 2 and sits behind
-EVAL_LABEL / EVAL_MASK_TRIED, which default to the baseline.
+Pure numpy + xxhash; nothing here touches torch. custom_agents/action.py uses
+OnlineCanonicalizer + LevelMemory only when EVAL_LABEL=novel or
+EVAL_MASK_TRIED=1; with both at their defaults the agent never constructs them.
 """
 import numpy as np
 import xxhash
@@ -99,3 +99,78 @@ class OnlineCanonicalizer:
     def stats(self):
         return {"n_trans": self.n_trans, "masked_cells": int(self.mask.sum()),
                 "n_refreshes": self.n_refreshes}
+
+
+class LevelMemory:
+    """Per-level memory for Plan B: which canonical states have been seen, and
+    which actions were already tried from each (§4.2, §4.3).
+
+        mem = LevelMemory(decay=0.1, floor=1e-4)
+        novel = mem.observe(key)          # label side: first visit to this state?
+        mult = mem.multipliers(key, n)    # sampler side: per-action multipliers, or None
+        mem.record(key, action_idx)       # after acting
+        mem.clear()                       # on level change (NOT on game over)
+
+    The tried-action mask is soft: an action tried n times from this state is
+    multiplied by decay**n, never below `floor`, so every available action
+    stays possible ("try something else first, but come back if you must").
+    `max_states` bounds the tried map; when exceeded the oldest half is
+    dropped (dict insertion order), which only matters on very long runs.
+    """
+
+    def __init__(self, decay=0.1, floor=1e-4, max_states=500_000):
+        self.decay = float(decay)
+        self.floor = float(floor)
+        self.max_states = int(max_states)
+        self.seen = set()
+        self.tried = {}
+
+    def observe(self, key):
+        """Mark `key` seen; return True if it was new for this level."""
+        novel = key not in self.seen
+        self.seen.add(key)
+        return novel
+
+    def record(self, key, action_idx):
+        counts = self.tried.get(key)
+        if counts is None:
+            if len(self.tried) >= self.max_states:
+                for k in list(self.tried)[: self.max_states // 2]:
+                    del self.tried[k]
+            counts = self.tried[key] = {}
+        counts[action_idx] = counts.get(action_idx, 0) + 1
+
+    def counts(self, key):
+        return self.tried.get(key, {})
+
+    def multipliers(self, key, n_actions):
+        """(n_actions,) float32 multipliers for the sampler, or None if
+        nothing has been tried from this state (the common case, so the
+        sampler pays nothing)."""
+        counts = self.tried.get(key)
+        if not counts:
+            return None
+        mult = np.ones(n_actions, dtype=np.float32)
+        for a, n in counts.items():
+            mult[a] = self.decay ** n
+        return mult
+
+    def apply(self, probs, key):
+        """Apply the soft mask to a (n_actions,) probability array in place-
+        style (returns a new array). Entries that are already 0 (unavailable
+        actions) stay 0; tried entries are floored at `floor`."""
+        mult = self.multipliers(key, probs.shape[0])
+        if mult is None:
+            return probs
+        out = probs * mult
+        tried_idx = np.fromiter(self.tried[key].keys(), dtype=np.int64)
+        live = probs[tried_idx] > 0
+        out[tried_idx[live]] = np.maximum(out[tried_idx[live]], self.floor)
+        return out
+
+    def clear(self):
+        self.seen.clear()
+        self.tried.clear()
+
+    def stats(self):
+        return {"seen_states": len(self.seen), "tried_states": len(self.tried)}

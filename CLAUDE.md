@@ -83,6 +83,10 @@ API path (unchanged, slower): `make action`
 | `EVAL_SAVE_VIS` | off | expensive PNG heatmaps |
 | `EVAL_RESET_ON_LEVEL` | on | reset model/optimizer/buffer at level boundary |
 | `EVAL_RESULTS_DIR` | `results` | root for ALL run output |
+| `EVAL_LABEL` | `change` | Plan B: training label, `change` (frame changed) or `novel` (new canonical state this level) |
+| `EVAL_MASK_TRIED` | off | Plan B: soft-mask actions already tried from the current canonical state |
+| `EVAL_MASK_DECAY` / `EVAL_MASK_FLOOR` | `0.1` / `1e-4` | per-try multiplier and minimum probability for the tried mask |
+| `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | `200` / `250` | transitions before the online indicator-cell mask starts, and its recompute cadence |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -136,6 +140,9 @@ and the cached Qwen models are kept for Plan A.
   enforces both.
 - The `arc-agi` package (provides `arcengine`) is needed for the local engine
   but not declared in `requirements.txt` — install separately.
+- Plan B arms: A0 = defaults, A1 = `EVAL_LABEL=novel`, A2 = `EVAL_MASK_TRIED=1`,
+  A3 = both. With both off the agent is the old baseline (verified action-for-action
+  against a pristine checkout). The mechanism lives in `custom_agents/canon.py`.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters
   (learning rate, `train_frequency`, batch size, buffer capacity, confidence
   coefficients) without explicit approval — they'd confound ablation results.

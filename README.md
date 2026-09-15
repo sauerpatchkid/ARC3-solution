@@ -156,6 +156,10 @@ Every agent imports these so the protocol cannot drift.
 | `EVAL_SAVE_VIS` | expensive PNG heatmaps | off |
 | `EVAL_RESET_ON_LEVEL` | reset model+optimizer+buffer at each level (StochasticGoose only) | on |
 | `EVAL_RESULTS_DIR` | root for all output | `results` |
+| `EVAL_LABEL` | Plan B training label: `change` (frame changed) or `novel` (new canonical state this level) (StochasticGoose only) | `change` |
+| `EVAL_MASK_TRIED` | Plan B: soft-mask actions already tried from the current canonical state (StochasticGoose only) | off |
+| `EVAL_MASK_DECAY` / `EVAL_MASK_FLOOR` | per-try multiplier / minimum probability for that mask | `0.1` / `1e-4` |
+| `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | online indicator-cell mask: warm-up transitions / recompute cadence | `200` / `250` |
 
 Always run with `PYTHONHASHSEED=0`.
 

@@ -22,6 +22,7 @@ sys.path.append(os.path.dirname(__file__))  # Add current directory to path
 from utils import setup_experiment_directory, setup_logging_for_experiment, get_environment_directory
 from eval_common import env_flag, resolve_seed, resolve_max_actions, write_run_config, TransitionLogger
 from view_utils import save_action_visualization
+from canon import OnlineCanonicalizer, LevelMemory, DEFAULT_WARMUP, DEFAULT_REFRESH
 
 """
 Action Learner - Learns to predict which actions cause frame changes for efficient exploration.
@@ -33,6 +34,8 @@ Architecture:
 
 Training:
 - Supervised learning on (state, action) -> frame_changed labels
+  (or, with EVAL_LABEL=novel, -> "reached a canonical state not seen before in
+  this level"; see docs/plans/plan-B-goose-novelty.md and canon.py)
 - Action head always trained, click head only trained when ACTION6 is selected
 - Experience buffer cleared when score increases (new level)
 
@@ -149,6 +152,27 @@ class Action(Agent):
         # boundary (default) vs. carry them forward across levels. Set
         # EVAL_RESET_ON_LEVEL=0 to DISABLE resets (the persistence arm).
         self.reset_on_level = env_flag("EVAL_RESET_ON_LEVEL", True)
+
+        # --- Plan B (docs/plans/plan-B-goose-novelty.md): memory-aware Goose ---
+        # EVAL_LABEL=novel trains on "did this action reach a canonical state
+        # not seen before in this level" instead of "did the frame change";
+        # EVAL_MASK_TRIED=1 soft-masks actions already tried from the current
+        # canonical state at sampling time. Both default to the baseline, and
+        # with both off none of this code runs, so an unflagged run is the
+        # old agent. Arms: A0 change/0, A1 novel/0, A2 change/1, A3 novel/1.
+        self.label = os.getenv("EVAL_LABEL", "change").strip().lower()
+        if self.label not in ("change", "novel"):
+            raise SystemExit(f"EVAL_LABEL must be 'change' or 'novel', got {self.label!r}")
+        self.mask_tried = env_flag("EVAL_MASK_TRIED", False)
+        self.mask_decay = float(os.getenv("EVAL_MASK_DECAY", "0.1"))
+        self.mask_floor = float(os.getenv("EVAL_MASK_FLOOR", "1e-4"))
+        self.canon_warmup = int(os.getenv("EVAL_CANON_WARMUP", DEFAULT_WARMUP))
+        self.canon_refresh = int(os.getenv("EVAL_CANON_REFRESH", DEFAULT_REFRESH))
+        self.memory_on = self.label == "novel" or self.mask_tried
+        self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh) if self.memory_on else None
+        self.memory = LevelMemory(self.mask_decay, self.mask_floor) if self.memory_on else None
+        self._label_n = 0      # experiences stored, and how many were positive,
+        self._label_pos = 0    # under whichever label is active (TensorBoard)
         self.vis_save_frequency = 100  # Save images every N steps
         self.vis_samples_per_save = 1  # Number of visualization samples to save each time
         
@@ -198,6 +222,12 @@ class Action(Agent):
             save_action_visualizations=self.save_action_visualizations,
             log_transitions=self.log_transitions,
             reset_on_level=self.reset_on_level,
+            label=self.label,
+            mask_tried=self.mask_tried,
+            mask_decay=self.mask_decay,
+            mask_floor=self.mask_floor,
+            canon_warmup=self.canon_warmup,
+            canon_refresh=self.canon_refresh,
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -215,8 +245,13 @@ class Action(Agent):
         if self.save_action_visualizations:
             self.logger.info(f"Action visualizations enabled: saving {self.vis_samples_per_save} samples every {self.vis_save_frequency} steps")
 
-    def _sample_from_combined_output(self, combined_logits: torch.Tensor, available_actions: list[int] = None) -> tuple[int, int, int, np.ndarray]:
-        """Sample from combined 5 + 64x64 action space with masking for invalid actions."""
+    def _sample_from_combined_output(self, combined_logits: torch.Tensor, available_actions: list[int] = None,
+                                     tried_key: int = None) -> tuple[int, int, int, np.ndarray]:
+        """Sample from combined 5 + 64x64 action space with masking for invalid actions.
+
+        `tried_key` is the current frame's canonical key; with EVAL_MASK_TRIED
+        on, actions already tried from that state are soft-masked (Plan B §4.3).
+        """
         # Split logits
         action_logits = combined_logits[:5]  # First 5
         coord_logits = combined_logits[5:]   # Remaining 4096
@@ -248,13 +283,24 @@ class Action(Agent):
         action_probs = torch.sigmoid(action_logits)
         coord_probs_raw = torch.sigmoid(coord_logits)
         
-        # For fair sampling: treat coordinates as one action type with total prob divided by 4096
-        coord_probs_scaled = coord_probs_raw / self.num_coordinates
-        
-        # Combine for sampling (normalize)
-        all_probs_sampling = torch.cat([action_probs, coord_probs_scaled])
-        all_probs_sampling = all_probs_sampling / all_probs_sampling.sum()
-        all_probs_sampling_np = all_probs_sampling.cpu().numpy()
+        if self.mask_tried and tried_key is not None:
+            # Plan B tried-action soft mask: on the raw sigmoid values (0-1),
+            # BEFORE the 1/4096 coordinate scaling, so the floor means the
+            # same thing for a button and for a click. Unavailable actions are
+            # already 0 here and stay 0. Separate branch so the baseline path
+            # below is untouched bit for bit.
+            raw = torch.cat([action_probs, coord_probs_raw]).cpu().numpy()
+            raw = self.memory.apply(raw, tried_key)
+            raw[5:] /= self.num_coordinates
+            all_probs_sampling_np = raw / raw.sum()
+        else:
+            # For fair sampling: treat coordinates as one action type with total prob divided by 4096
+            coord_probs_scaled = coord_probs_raw / self.num_coordinates
+            
+            # Combine for sampling (normalize)
+            all_probs_sampling = torch.cat([action_probs, coord_probs_scaled])
+            all_probs_sampling = all_probs_sampling / all_probs_sampling.sum()
+            all_probs_sampling_np = all_probs_sampling.cpu().numpy()
         
         # Sample from normalized space
         selected_idx = np.random.choice(len(all_probs_sampling_np), p=all_probs_sampling_np)
@@ -426,6 +472,12 @@ class Action(Agent):
                 self.logger.info("Persisting model, optimizer, and buffer across level boundary")
                 print("Persisting model, optimizer, and buffer across level boundary")
 
+            # Plan B: a new level is a new memory, whichever reset arm we are
+            # on (the plan clears seen/tried at level change only - NOT on
+            # GAME_OVER, where the level restarts and its states stay "seen").
+            if self.memory is not None:
+                self.memory.clear()
+
             # Always clear per-step tracking so we never log a transition that
             # spans a level boundary (that jump is not a within-level dynamic).
             self.prev_frame = None
@@ -460,12 +512,29 @@ class Action(Agent):
         # Raw uint8 color-index view of the current frame (last animation frame),
         # used for cheap change detection and for the transition corpus.
         current_frame_raw = np.array(latest_frame.frame, dtype=np.uint8)[-1]
+
+        # Plan B: canonical identity of this frame (decorative cells masked)
+        # and whether it is a first visit within this level. Skipped entirely
+        # on the baseline arm.
+        cur_key, novel = None, None
+        if self.memory_on:
+            if self.prev_frame_raw is not None:
+                self.canon.update(self.prev_frame_raw, current_frame_raw)
+            cur_key = self.canon.key(current_frame_raw)
+            novel = self.memory.observe(cur_key)
         
         # Create experience from previous action if we have previous data
         if self.prev_frame is not None:
             # Frame-changed label, computed once on raw index frames
             # (equivalent to comparing one-hot tensors, but 16x cheaper)
             frame_changed = not np.array_equal(self.prev_frame_raw, current_frame_raw)
+            # Training label: the baseline's "frame changed", or Plan B's
+            # "reached a state not seen before in this level" (novel implies
+            # changed; the difference is revisits, undo moves and tickers).
+            if self.label == "novel":
+                reward = 1.0 if novel else 0.0
+            else:
+                reward = 1.0 if frame_changed else 0.0
             
             # --- Transition corpus: log EVERY transition, before any dedup ---
             # Stores next_frame explicitly (the buffer only keeps the 0/1 label);
@@ -493,11 +562,13 @@ class Action(Agent):
                 experience = {
                     'state': self.prev_frame,            # numpy bool
                     'action_idx': self.prev_action_idx,  # unified action index
-                    'reward': 1.0 if frame_changed else 0.0,
+                    'reward': reward,
                     'hash': experience_hash,
                 }
                 self.experience_buffer.append(experience)
                 self.experience_hashes.add(experience_hash)
+                self._label_n += 1
+                self._label_pos += int(reward > 0)
                 
                 if self.log_metrics and self.action_counter % 100 == 0:
                     self.writer.add_scalar('Agent/replay_buffer_size', len(self.experience_buffer), self.action_counter)
@@ -510,7 +581,8 @@ class Action(Agent):
             combined_logits = combined_logits.squeeze(0)  # (5 + 4096,)
             
             # Sample from combined action space
-            action_idx, coords, coord_idx, all_probs = self._sample_from_combined_output(combined_logits, latest_frame.available_actions)
+            action_idx, coords, coord_idx, all_probs = self._sample_from_combined_output(
+                combined_logits, latest_frame.available_actions, tried_key=cur_key)
             
             if action_idx < 5:
                 # Selected ACTION1-ACTION5
@@ -532,6 +604,9 @@ class Action(Agent):
             self.prev_action_idx = action_idx
         else:
             self.prev_action_idx = 5 + coord_idx  # Unified action space
+        # Plan B: remember that this action was tried from this state
+        if self.memory is not None:
+            self.memory.record(cur_key, self.prev_action_idx)
         
         
         # Train model periodically
@@ -574,6 +649,12 @@ class Action(Agent):
         # Log per-action metrics (gated to every 100 actions to reduce I/O)
         if self.log_metrics and self.action_counter % 100 == 0:
             self.writer.add_scalar('Agent/total_actions', self.action_counter, self.action_counter)
+            if self.memory_on:
+                self.writer.add_scalar('Canon/masked_cells', int(self.canon.mask.sum()), self.action_counter)
+                self.writer.add_scalar('Memory/seen_states', len(self.memory.seen), self.action_counter)
+                self.writer.add_scalar('Memory/tried_states', len(self.memory.tried), self.action_counter)
+            if self._label_n:
+                self.writer.add_scalar('Label/positive_rate_stored', self._label_pos / self._label_n, self.action_counter)
             action_probs_only = all_probs[:5]
             coord_probs_only = all_probs[5:]
             if action_idx < 5:
