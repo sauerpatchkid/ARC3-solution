@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics tensorboard clean action baseline
+        sweep long random curves metrics label-diag tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -32,6 +32,7 @@ help:
 	@echo "Analysis:"
 	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
+	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
 	@echo "  make tensorboard"
 	@echo ""
 	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
@@ -119,6 +120,13 @@ curves:
 metrics:
 	uv run python compute_metrics.py $(DIR) \
 	--game=$(GAME) --seed=$(SEED) --suite $(RESULTS)/local_suite.csv
+
+# Plan B step 1 (docs/plans/plan-B-goose-novelty.md): replay every recorded
+# corpus and report the positive rate of the change label vs the novelty label.
+# Pure post-processing over results/runs; touches neither agent nor scorer.
+label-diag:
+	mkdir -p $(RESULTS)/diagnostics
+	PYTHONHASHSEED=0 uv run python tools/label_diagnostic.py --results $(RESULTS)
 
 tensorboard:
 	.venv/bin/tensorboard --logdir=$(RESULTS)/runs --port=6006
