@@ -21,8 +21,8 @@ Nothing here is ever shown to a heuristic except board, level layout, ticker and
 recent history (heur_api.HeuristicAPI). S* is stored for the self-test's oracle
 control only.
 
-    uv run python -m llm_track.heur_referee build      # -> results/llm/referee/v1/
-    uv run python -m llm_track.heur_referee selftest   # oracle, baseline, sandbox checks
+    uv run python -m legacy.llm_track.heur_referee build      # -> results/legacy_llm/referee/v1/
+    uv run python -m legacy.llm_track.heur_referee selftest   # oracle, baseline, sandbox checks
 """
 import argparse
 import collections
@@ -39,7 +39,7 @@ from .heur_api import API_DOC, HISTORY, HeuristicAPI, Move, background_of, regio
 from .probe_pairs import build_masks, segment_start
 from .serializer import serialize
 
-DEFAULT_DIR = "results/llm/referee/v2"     # v2: rebuilt after the 2026-09-10 harvest
+DEFAULT_DIR = "results/legacy_llm/referee/v2"     # v2: rebuilt after the 2026-09-10 harvest
 SAMPLES_PER_CLASS = 300     # per completion: up to 300 "toward" + 300 "away" moves
 
 

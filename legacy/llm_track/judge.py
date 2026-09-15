@@ -2,10 +2,10 @@
 
 Runs in the SEPARATE .venv-llm (vLLM + its own torch), never the baseline venv:
 
-    .venv-llm/bin/python -m llm_track.judge --model Qwen/Qwen3.5-4B
-    .venv-llm/bin/python -m llm_track.judge --model Qwen/Qwen3.5-9B
+    .venv-llm/bin/python -m legacy.llm_track.judge --model Qwen/Qwen3.5-4B
+    .venv-llm/bin/python -m legacy.llm_track.judge --model Qwen/Qwen3.5-9B
 
-Reads results/llm/probeA/pairs.jsonl (built by probe_pairs.py), asks about every
+Reads results/legacy_llm/probeA/pairs.jsonl (built by probe_pairs.py), asks about every
 pair in BOTH orders, and writes labels_<model>.jsonl plus a .meta.json recording
 the exact prompt, sampling settings and throughput.
 
@@ -141,7 +141,7 @@ def setup_vllm_env():
     nvcc, which is not installed system-wide; vLLM's PyTorch sampler does the
     same job, so it is switched off. For any other JIT, torch's wheels ship a
     pip nvcc (CUDA 13.4, which targets the 5090's sm_120) inside the venv, so
-    CUDA_HOME is pointed at it. Shared by judge.py and heur_writer.py.
+    CUDA_HOME is pointed at it. Shared by judge.py, heur_writer.py and rule_writer.py.
     """
     os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
     import sys
@@ -150,13 +150,19 @@ def setup_vllm_env():
     if "CUDA_HOME" not in os.environ and os.path.exists(os.path.join(cu, "bin", "nvcc")):
         os.environ["CUDA_HOME"] = cu
         os.environ["PATH"] = os.path.join(cu, "bin") + os.pathsep + os.environ.get("PATH", "")
+    # FlashInfer's JIT (e.g. the sm_120 FP8 GEMM an NVFP4 checkpoint needs) runs
+    # `ninja`, which pip installs into the venv's bin/. That is on PATH only when
+    # the venv is activated, and these scripts run .venv-llm/bin/python directly.
+    venv_bin = os.path.join(sys.prefix, "bin")
+    if venv_bin not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = venv_bin + os.pathsep + os.environ.get("PATH", "")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", required=True, help="HF id, e.g. Qwen/Qwen3.5-9B")
-    ap.add_argument("--pairs", default="results/llm/probeA/pairs.jsonl")
+    ap.add_argument("--pairs", default="results/legacy_llm/probeA/pairs.jsonl")
     ap.add_argument("--out", default=None, help="default: next to --pairs")
     ap.add_argument("--limit", type=int, default=None, help="first N pairs only (smoke test)")
     ap.add_argument("--images", default=None,

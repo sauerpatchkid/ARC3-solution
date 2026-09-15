@@ -67,8 +67,10 @@ DENY_NODES = (ast.Import, ast.ImportFrom, ast.Global, ast.Nonlocal,
 TOP_LEVEL_OK = (ast.FunctionDef, ast.Assign, ast.AnnAssign, ast.Expr)
 
 
-def validate(src):
-    """Static check. Returns (ok, reason)."""
+def validate(src, required=None):
+    """Static check. Returns (ok, reason). `required` maps each function the
+    code must define to its number of arguments: score(board, api) for a
+    heuristic (the default), applies/predict(board, act, api) for a rule."""
     try:
         tree = ast.parse(src)
     except SyntaxError as e:
@@ -86,21 +88,29 @@ def validate(src):
                 return False, f"attribute '{node.attr}' is not allowed"
             if node.attr in DENY_ATTRS:
                 return False, f"attribute '{node.attr}' is not allowed"
-    fn = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "score"]
-    if not fn:
-        return False, "no function named score"
-    if len(fn[0].args.args) != 2:
-        return False, "score must take exactly (board, api)"
+    for name, nargs in (required or {"score": 2}).items():
+        fn = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name]
+        if not fn:
+            return False, f"no function named {name}"
+        if len(fn[0].args.args) != nargs:
+            return False, f"{name} must take exactly {nargs} arguments"
     return True, "ok"
+
+
+def compile_functions(src, required):
+    """Validated source -> its namespace (functions and constants), executed
+    with restricted builtins and only numpy available."""
+    ok, why = validate(src, required)
+    if not ok:
+        raise ValueError(why)
+    ns = {"np": np, "__builtins__": SAFE_BUILTINS}
+    exec(compile(ast.parse(src), "<llm-code>", "exec"), ns)
+    return ns
 
 
 def compile_heuristic(src):
     """Validated source -> (score function, IDEA string)."""
-    ok, why = validate(src)
-    if not ok:
-        raise ValueError(why)
-    ns = {"np": np, "__builtins__": SAFE_BUILTINS}
-    exec(compile(ast.parse(src), "<heuristic>", "exec"), ns)
+    ns = compile_functions(src, {"score": 2})
     return ns["score"], str(ns.get("IDEA", ""))
 
 
@@ -143,25 +153,15 @@ def _worker(src, referee_dir, where, max_samples, seed, q):
         q.put({"ok": False, "stage": "runtime", "reason": f"{type(e).__name__}: {e}"})
 
 
-def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed=0,
-             return_samples=False):
-    """Validate, run in a child process, apply the gates, and grade.
-
-    Returns a dict with ok, stage ('static' | 'runtime' | 'timeout' | 'gate' |
-    'graded'), reason, and for graded code: auc, ci, n, n_events, ms_mean,
-    ms_p95, constant_frac, idea. With return_samples, also `idx` and `pct` (the
-    played move's percentile for each referee sample), which the writer uses to
-    show Qwen the moves its heuristic got most wrong.
-    """
-    ok, why = validate(src)
-    if not ok:
-        return {"ok": False, "stage": "static", "reason": why}
+def run_in_child(target, args, timeout_s):
+    """Run target(*args, q) in a spawned child and return the dict it puts on q,
+    or a 'runtime' / 'timeout' failure. Polls rather than blocks, so a worker
+    that dies without reporting (segfault, out-of-memory kill, failed spawn)
+    fails in about a second instead of after timeout_s."""
     ctx = mp.get_context("spawn")
     q = ctx.Queue()
-    p = ctx.Process(target=_worker, args=(src, referee_dir, where or {}, max_samples, seed, q))
+    p = ctx.Process(target=target, args=(*args, q))
     p.start()
-    # Poll rather than block: a worker that dies without reporting (segfault,
-    # out-of-memory kill, a failed spawn) must fail fast, not after timeout_s.
     res, deadline = None, time.time() + timeout_s
     while res is None and time.time() < deadline:
         try:
@@ -179,6 +179,23 @@ def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed
     p.join(10)
     if p.is_alive():
         p.terminate()
+    return res
+
+
+def evaluate(src, referee_dir, where=None, timeout_s=300, max_samples=None, seed=0,
+             return_samples=False):
+    """Validate, run in a child process, apply the gates, and grade.
+
+    Returns a dict with ok, stage ('static' | 'runtime' | 'timeout' | 'gate' |
+    'graded'), reason, and for graded code: auc, ci, n, n_events, ms_mean,
+    ms_p95, constant_frac, idea. With return_samples, also `idx` and `pct` (the
+    played move's percentile for each referee sample), which the writer uses to
+    show Qwen the moves its heuristic got most wrong.
+    """
+    ok, why = validate(src)
+    if not ok:
+        return {"ok": False, "stage": "static", "reason": why}
+    res = run_in_child(_worker, (src, referee_dir, where or {}, max_samples, seed), timeout_s)
     if not res["ok"]:
         return res
 

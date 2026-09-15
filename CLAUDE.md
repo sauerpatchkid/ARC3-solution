@@ -23,7 +23,7 @@ things are load-bearing and must not be casually changed:
   suite instead. `make bench SUITE=x AGENT=y` runs one; `make compare` puts two
   side by side and refuses mismatched suites.
 - `check_repo.py` (`make check`) — enforces that no baseline file imports
-  `llm_track` and no baseline tooling runs it, that every registered agent
+  `legacy/` and no baseline tooling runs it, that every registered agent
   imports and has the runner's surface, and that every third-party import is
   declared. Run it before pushing.
 
@@ -104,13 +104,16 @@ L1; tu93 reached 0 in that sweep.
 - **tu93** — 1 of 4 seeds reached L2 at ~126k actions in the earlier sweep but 0
   in the 25-game sweep. Weak; use only for long-horizon runs paired with ft09.
 
-## LLM track (`llm_track/`) — isolated from the baseline
+## Semester 2 (from 2026-09-15): plans in `docs/plans/`, LLM track archived
 
-Matt's LLM work lives entirely in `llm_track/`: code, commands
-(`make -C llm_track help`), serving venv (`.venv-llm`), design docs
-(`llm_track/docs/`), and status and results (`llm_track/README.md`). Nothing in
-the baseline imports or runs it. LLM-track status and results are recorded only
-in `llm_track/README.md`, so LLM work never needs to change this shared file.
+The semester-1 LLM work (Probe A, Probe C, rule-finding Stage A; all NO-GO or
+unfinished) is frozen in `legacy/llm_track/` with its own README, Makefile
+(`make -C legacy/llm_track help`) and outputs (`results/legacy_llm/`). Nothing
+new goes there. Semester-2 work follows `docs/plans/plan-B-goose-novelty.md`
+(no LLM: novelty label + tried-action mask in the agent) and
+`docs/plans/plan-A-llm-advisor.md` (stall-triggered LLM advisor), both built on
+the baseline as it stood at commit 9ccfef6. The vLLM serving env (`.venv-llm`)
+and the cached Qwen models are kept for Plan A.
 
 ## Key conventions
 
@@ -127,10 +130,10 @@ in `llm_track/README.md`, so LLM work never needs to change this shared file.
   `sweep_all25.sh` (now `make bench SUITE=full`) are archived in `legacy/`.
 - ALL agents live in `custom_agents/` and are registered in its `__init__.py`
   (`random_agent.py` moved there from the repo root).
-- `llm_track/` must stay a leaf: it may import from the baseline, nothing in the
-  baseline may import it, and baseline tooling (root Makefile, `sweep.sh`) must
-  never invoke it or `.venv-llm`. `make check` enforces both. Its commands live
-  in `llm_track/Makefile`, its docs and results in `llm_track/README.md`.
+- `legacy/` (including `legacy/llm_track/`) must stay a leaf: it may import
+  from the baseline, nothing in the baseline may import it, and baseline tooling
+  (root Makefile, `sweep.sh`) must never invoke it or `.venv-llm`. `make check`
+  enforces both.
 - The `arc-agi` package (provides `arcengine`) is needed for the local engine
   but not declared in `requirements.txt` — install separately.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters
@@ -182,7 +185,7 @@ every published baseline number, so it is an advisor decision, not a side effect
   an EMPTY decorative mask. Masking ft09's row 63 cuts unique canonical states
   from 81,916 to 59,999 over 96,411 actions — a **1.4x inflation** in
   `unique_states_per_action`, and `novelty_late_per_1k` is inflated the same way.
-  `llm_track/tickers.py` has a fixed version (same thresholds, unit changed from
+  `legacy/llm_track/tickers.py` has a fixed version (same thresholds, unit changed from
   transition to connected component); it reproduces the old detector exactly on
   the two games where the old one fired (cd82 60 cells, tu93 60 cells).
 - **Runs are not reproducible past the first training step.** Seeding is

@@ -167,7 +167,7 @@ def scan_corpus(corpus_dir, limit=None, **kw):
     shards give an EMPTY mask (tick_frac 0.20, under the 0.30 guard). Compute
     the mask once per corpus over a fixed, recorded window and store it with the
     labels; never recompute it ad hoc, or g is trained against one mask and
-    applied under another. See llm_track/SCHEMA.md.
+    applied under another. See legacy/llm_track/SCHEMA.md.
     """
     from .corpus import iter_shards
     scan = TickerScan(**kw)

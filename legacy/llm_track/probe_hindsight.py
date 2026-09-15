@@ -27,7 +27,7 @@ deliberately.
 Kept separate from probe_report.py on purpose: that report contains only what
 was fixed before any model ran. This was written after seeing the result.
 
-    uv run python -m llm_track.probe_hindsight   # -> results/llm/probeA/hindsight.md
+    uv run python -m legacy.llm_track.probe_hindsight   # -> results/legacy_llm/probeA/hindsight.md
 """
 import argparse
 import collections
@@ -55,7 +55,7 @@ def direction(values):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dir", default="results/llm/probeA")
+    ap.add_argument("--dir", default="results/legacy_llm/probeA")
     ap.add_argument("--results", default="results")
     a = ap.parse_args()
 

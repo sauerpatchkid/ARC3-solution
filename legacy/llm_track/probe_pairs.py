@@ -2,7 +2,7 @@
 
 Probe A asks one question before anything is built on top of it: can a small
 LLM tell progress from noise on ARC-AGI-3 transitions? This script builds the
-test set, llm_track/judge.py asks the models, and llm_track/probe_report.py
+test set, legacy/llm_track/judge.py asks the models, and legacy/llm_track/probe_report.py
 scores them. The pair set is built ONCE and shared by every model, so the 4B
 and the 9B are graded on identical questions.
 
@@ -51,7 +51,7 @@ THE UNIT OF EVIDENCE IS THE LEVEL-UP EVENT, NOT THE PAIR
   per-game breakdown before reading the pooled number.
 
 Usage:
-    uv run python -m llm_track.probe_pairs          # -> results/llm/probeA/
+    uv run python -m legacy.llm_track.probe_pairs          # -> results/legacy_llm/probeA/
 """
 import argparse
 import collections
@@ -230,7 +230,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--results", default="results")
-    ap.add_argument("--out", default="results/llm/probeA")
+    ap.add_argument("--out", default="results/legacy_llm/probeA")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
 

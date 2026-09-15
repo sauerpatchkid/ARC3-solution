@@ -22,7 +22,7 @@ VERIFIED AGAINST THE PAIRS: every rendered transition is re-diffed and its
 changed-cell counts compared with the pair record; any mismatch aborts, so an
 image can never silently show a different move from the one the text describes.
 
-    uv run python -m llm_track.probe_images    # -> results/llm/probeA/images/
+    uv run python -m legacy.llm_track.probe_images    # -> results/legacy_llm/probeA/images/
 """
 import argparse
 import hashlib
@@ -96,7 +96,7 @@ def corpus_of(pair, side, results, largest):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--pairs", default="results/llm/probeA/pairs.jsonl")
+    ap.add_argument("--pairs", default="results/legacy_llm/probeA/pairs.jsonl")
     ap.add_argument("--results", default="results")
     ap.add_argument("--out", default=None, help="default: <pairs dir>/images")
     a = ap.parse_args()

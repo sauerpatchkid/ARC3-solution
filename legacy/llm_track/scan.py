@@ -7,15 +7,15 @@ labeling budget can be set:
      Labeling cost scales with signature count, not transition count, because
      the Judge only ever sees unique signatures (with multiplicity).
   2. What does the decorative mask look like per game, and does it differ from
-     what the shared canonicalizer found? (It does — see llm_track/tickers.py.)
+     what the shared canonicalizer found? (It does — see legacy/llm_track/tickers.py.)
   3. How many hindsight anchors exist — level-completing transitions and the
      transitions leading up to them — and are they logged at all? Corpora
      recorded before the level-boundary logging fix are missing the completing
      transition itself.
 
 Usage:
-    uv run python -m llm_track.scan --games ft09,ar25,cd82,lp85,ls20
-    uv run python -m llm_track.scan --all --limit 40 --out results/llm/scan.json
+    uv run python -m legacy.llm_track.scan --games ft09,ar25,cd82,lp85,ls20
+    uv run python -m legacy.llm_track.scan --all --limit 40 --out results/legacy_llm/scan.json
 
 Read-only: it never writes into a run directory.
 """

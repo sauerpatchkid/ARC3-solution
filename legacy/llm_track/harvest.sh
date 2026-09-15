@@ -9,7 +9,7 @@
 #
 # These are ordinary baseline runs through sweep.sh: same agent, same contract,
 # same scoring. Only the choice of games, seeds and budgets is LLM-specific,
-# which is why this file lives in llm_track/.
+# which is why this file lives in legacy/llm_track/.
 #
 # Budgets are ~2-3x the action count at which each game's last level was
 # completed in existing runs. Those estimates rest on 1-2 runs each, so yields
@@ -18,10 +18,10 @@
 # skipped (its first level took 126k-400k actions). Click games go first:
 # they are the heuristics' strongest case, so the most valuable data.
 #
-#   make -C llm_track harvest-plan     # print the plan and ETA only
-#   make -C llm_track harvest          # run it in the background
+#   make -C legacy/llm_track harvest-plan     # print the plan and ETA only
+#   make -C legacy/llm_track harvest          # run it in the background
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Priority order. Each row: cap | seeds | games
 PLAN=(

@@ -134,8 +134,8 @@ ARC3-solution/
 ├── inspect_corpus.py          # corpus schema validator (contract authority)
 ├── sweep.sh                   # benchmark + ad-hoc sweep orchestrator
 ├── utils.py                   # experiment-directory + logging helpers
-├── llm_track/                 # Matt's LLM work - ISOLATED, see section 8
-├── legacy/                    # archived API-path scripts + results
+├── docs/plans/                # semester-2 plans (A: LLM advisor, B: memory-aware Goose)
+├── legacy/                    # ARCHIVED: API-path scripts + semester-1 LLM track, see section 8
 ├── results/                   # ALL run output (gitignored)
 │   ├── runs/<ts>/<game>/      #   per-run trees (corpus, tensorboard, metrics)
 │   ├── sweeps/                #   manifests, summaries, logs
@@ -223,26 +223,27 @@ intend to compare against a teammate must go through `make bench`.
 Every sweep calls `analyze_curves.py` for levels-vs-budget on a log axis, AULC per
 (game, arm), and actions-to-level-k with censoring counts.
 
-## 8. LLM track — and why it cannot affect your baselines
+## 8. `legacy/` — archived, and why it cannot affect your baselines
 
-`llm_track/` is Matt's LLM work. Everything for it (code, commands in
-`llm_track/Makefile`, design docs, and status and results in
-`llm_track/README.md`) lives in that one folder, so you can ignore it entirely.
-It is isolated by four mechanisms:
+`legacy/` holds code kept for the record only: the old API-path scripts, and
+in `legacy/llm_track/` the semester-1 LLM track (Probe A, Probe C, rule-finding;
+all NO-GO or unfinished, summarised at the top of `legacy/llm_track/README.md`).
+Semester-2 work starts from the baseline, following `docs/plans/`. You can
+ignore `legacy/` entirely. It is isolated by four mechanisms:
 
 1. **No baseline file imports it.** `make check` fails if one ever does. The
-   dependency arrow points one way: `llm_track/` reads the corpus and the
-   canonicalizer, and nothing reads `llm_track/`.
-2. **No baseline tooling runs it.** Its make targets live in `llm_track/Makefile`,
-   and `make check` also fails if the root Makefile or `sweep.sh` ever invokes
-   LLM code or its environment.
-3. **Separate virtualenv.** Serving runs in `.venv-llm` (vLLM + its own torch
-   2.13/cu130) so it can never bump the baseline's pinned torch 2.8.0.
-4. **Offline only.** Nothing in the package is on any agent's per-action path.
+   dependency arrow points one way: archived code may read the corpus and the
+   canonicalizer, and nothing reads archived code.
+2. **No baseline tooling runs it.** Its make targets live in
+   `legacy/llm_track/Makefile`, and `make check` also fails if the root Makefile
+   or `sweep.sh` ever invokes it or its environment.
+3. **Separate virtualenv.** LLM serving runs in `.venv-llm` (vLLM + its own
+   torch) so it can never bump the baseline's pinned torch 2.8.0.
+4. **Offline only.** Nothing in the archive is on any agent's per-action path.
 
-If LLM features ever reach an agent, they will be behind `EVAL_LLM_*` flags that
-default to off and are recorded in `run_config.json`, so a baseline run is a
-baseline run.
+If LLM features ever reach an agent (Plan A), they will be behind `EVAL_*` flags
+that default to off and are recorded in `run_config.json`, so a baseline run is
+a baseline run.
 
 ## 9. Baseline comparison notes
 

@@ -2,8 +2,8 @@
 
 Runs in the SEPARATE .venv-llm (vLLM):
 
-    make -C llm_track probe-c
-    HF_HUB_OFFLINE=1 .venv-llm/bin/python -m llm_track.heur_writer --game ft09
+    make -C legacy/llm_track probe-c
+    HF_HUB_OFFLINE=1 .venv-llm/bin/python -m legacy.llm_track.heur_writer --game ft09
 
 THE LOOP (heuristics plan, step 2)
   Round 1: Qwen sees LEVEL 1 of the game - the start board, the board one move
@@ -235,11 +235,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--game", default="ft09")
-    ap.add_argument("--referee", default="results/llm/referee/v2")
+    ap.add_argument("--referee", default="results/legacy_llm/referee/v2")
     ap.add_argument("--model", default="Qwen/Qwen3.5-9B")
     ap.add_argument("--rounds", type=int, default=ROUNDS)
     ap.add_argument("--n", type=int, default=PER_ROUND, help="candidates per round")
-    ap.add_argument("--out", default="results/llm/probeC")
+    ap.add_argument("--out", default="results/legacy_llm/probeC")
     ap.add_argument("--no-test", action="store_true",
                     help="smoke run: never touch level 2")
     ap.add_argument("--thinking", action="store_true",

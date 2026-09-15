@@ -1,6 +1,6 @@
 """probe_report.py — score Probe A: can a small LLM judge ARC-AGI-3 moves?
 
-    uv run python -m llm_track.probe_report     # reads results/llm/probeA/
+    uv run python -m legacy.llm_track.probe_report     # reads results/legacy_llm/probeA/
 
 Reads pairs.jsonl and every labels_*.jsonl beside it, and writes report.md.
 
@@ -115,7 +115,7 @@ def model_rank(tag):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dir", default="results/llm/probeA")
+    ap.add_argument("--dir", default="results/legacy_llm/probeA")
     a = ap.parse_args()
     rng = np.random.default_rng(0)
 

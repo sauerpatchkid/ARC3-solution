@@ -34,7 +34,7 @@ help:
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make tensorboard"
 	@echo ""
-	@echo "LLM track: Matt's, isolated in llm_track/ with its own Makefile - see llm_track/README.md"
+	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
 	@echo ""
 	@echo "Add your own agent: see custom_agents/__init__.py and TEMPLATE.py"
 
@@ -45,7 +45,7 @@ install:
 	@echo ""
 	@echo "Now run: make check"
 
-# Health check: llm_track isolation, agent registry, dependencies, suites.
+# Health check: legacy/ isolation, agent registry, dependencies, suites.
 check:
 	uv run python check_repo.py
 

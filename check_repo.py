@@ -5,13 +5,13 @@
 
 Four checks, each of which has caught a real problem in this repo:
 
-  1. ISOLATION — no baseline module may import llm_track.
-     This is the guarantee that Matt's LLM work cannot change anyone else's
-     numbers. llm_track/ may import from the baseline (it reads the corpus and
-     the canonicalizer); the arrow must never point the other way, because then
-     an LLM-side edit would silently alter a teammate's baseline run. Baseline
-     tooling (the root Makefile, sweep.sh) must not invoke it or .venv-llm
-     either: its commands live in llm_track/Makefile.
+  1. ISOLATION — no baseline module may import anything under legacy/
+     (including the archived semester-1 LLM track, legacy/llm_track). Archived
+     code may import from the baseline (it reads the corpus and the
+     canonicalizer); the arrow must never point the other way, because then an
+     edit to archived code would silently alter a teammate's baseline run.
+     Baseline tooling (the root Makefile, sweep.sh) must not invoke it or
+     .venv-llm either: its commands live in legacy/llm_track/Makefile.
 
   2. REGISTRY — every agent in custom_agents/__init__.py actually imports and
      has the surface run_local.py drives. A typo in REGISTRY otherwise only
@@ -33,8 +33,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Everything a teammate's baseline run touches. llm_track/ is deliberately NOT
-# here: it is the isolated side.
+# Everything a teammate's baseline run touches. legacy/ is deliberately NOT
+# here: it is the archived, isolated side.
 BASELINE_FILES = [
     "run_local.py", "run_curriculum.py", "compute_metrics.py",
     "analyze_curves.py", "metrics_common.py", "eval_common.py",
@@ -52,11 +52,15 @@ PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action",
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
-         "analyze_curves", "inspect_corpus", "llm_track"}
+         "analyze_curves", "inspect_corpus", "legacy", "llm_track"}
+# Archived packages no baseline file may import.
+ARCHIVED = {"legacy", "llm_track"}
 
 # Baseline tooling that must never run LLM code or use its environment.
 BASELINE_TOOLING = ["Makefile", "sweep.sh"]
-LLM_INVOCATION = re.compile(r"-m\s+llm_track|\.venv-llm|-C\s+llm_track")
+LLM_INVOCATION = re.compile(
+    r"-m\s+(legacy\.)?llm_track|\.venv-llm|-C\s+(legacy/)?llm_track"
+    r"|(bash|sh|source)\s+(legacy/)?llm_track/")
 
 failures = []
 notes = []
@@ -83,22 +87,22 @@ def imported_modules(path):
 
 
 def check_isolation():
-    print("\n1. Isolation: baseline code and tooling never touch llm_track")
+    print("\n1. Isolation: baseline code and tooling never touch legacy/ (incl. llm_track)")
     bad = []
     for rel in BASELINE_FILES:
         p = os.path.join(ROOT, rel)
         if not os.path.exists(p):
             notes.append(f"{rel} not found (skipped)")
             continue
-        if "llm_track" in imported_modules(p):
+        if imported_modules(p) & ARCHIVED:
             bad.append(rel)
-    check("baseline does not depend on llm_track", not bad,
+    check("baseline does not depend on legacy/ or llm_track", not bad,
           f"offenders: {', '.join(bad)}" if bad else
           f"{len(BASELINE_FILES)} files clean")
     bad_tool = [rel for rel in BASELINE_TOOLING
                 if os.path.exists(os.path.join(ROOT, rel))
                 and LLM_INVOCATION.search(open(os.path.join(ROOT, rel)).read())]
-    check("baseline tooling does not run llm_track or .venv-llm", not bad_tool,
+    check("baseline tooling does not run legacy/llm_track or .venv-llm", not bad_tool,
           f"offenders: {', '.join(bad_tool)}" if bad_tool else
           f"{', '.join(BASELINE_TOOLING)} clean")
 
