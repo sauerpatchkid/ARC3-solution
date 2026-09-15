@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics label-diag tensorboard clean action baseline
+        sweep long random curves metrics label-diag planb-dev planb-status tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -33,6 +33,8 @@ help:
 	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
+	@echo "  make planb-dev [DRY_RUN=1]              Plan B step 3: dev sweep, arms A0-A3, detached"
+	@echo "  make planb-status                       progress of the detached Plan B sweep"
 	@echo "  make tensorboard"
 	@echo ""
 	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
@@ -127,6 +129,33 @@ metrics:
 label-diag:
 	mkdir -p $(RESULTS)/diagnostics
 	PYTHONHASHSEED=0 uv run python tools/label_diagnostic.py --results $(RESULTS)
+
+# Plan B step 3 (docs/plans/plan-B-goose-novelty.md §7.3), the SMALL first
+# pass: 6 dev games x 3 seeds x 100k actions x 4 arms = 72 runs, ~15 h.
+# Override PB_GAMES / PB_SEEDS / PB_CAP / PB_ARMS on the command line.
+# Started with setsid so it survives this terminal or the Claude window
+# closing (not `wsl --shutdown` or the machine sleeping). DRY_RUN=1 prints
+# the plan and ETA without running anything.
+PB_GAMES ?= ls20 dc22 g50t tu93 ft09 lp85
+PB_SEEDS ?= 0 1 2
+PB_CAP   ?= 100000
+PB_ARMS  ?= A0 A1 A2 A3
+PB_LOG   := $(RESULTS)/sweeps/planb_dev.log
+planb-dev:
+	mkdir -p $(RESULTS)/sweeps
+ifeq ($(DRY_RUN),1)
+	DRY_RUN=1 ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) bash sweep.sh
+else
+	@pgrep -f "bash sweep.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
+	ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) \
+	  setsid nohup bash sweep.sh > $(PB_LOG) 2>&1 < /dev/null &
+	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
+endif
+
+planb-status:
+	@pgrep -f "bash sweep.sh" >/dev/null && echo "RUNNING" || echo "not running"
+	@[ -f $(PB_LOG) ] && grep -cE "^>>> game=" $(PB_LOG) | sed 's/^/runs started: /' || true
+	@[ -f $(PB_LOG) ] && grep -E "^>>> game=|Score changed|run_local\] done|^!!|Sweep complete|^Done" $(PB_LOG) | tail -8 || true
 
 tensorboard:
 	.venv/bin/tensorboard --logdir=$(RESULTS)/runs --port=6006

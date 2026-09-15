@@ -56,6 +56,13 @@ Ad-hoc sweep — your own games/seeds, NOT comparable between people
 make sweep
 ```
 
+Plan B dev sweep (arms A0-A3 on the 6 dev games; detached, survives the window):
+```bash
+make planb-dev DRY_RUN=1     # plan + ETA only
+make planb-dev               # 6 games x 3 seeds x 100k x 4 arms, ~15 h
+make planb-status
+```
+
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 
 ```bash

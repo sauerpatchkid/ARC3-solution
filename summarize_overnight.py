@@ -18,6 +18,12 @@ import statistics as st
 from collections import defaultdict
 
 
+
+def arm_name(arm):
+    """Manifest arm column: 'on'/'off' are the reset arms; anything else
+    (Plan B's A0-A3) is already a name."""
+    return f"reset_{arm}" if arm in ("on", "off") else str(arm)
+
 def load_manifest(path):
     rows = []
     with open(path) as f:
@@ -100,7 +106,7 @@ def main():
         levels = [r["m"]["levels_completed"] for r in grp]
         a2l_all = [actions_to_levels(r["m"].get("levelup_events", [])) for r in grp]
 
-        emit(f"## {game}  |  arm=reset_{arm}  |  seeds={seeds}")
+        emit(f"## {game}  |  arm={arm_name(arm)}  |  seeds={seeds}")
         emit(f"- levels completed per seed: {levels}  "
              f"(median {med(levels)}, max {max(levels) if levels else 0})")
         for L in range(1, max_level + 1):
@@ -119,7 +125,7 @@ def main():
         emit(f"- redundancy~{red}  entropy_delta~{ent}  act/s~{aps}")
         emit("")
 
-        row = {"game": game, "arm": f"reset_{arm}", "n_seeds": len(grp),
+        row = {"game": game, "arm": arm_name(arm), "n_seeds": len(grp),
                "levels_median": med(levels),
                "levels_max": max(levels) if levels else 0,
                "unique_states_mean": uniq, "discovery_auc_mean": auc,

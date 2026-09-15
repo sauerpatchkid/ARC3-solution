@@ -61,6 +61,12 @@ from collections import defaultdict
 T_MIN_DEFAULT = 100.0
 
 
+
+def arm_name(arm):
+    """Manifest arm column: 'on'/'off' are the reset arms; anything else
+    (Plan B's A0-A3) is already a name."""
+    return f"reset_{arm}" if arm in ("on", "off") else str(arm)
+
 def load_manifest(path):
     """sweep.sh manifest: run_dir <TAB> game <TAB> seed <TAB> arm."""
     rows = []
@@ -188,7 +194,7 @@ def plot_curves(groups, t_min, path):
         curves = np.array([[level_at(m.get("levelup_events") or [], t)
                             for t in grid] for _, m in runs], dtype=float)
         med = np.median(curves, axis=0)
-        label = f"{game} (reset {arm}, n={len(runs)})"
+        label = f"{game} ({arm_name(arm)}, n={len(runs)})"
         line, = ax.plot(grid, med, label=label, linewidth=2)
         if len(runs) > 1:
             ax.fill_between(grid, curves.min(axis=0), curves.max(axis=0),
@@ -257,7 +263,7 @@ def main():
 
     for (game, arm), runs in sorted(groups.items()):
         g = summarize_group(runs, a.t_min)
-        lines.append(f"## {game}  |  arm=reset_{arm}  |  {g['n_seeds']} seed(s)")
+        lines.append(f"## {game}  |  arm={arm_name(arm)}  |  {g['n_seeds']} seed(s)")
         lines.append(f"- budget window: T_min={g['t_min']:g}  T_max={g['t_max']:g} "
                      f"(smallest run in group; budgets={g['budgets']})")
         lines.append(f"- **AULC = {g['aulc_median']}** levels "

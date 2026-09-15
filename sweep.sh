@@ -21,6 +21,12 @@
 #          persist-only, else reset-on.
 #   SEEDS  space-separated seeds.
 #   CAP    per-game action cap.
+#   ARMS   Plan B arms (docs/plans/plan-B-goose-novelty.md), space-separated
+#          from A0 A1 A2 A3. When set, every game x seed is run once per arm
+#          with the matching EVAL_LABEL / EVAL_MASK_TRIED, the ':both/:off'
+#          reset suffixes are ignored, and the manifest's arm column holds the
+#          arm name. Unset = the reset arms, exactly as before.
+#            A0 change/0 (baseline)   A1 novel/0   A2 change/1   A3 novel/1
 #
 # Presets (copy-paste):
 #   # diverse baseline (was sweep_night1.sh):
@@ -42,6 +48,7 @@ set -u
 # Leave BENCH unset for an ad-hoc exploratory sweep with your own GAMES/SEEDS.
 BENCH="${BENCH:-}"
 AGENT="${AGENT:-goose}"          # any name in custom_agents/__init__.py REGISTRY
+ARMS="${ARMS:-}"                 # Plan B arms, e.g. "A0 A1 A2 A3"; empty = reset arms
 RESULTS="${EVAL_RESULTS_DIR:-results}"
 SUITE_CSV="${SUITE_CSV:-$RESULTS/local_suite.csv}"
 
@@ -70,6 +77,7 @@ else
   echo " Ad-hoc sweep (not comparable across people - use BENCH= for that)"
 fi
 echo " Agent: $AGENT"
+[ -n "$ARMS" ] && echo " Plan B arms: $ARMS   (A0 change/0, A1 novel/0, A2 change/1, A3 novel/1)"
 echo " Games: $GAMES"
 echo " Seeds: $SEEDS   Cap: $CAP"
 echo " Manifest: $MANIFEST    Metrics CSV: $SUITE_CSV"
@@ -78,7 +86,8 @@ echo "=================================================================="
 # Count the runs and estimate the cost before committing hours to it.
 n_runs=0
 for _s in $SEEDS; do for _t in $GAMES; do
-  case "${_t#*:}" in both) n_runs=$((n_runs+2));; *) n_runs=$((n_runs+1));; esac
+  if [ -n "$ARMS" ]; then n_runs=$((n_runs + $(echo $ARMS | wc -w)))
+  else case "${_t#*:}" in both) n_runs=$((n_runs+2));; *) n_runs=$((n_runs+1));; esac; fi
 done; done
 total_actions=$((n_runs * CAP))
 echo " Runs: $n_runs   Total actions: $total_actions"
@@ -117,9 +126,42 @@ run_one () {
   printf '%s\t%s\t%s\t%s\n' "$rundir" "$game" "$seed" "$arm" >> "$MANIFEST"
 }
 
+# Plan B arm -> flags. Each arm is its own process, so the flags cannot leak.
+run_planb () {
+  local game="$1" seed="$2" arm="$3" lbl mask label out corpus rundir
+  case "$arm" in
+    A0) lbl=change; mask=0 ;;
+    A1) lbl=novel;  mask=0 ;;
+    A2) lbl=change; mask=1 ;;
+    A3) lbl=novel;  mask=1 ;;
+    *) echo "!! unknown Plan B arm '$arm' (use A0 A1 A2 A3)"; return 1 ;;
+  esac
+  label="${AGENT}_${arm}"
+  echo ""
+  echo ">>> game=$game seed=$seed arm=$arm (EVAL_LABEL=$lbl EVAL_MASK_TRIED=$mask)   started $(date +%H:%M:%S)"
+  out=$(EVAL_LABEL="$lbl" EVAL_MASK_TRIED="$mask" EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
+        uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
+  echo "$out" | grep -E 'Score changed|\[run_local\]' || true
+  corpus=$(echo "$out" | sed -n 's/^\[run_local\] transitions: //p' | tail -1)
+  if [ -z "$corpus" ]; then
+    echo "!! could not locate run dir for game=$game seed=$seed arm=$arm - skipping metrics"
+    echo "$out" | tail -20
+    return 1
+  fi
+  rundir=$(dirname "$corpus")
+  uv run python compute_metrics.py "$rundir/transitions" \
+      --game "$game" --agent "$label" --seed "$seed" --suite "$SUITE_CSV"
+  printf '%s\t%s\t%s\t%s\n' "$rundir" "$game" "$seed" "$arm" >> "$MANIFEST"
+}
+
 for s in $SEEDS; do
   for tok in $GAMES; do
     game="${tok%%:*}"
+    if [ -n "$ARMS" ]; then
+      # Arms innermost, so a partial sweep is still paired per (game, seed).
+      for arm in $ARMS; do run_planb "$game" "$s" "$arm"; done
+      continue
+    fi
     arm="on"
     [ "$tok" != "$game" ] && arm="${tok#*:}"   # suffix after ':' if present
     case "$arm" in
