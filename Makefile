@@ -146,14 +146,14 @@ planb-dev:
 ifeq ($(DRY_RUN),1)
 	DRY_RUN=1 ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) bash sweep.sh
 else
-	@pgrep -f "bash sweep.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
+	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
 	ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) \
 	  setsid nohup bash sweep.sh > $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
 endif
 
 planb-status:
-	@pgrep -f "bash sweep.sh" >/dev/null && echo "RUNNING" || echo "not running"
+	@pgrep -f "^bash sweep\.sh" >/dev/null && echo "RUNNING" || echo "not running"
 	@[ -f $(PB_LOG) ] && grep -cE "^>>> game=" $(PB_LOG) | sed 's/^/runs started: /' || true
 	@[ -f $(PB_LOG) ] && grep -E "^>>> game=|Score changed|run_local\] done|^!!|Sweep complete|^Done" $(PB_LOG) | tail -8 || true
 
