@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics label-diag planb-dev planb-status tensorboard clean action baseline
+        sweep long random curves metrics label-diag planb-dev planb-status planb-stop tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -35,6 +35,7 @@ help:
 	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
 	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0-A3, detached"
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
+	@echo "  make planb-stop                         stop it now (loses only the run in progress; resume with RESUME=)"
 	@echo "  make tensorboard"
 	@echo ""
 	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
@@ -152,6 +153,16 @@ else
 	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
 endif
+
+# Stop the detached sweep. Every finished run is already in the manifest and
+# local_suite.csv, so only the run in progress (<= ~12 min) is lost; resume
+# with `make planb-dev RESUME=<manifest>` and it is redone.
+planb-stop:
+	@pgrep -f "^bash sweep\.sh" >/dev/null || { echo "not running"; exit 0; }
+	-pkill -f "^bash sweep\.sh"
+	-pkill -f "run_local.py"
+	-pkill -f "compute_metrics.py"
+	@sleep 2; echo "stopped. resume with: make planb-dev RESUME=$$(ls -t $(RESULTS)/sweeps/sweep_*.manifest | head -1)"
 
 planb-status:
 	@pgrep -f "^bash sweep\.sh" >/dev/null && echo "RUNNING" || echo "not running"
