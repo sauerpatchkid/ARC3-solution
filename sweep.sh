@@ -21,6 +21,9 @@
 #          persist-only, else reset-on.
 #   SEEDS  space-separated seeds.
 #   CAP    per-game action cap.
+#   RESUME path of an existing manifest: (game, seed, arm) triples already in it
+#          are skipped and new runs are appended to it, so a sweep killed by a
+#          sleep/reboot picks up where it stopped (same GAMES/SEEDS/CAP/ARMS).
 #   ARMS   Plan B arms (docs/plans/plan-B-goose-novelty.md), space-separated
 #          from A0 A1 A2 A3. When set, every game x seed is run once per arm
 #          with the matching EVAL_LABEL / EVAL_MASK_TRIED, the ':both/:off'
@@ -64,11 +67,26 @@ else
 fi
 # ---------------------------------------------------------------------------
 
-STAMP="$(date +%Y%m%d_%H%M%S)"
 SWEEPDIR="$RESULTS/sweeps"
 mkdir -p "$SWEEPDIR"
-MANIFEST="$SWEEPDIR/${TAG}_${STAMP}.manifest"
-: > "$MANIFEST"
+RESUME="${RESUME:-}"
+if [ -n "$RESUME" ]; then
+  [ -f "$RESUME" ] || { echo "RESUME manifest not found: $RESUME"; exit 1; }
+  MANIFEST="$RESUME"
+  base="$(basename "$RESUME" .manifest)"      # <TAG>_<STAMP>
+  STAMP="${base##*_}"; STAMP="${base%_*}"; STAMP="${STAMP##*_}_${base##*_}"
+  TAG="${base%_${STAMP}}"
+  echo " RESUMING $MANIFEST ($(wc -l < "$MANIFEST") runs already done)"
+else
+  STAMP="$(date +%Y%m%d_%H%M%S)"
+  MANIFEST="$SWEEPDIR/${TAG}_${STAMP}.manifest"
+  : > "$MANIFEST"
+fi
+
+# Already in the manifest? (game, seed, arm) - used by RESUME.
+already_done () {
+  [ -n "$RESUME" ] && awk -F'\t' -v g="$1" -v s="$2" -v a="$3" '$2==g && $3==s && $4==a {f=1} END{exit !f}' "$MANIFEST"
+}
 
 echo "=================================================================="
 if [ -n "$BENCH" ]; then
@@ -100,6 +118,7 @@ fi
 
 run_one () {
   local game="$1" seed="$2" arm="$3" label out expdir rundir
+  already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=reset_$arm already in manifest, skipping"; return 0; }
   echo ""
   echo ">>> game=$game seed=$seed arm=reset_$arm   started $(date +%H:%M:%S)"
   if [ "$arm" = "off" ]; then
@@ -129,6 +148,7 @@ run_one () {
 # Plan B arm -> flags. Each arm is its own process, so the flags cannot leak.
 run_planb () {
   local game="$1" seed="$2" arm="$3" lbl mask label out corpus rundir
+  already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=$arm already in manifest, skipping"; return 0; }
   case "$arm" in
     A0) lbl=change; mask=0 ;;
     A1) lbl=novel;  mask=0 ;;

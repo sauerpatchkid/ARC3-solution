@@ -155,16 +155,20 @@ class LevelMemory:
             mult[a] = self.decay ** n
         return mult
 
-    def apply(self, probs, key):
-        """Apply the soft mask to a (n_actions,) probability array in place-
-        style (returns a new array). Entries that are already 0 (unavailable
-        actions) stay 0; tried entries are floored at `floor`."""
+    def apply(self, probs, key, available=None):
+        """Apply the soft mask to a (n_actions,) probability array (returns a
+        new array). Tried entries are floored at `floor` so they stay
+        possible; unavailable actions stay at 0. `available` is a bool array
+        saying which actions the game allows right now; without it, "has a
+        nonzero probability" is used as the proxy - which fails when the
+        network's sigmoid has underflowed to exactly 0 (seen on tu93 under
+        the novelty label), so callers that know availability should pass it."""
         mult = self.multipliers(key, probs.shape[0])
         if mult is None:
             return probs
         out = probs * mult
         tried_idx = np.fromiter(self.tried[key].keys(), dtype=np.int64)
-        live = probs[tried_idx] > 0
+        live = available[tried_idx] if available is not None else probs[tried_idx] > 0
         out[tried_idx[live]] = np.maximum(out[tried_idx[live]], self.floor)
         return out
 

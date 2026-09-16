@@ -33,7 +33,7 @@ help:
 	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
-	@echo "  make planb-dev [DRY_RUN=1]              Plan B step 3: dev sweep, arms A0-A3, detached"
+	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0-A3, detached"
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
 	@echo "  make tensorboard"
 	@echo ""
@@ -135,7 +135,8 @@ label-diag:
 # Override PB_GAMES / PB_SEEDS / PB_CAP / PB_ARMS on the command line.
 # Started with setsid so it survives this terminal or the Claude window
 # closing (not `wsl --shutdown` or the machine sleeping). DRY_RUN=1 prints
-# the plan and ETA without running anything.
+# the plan and ETA without running anything. After a sleep/reboot, resume
+# with RESUME=<its manifest>: finished (game, seed, arm) runs are skipped.
 PB_GAMES ?= ls20 dc22 g50t tu93 ft09 lp85
 PB_SEEDS ?= 0 1 2
 PB_CAP   ?= 100000
@@ -147,8 +148,8 @@ ifeq ($(DRY_RUN),1)
 	DRY_RUN=1 ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) bash sweep.sh
 else
 	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
-	ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) \
-	  setsid nohup bash sweep.sh > $(PB_LOG) 2>&1 < /dev/null &
+	RESUME="$(RESUME)" ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) \
+	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
 endif
 

@@ -173,6 +173,7 @@ class Action(Agent):
         self.memory = LevelMemory(self.mask_decay, self.mask_floor) if self.memory_on else None
         self._label_n = 0      # experiences stored, and how many were positive,
         self._label_pos = 0    # under whichever label is active (TensorBoard)
+        self._degenerate_samples = 0   # times the sampler had to fall back to uniform
         self.vis_save_frequency = 100  # Save images every N steps
         self.vis_samples_per_save = 1  # Number of visualization samples to save each time
         
@@ -257,6 +258,7 @@ class Action(Agent):
         coord_logits = combined_logits[5:]   # Remaining 4096
         
         # Apply masking based on available_actions if provided
+        action6_available = True   # no list given => everything is allowed
         if available_actions is not None and len(available_actions) > 0:
             # Create mask for action logits (ACTION1-ACTION5 = indices 0-4)
             action_mask = torch.full_like(action_logits, float('-inf'))
@@ -287,10 +289,12 @@ class Action(Agent):
             # Plan B tried-action soft mask: on the raw sigmoid values (0-1),
             # BEFORE the 1/4096 coordinate scaling, so the floor means the
             # same thing for a button and for a click. Unavailable actions are
-            # already 0 here and stay 0. Separate branch so the baseline path
-            # below is untouched bit for bit.
+            # already 0 here and stay 0; the floor is keyed on availability,
+            # not on "probability > 0", because the sigmoid can underflow to
+            # exactly 0 late in an exhausted level. Separate branch so the
+            # baseline path below is untouched bit for bit.
             raw = torch.cat([action_probs, coord_probs_raw]).cpu().numpy()
-            raw = self.memory.apply(raw, tried_key)
+            raw = self.memory.apply(raw, tried_key, available=self._available_vector(action_logits, action6_available))
             raw[5:] /= self.num_coordinates
             all_probs_sampling_np = raw / raw.sum()
         else:
@@ -302,6 +306,23 @@ class Action(Agent):
             all_probs_sampling = all_probs_sampling / all_probs_sampling.sum()
             all_probs_sampling_np = all_probs_sampling.cpu().numpy()
         
+        # Degenerate-distribution guard. If every available action's sigmoid
+        # underflowed to 0 (all logits < ~-104, which the novelty label can
+        # produce once a level is exhausted: every label is 0 and BCE keeps
+        # pushing), the normalisation above is 0/0 = NaN and np.random.choice
+        # raises (tu93 seed 0 arm A3 died this way at action ~67k). Fall back
+        # to uniform over the available actions - which is exactly what "the
+        # network believes nothing is novel" should mean. Never fires on a
+        # healthy run, so it changes nothing where it does not fire.
+        if not np.isfinite(all_probs_sampling_np).all() or all_probs_sampling_np.sum() <= 0:
+            avail = self._available_vector(action_logits, action6_available)
+            all_probs_sampling_np = avail.astype(np.float64) / max(avail.sum(), 1)
+            self._degenerate_samples += 1
+            if self._degenerate_samples in (1, 10, 100, 1000) or self._degenerate_samples % 10000 == 0:
+                self.logger.warning(f"degenerate action distribution (all-zero/NaN) at action "
+                                    f"{self.action_counter}; sampled uniformly "
+                                    f"(count={self._degenerate_samples})")
+
         # Sample from normalized space
         selected_idx = np.random.choice(len(all_probs_sampling_np), p=all_probs_sampling_np)
         
@@ -319,6 +340,15 @@ class Action(Agent):
             y_idx = coord_idx // self.grid_size
             x_idx = coord_idx % self.grid_size
             return 5, (y_idx, x_idx), coord_idx, all_probs_viz_np
+
+    def _available_vector(self, action_logits: torch.Tensor, action6_available: bool) -> np.ndarray:
+        """(5 + 4096,) bool: which unified actions the game allows right now
+        (discrete actions are -inf-masked when unavailable; all coordinates
+        share ACTION6's availability)."""
+        avail = np.empty(5 + self.num_coordinates, dtype=bool)
+        avail[:5] = torch.isfinite(action_logits).cpu().numpy()
+        avail[5:] = action6_available
+        return avail
 
     def _frame_to_tensor(self, frame_data: FrameData) -> torch.Tensor:
         """Convert frame data to tensor format for the model."""
@@ -655,6 +685,7 @@ class Action(Agent):
                 self.writer.add_scalar('Memory/tried_states', len(self.memory.tried), self.action_counter)
             if self._label_n:
                 self.writer.add_scalar('Label/positive_rate_stored', self._label_pos / self._label_n, self.action_counter)
+            self.writer.add_scalar('Agent/degenerate_samples', self._degenerate_samples, self.action_counter)
             action_probs_only = all_probs[:5]
             coord_probs_only = all_probs[5:]
             if action_idx < 5:
