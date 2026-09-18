@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics label-diag planb-dev planb-status planb-stop tensorboard clean action baseline
+        sweep long random curves metrics label-diag planb-dev planb-confirm planb-pause planb-status planb-stop tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -35,6 +35,8 @@ help:
 	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
 	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0-A3, detached"
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
+	@echo "  make planb-confirm [DRY_RUN=1] [RESUME=m] Plan B step 4: Confirm tier, A0 vs A1, all 25 games x 3 seeds, detached"
+	@echo "  make planb-pause                        pause after the current run finishes (loses nothing; resume with RESUME=)"
 	@echo "  make planb-stop                         stop it now (loses only the run in progress; resume with RESUME=)"
 	@echo "  make tensorboard"
 	@echo ""
@@ -153,6 +155,32 @@ else
 	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
 endif
+
+# Plan B step 4 (plan §7.4), the Confirm tier: the dev-sweep pick (A1, the
+# novelty label) against the baseline on every public game x 3 seeds x 100k.
+# 25 games x 3 seeds x 2 arms = 150 runs, ~30 h. Same log, status, pause,
+# stop and RESUME as planb-dev.
+PC_GAMES ?= $(shell uv run python -c "import benchmark; print(' '.join(benchmark.ALL_GAMES))")
+PC_SEEDS ?= 0 1 2
+PC_CAP   ?= 100000
+PC_ARMS  ?= A0 A1
+planb-confirm:
+	mkdir -p $(RESULTS)/sweeps
+ifeq ($(DRY_RUN),1)
+	DRY_RUN=1 ARMS="$(PC_ARMS)" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) bash sweep.sh
+else
+	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
+	RESUME="$(RESUME)" ARMS="$(PC_ARMS)" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) \
+	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
+	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
+endif
+
+# Graceful pause: the sweep checks for this file between runs, finishes the
+# run in progress (<= ~12 min), records it, and exits. Nothing is lost.
+planb-pause:
+	@pgrep -f "^bash sweep\.sh" >/dev/null || { echo "not running"; exit 0; }
+	touch $(RESULTS)/sweeps/STOP
+	@echo "pause requested; the current run will finish first (watch: make planb-status)"
 
 # Stop the detached sweep. Every finished run is already in the manifest and
 # local_suite.csv, so only the run in progress (<= ~12 min) is lost; resume

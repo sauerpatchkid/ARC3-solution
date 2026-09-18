@@ -83,6 +83,20 @@ else
   : > "$MANIFEST"
 fi
 
+# Graceful pause: `touch $SWEEPDIR/STOP` (make planb-pause). Checked between
+# runs, so the run in progress finishes and is recorded; nothing is lost.
+# Resume with RESUME=<manifest>.
+STOP_FILE="$SWEEPDIR/STOP"
+rm -f "$STOP_FILE"
+check_stop () {
+  [ -f "$STOP_FILE" ] || return 0
+  rm -f "$STOP_FILE"
+  echo ""
+  echo "=== STOP requested - pausing after the last finished run ($(date +%H:%M:%S))"
+  echo "=== resume with: RESUME=$MANIFEST (make planb-dev RESUME=... / make planb-confirm RESUME=...)"
+  exit 0
+}
+
 # Already in the manifest? (game, seed, arm) - used by RESUME.
 already_done () {
   [ -n "$RESUME" ] && awk -F'\t' -v g="$1" -v s="$2" -v a="$3" '$2==g && $3==s && $4==a {f=1} END{exit !f}' "$MANIFEST"
@@ -179,9 +193,10 @@ for s in $SEEDS; do
     game="${tok%%:*}"
     if [ -n "$ARMS" ]; then
       # Arms innermost, so a partial sweep is still paired per (game, seed).
-      for arm in $ARMS; do run_planb "$game" "$s" "$arm"; done
+      for arm in $ARMS; do check_stop; run_planb "$game" "$s" "$arm"; done
       continue
     fi
+    check_stop
     arm="on"
     [ "$tok" != "$game" ] && arm="${tok#*:}"   # suffix after ':' if present
     case "$arm" in
