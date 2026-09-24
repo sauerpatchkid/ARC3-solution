@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics label-diag planb-dev planb-confirm planb-pause planb-status planb-stop tensorboard clean action baseline
+        sweep long random curves metrics label-diag planb-dev planb-confirm map-dev planb-pause planb-status planb-stop tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -36,6 +36,7 @@ help:
 	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0-A3, detached"
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
 	@echo "  make planb-confirm [DRY_RUN=1] [RESUME=m] Plan B step 4: Confirm tier, A0 vs A1, all 25 games x 3 seeds, detached"
+	@echo "  make map-dev [DRY_RUN=1] [RESUME=m]      Option 1 dev test: novelty label with vs without the map, detached"
 	@echo "  make planb-pause                        pause after the current run finishes (loses nothing; resume with RESUME=)"
 	@echo "  make planb-stop                         stop it now (loses only the run in progress; resume with RESUME=)"
 	@echo "  make tensorboard"
@@ -171,6 +172,25 @@ ifeq ($(DRY_RUN),1)
 else
 	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
 	RESUME="$(RESUME)" ARMS="$(PC_ARMS)" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) \
+	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
+	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
+endif
+
+# Option 1 dev test (docs/plans/option-1-return-map.md): the adopted agent (A1,
+# novelty label) with and without the return map (A4), on the 6 Plan B dev
+# games plus two keyboard games nothing has ever solved. 8 games x 3 seeds x
+# 100k x 2 arms = 48 runs, ~10 h. Same log, status, pause, stop and RESUME.
+MD_GAMES ?= ls20 dc22 g50t tu93 ft09 lp85 re86 wa30
+MD_SEEDS ?= 0 1 2
+MD_CAP   ?= 100000
+MD_ARMS  ?= A1 A4
+map-dev:
+	mkdir -p $(RESULTS)/sweeps
+ifeq ($(DRY_RUN),1)
+	DRY_RUN=1 ARMS="$(MD_ARMS)" GAMES="$(MD_GAMES)" SEEDS="$(MD_SEEDS)" CAP=$(MD_CAP) bash sweep.sh
+else
+	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
+	RESUME="$(RESUME)" ARMS="$(MD_ARMS)" GAMES="$(MD_GAMES)" SEEDS="$(MD_SEEDS)" CAP=$(MD_CAP) \
 	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
 endif

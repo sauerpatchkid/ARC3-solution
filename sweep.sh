@@ -30,6 +30,8 @@
 #          reset suffixes are ignored, and the manifest's arm column holds the
 #          arm name. Unset = the reset arms, exactly as before.
 #            A0 change/0 (baseline)   A1 novel/0   A2 change/1   A3 novel/1
+#          Option 1 (docs/plans/option-1-return-map.md):
+#            A4 novel/0 + return map (EVAL_RETURN_MAP=1)
 #
 # Presets (copy-paste):
 #   # diverse baseline (was sweep_night1.sh):
@@ -109,7 +111,7 @@ else
   echo " Ad-hoc sweep (not comparable across people - use BENCH= for that)"
 fi
 echo " Agent: $AGENT"
-[ -n "$ARMS" ] && echo " Plan B arms: $ARMS   (A0 change/0, A1 novel/0, A2 change/1, A3 novel/1)"
+[ -n "$ARMS" ] && echo " Plan B arms: $ARMS   (A0 change/0, A1 novel/0, A2 change/1, A3 novel/1, A4 novel/0+map)"
 echo " Games: $GAMES"
 echo " Seeds: $SEEDS   Cap: $CAP"
 echo " Manifest: $MANIFEST    Metrics CSV: $SUITE_CSV"
@@ -161,19 +163,20 @@ run_one () {
 
 # Plan B arm -> flags. Each arm is its own process, so the flags cannot leak.
 run_planb () {
-  local game="$1" seed="$2" arm="$3" lbl mask label out corpus rundir
+  local game="$1" seed="$2" arm="$3" lbl mask map=0 label out corpus rundir
   already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=$arm already in manifest, skipping"; return 0; }
   case "$arm" in
     A0) lbl=change; mask=0 ;;
     A1) lbl=novel;  mask=0 ;;
     A2) lbl=change; mask=1 ;;
     A3) lbl=novel;  mask=1 ;;
-    *) echo "!! unknown Plan B arm '$arm' (use A0 A1 A2 A3)"; return 1 ;;
+    A4) lbl=novel;  mask=0; map=1 ;;
+    *) echo "!! unknown Plan B arm '$arm' (use A0 A1 A2 A3 A4)"; return 1 ;;
   esac
   label="${AGENT}_${arm}"
   echo ""
-  echo ">>> game=$game seed=$seed arm=$arm (EVAL_LABEL=$lbl EVAL_MASK_TRIED=$mask)   started $(date +%H:%M:%S)"
-  out=$(EVAL_LABEL="$lbl" EVAL_MASK_TRIED="$mask" EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
+  echo ">>> game=$game seed=$seed arm=$arm (EVAL_LABEL=$lbl EVAL_MASK_TRIED=$mask EVAL_RETURN_MAP=$map)   started $(date +%H:%M:%S)"
+  out=$(EVAL_LABEL="$lbl" EVAL_MASK_TRIED="$mask" EVAL_RETURN_MAP="$map" EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
         uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
   echo "$out" | grep -E 'Score changed|\[run_local\]' || true
   corpus=$(echo "$out" | sed -n 's/^\[run_local\] transitions: //p' | tail -1)

@@ -23,6 +23,7 @@ from utils import setup_experiment_directory, setup_logging_for_experiment, get_
 from eval_common import env_flag, resolve_seed, resolve_max_actions, write_run_config, TransitionLogger
 from view_utils import save_action_visualization
 from canon import OnlineCanonicalizer, LevelMemory, DEFAULT_WARMUP, DEFAULT_REFRESH
+from return_map import ReturnMap  # [return-map] Option 1, see custom_agents/return_map.py
 
 """
 Action Learner - Learns to predict which actions cause frame changes for efficient exploration.
@@ -171,6 +172,11 @@ class Action(Agent):
         self.memory_on = self.label == "novel" or self.mask_tried
         self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh) if self.memory_on else None
         self.memory = LevelMemory(self.mask_decay, self.mask_floor) if self.memory_on else None
+        # Option 1: a map of the level and a way back (docs/plans/option-1-return-map.md).  # [return-map]
+        # Off unless EVAL_RETURN_MAP=1. It needs the screen fingerprint's mask.  # [return-map]
+        self.return_map = ReturnMap.from_env() if env_flag("EVAL_RETURN_MAP", False) else None  # [return-map]
+        if self.return_map is not None and self.canon is None:  # [return-map]
+            self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [return-map]
         self._label_n = 0      # experiences stored, and how many were positive,
         self._label_pos = 0    # under whichever label is active (TensorBoard)
         self._degenerate_samples = 0   # times the sampler had to fall back to uniform
@@ -229,6 +235,7 @@ class Action(Agent):
             mask_floor=self.mask_floor,
             canon_warmup=self.canon_warmup,
             canon_refresh=self.canon_refresh,
+            **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -240,6 +247,8 @@ class Action(Agent):
         
         # Store log directory for saving images
         self.log_dir = env_dir
+        if self.return_map is not None:  # [return-map] route counts, written at exit
+            atexit.register(self.return_map.dump, os.path.join(env_dir, 'return_map_stats.json'))  # [return-map]
         
         print(f"Action agent logging to: {tensorboard_dir}")
         self.logger.info(f"Action agent initialized for game_id: {self.game_id}")
@@ -507,6 +516,8 @@ class Action(Agent):
             # GAME_OVER, where the level restarts and its states stay "seen").
             if self.memory is not None:
                 self.memory.clear()
+            if self.return_map is not None:  # [return-map] a new level is a new map
+                self.return_map.clear()  # [return-map]
 
             # Always clear per-step tracking so we never log a transition that
             # spans a level boundary (that jump is not a within-level dynamic).
@@ -517,6 +528,8 @@ class Action(Agent):
             self.current_score = latest_frame.score
         
         if latest_frame.state in [GameState.NOT_PLAYED, GameState.GAME_OVER]:
+            if self.return_map is not None and latest_frame.state == GameState.GAME_OVER:  # [return-map]
+                self.return_map.on_game_over()  # [return-map]
             # Reset previous tracking on game reset
             self.prev_frame = None
             self.prev_action_idx = None
@@ -552,6 +565,11 @@ class Action(Agent):
                 self.canon.update(self.prev_frame_raw, current_frame_raw)
             cur_key = self.canon.key(current_frame_raw)
             novel = self.memory.observe(cur_key)
+        if self.return_map is not None:  # [return-map]
+            if not self.memory_on and self.prev_frame_raw is not None:  # [return-map] keep the mask current
+                self.canon.update(self.prev_frame_raw, current_frame_raw)  # [return-map]
+            self.return_map.observe(current_frame_raw, self.canon.mask,  # [return-map]
+                                    self.prev_frame is not None, latest_frame.available_actions)  # [return-map]
         
         # Create experience from previous action if we have previous data
         if self.prev_frame is not None:
@@ -613,6 +631,8 @@ class Action(Agent):
             # Sample from combined action space
             action_idx, coords, coord_idx, all_probs = self._sample_from_combined_output(
                 combined_logits, latest_frame.available_actions, tried_key=cur_key)
+            if self.return_map is not None:  # [return-map] a route step or an untried button
+                action_idx, coords, coord_idx = self.return_map.override(action_idx, coords, coord_idx)  # [return-map]
             
             if action_idx < 5:
                 # Selected ACTION1-ACTION5
@@ -637,6 +657,8 @@ class Action(Agent):
         # Plan B: remember that this action was tried from this state
         if self.memory is not None:
             self.memory.record(cur_key, self.prev_action_idx)
+        if self.return_map is not None:  # [return-map]
+            self.return_map.record(self.prev_action_idx)  # [return-map]
         
         
         # Train model periodically
@@ -683,6 +705,9 @@ class Action(Agent):
                 self.writer.add_scalar('Canon/masked_cells', int(self.canon.mask.sum()), self.action_counter)
                 self.writer.add_scalar('Memory/seen_states', len(self.memory.seen), self.action_counter)
                 self.writer.add_scalar('Memory/tried_states', len(self.memory.tried), self.action_counter)
+            if self.return_map is not None:  # [return-map]
+                for name, val in self.return_map.summary().items():  # [return-map]
+                    self.writer.add_scalar(f'Map/{name}', val, self.action_counter)  # [return-map]
             if self._label_n:
                 self.writer.add_scalar('Label/positive_rate_stored', self._label_pos / self._label_n, self.action_counter)
             self.writer.add_scalar('Agent/degenerate_samples', self._degenerate_samples, self.action_counter)

@@ -63,6 +63,12 @@ make planb-dev               # 6 games x 3 seeds x 100k x 4 arms, ~15 h
 make planb-status
 ```
 
+Option 1 dev test (novelty label with vs without the return map, 8 games, ~10 h):
+```bash
+make map-dev DRY_RUN=1
+make map-dev                 # pause: make planb-pause   resume: make map-dev RESUME=<manifest>
+```
+
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 
 ```bash
@@ -94,6 +100,8 @@ API path (unchanged, slower): `make action`
 | `EVAL_MASK_TRIED` | off | Plan B: soft-mask actions already tried from the current canonical state |
 | `EVAL_MASK_DECAY` / `EVAL_MASK_FLOOR` | `0.1` / `1e-4` | per-try multiplier and minimum probability for the tried mask |
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | `200` / `250` | transitions before the online indicator-cell mask starts, and its recompute cadence |
+| `EVAL_RETURN_MAP` | off | Option 1: map of the level + walk back to untried screens (`custom_agents/return_map.py`) |
+| `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | `200` / `20` / `100` / `1` | Option 1 tuning; see `docs/plans/option-1-return-map.md` |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -150,6 +158,12 @@ and the cached Qwen models are kept for Plan A.
 - Plan B arms: A0 = defaults, A1 = `EVAL_LABEL=novel`, A2 = `EVAL_MASK_TRIED=1`,
   A3 = both. With both off the agent is the old baseline (verified action-for-action
   against a pristine checkout). The mechanism lives in `custom_agents/canon.py`.
+  Plan B result: A1 (novelty label) adopted, the mask dropped
+  (`docs/plans/plan-B-confirm-sweep-results.md`).
+- Option 1, the return map: arm A4 = A1 + `EVAL_RETURN_MAP=1`. It is built to be
+  removable: every hook line in `action.py` ends in `# [return-map]`, and
+  `sed -i '/\[return-map\]/d' custom_agents/action.py` restores the previous
+  agent byte for byte. Keep it that way when editing either file.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters
   (learning rate, `train_frequency`, batch size, buffer capacity, confidence
   coefficients) without explicit approval — they'd confound ablation results.
