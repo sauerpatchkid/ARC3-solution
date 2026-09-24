@@ -111,7 +111,7 @@ document and its results, as a documented experiment.
 
   Then delete `custom_agents/return_map.py` and `tests/test_return_map.py`, or
   move them to `legacy/` with this document. Remove the A4 case from
-  `sweep.sh` and the `map-dev` target from the Makefile.
+  `sweep.sh` and the `map-dev` and `map-confirm` targets from the Makefile.
 
 ## Tests
 
