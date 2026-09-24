@@ -63,10 +63,12 @@ make planb-dev               # 6 games x 3 seeds x 100k x 4 arms, ~15 h
 make planb-status
 ```
 
-Option 1 dev test (novelty label with vs without the return map, 8 games, ~10 h):
+Option 1 dev test (novelty label with vs without the return map, 8 games, ~10 h;
+done, passed) and its 25-game Confirm (map arm only, ~15 h), and the verdict tool:
 ```bash
 make map-dev DRY_RUN=1
-make map-dev                 # pause: make planb-pause   resume: make map-dev RESUME=<manifest>
+make map-confirm             # pause: make planb-pause   resume: make map-confirm RESUME=<manifest>
+uv run python tools/paired_compare.py --base <manifest>:A1 --new <manifest>:A4
 ```
 
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):

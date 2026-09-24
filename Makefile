@@ -17,7 +17,7 @@ AGENT   ?= goose
 SUITE   ?= standard
 
 .PHONY: help install check suites bench bench-fg compare local curriculum \
-        sweep long random curves metrics label-diag planb-dev planb-confirm map-dev planb-pause planb-status planb-stop tensorboard clean action baseline
+        sweep long random curves metrics label-diag planb-dev planb-confirm map-dev map-confirm planb-pause planb-status planb-stop tensorboard clean action baseline
 
 help:
 	@echo "Baselines (what teammates use):"
@@ -37,6 +37,7 @@ help:
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
 	@echo "  make planb-confirm [DRY_RUN=1] [RESUME=m] Plan B step 4: Confirm tier, A0 vs A1, all 25 games x 3 seeds, detached"
 	@echo "  make map-dev [DRY_RUN=1] [RESUME=m]      Option 1 dev test: novelty label with vs without the map, detached"
+	@echo "  make map-confirm [DRY_RUN=1] [RESUME=m]  Option 1 Confirm: the map on all 25 games, vs the Plan B Confirm runs"
 	@echo "  make planb-pause                        pause after the current run finishes (loses nothing; resume with RESUME=)"
 	@echo "  make planb-stop                         stop it now (loses only the run in progress; resume with RESUME=)"
 	@echo "  make tensorboard"
@@ -191,6 +192,23 @@ ifeq ($(DRY_RUN),1)
 else
 	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
 	RESUME="$(RESUME)" ARMS="$(MD_ARMS)" GAMES="$(MD_GAMES)" SEEDS="$(MD_SEEDS)" CAP=$(MD_CAP) \
+	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
+	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
+endif
+
+# Option 1 Confirm tier: the map arm (A4) on all 25 public games x 3 seeds x
+# 100k = 75 runs, ~15 h. The novelty-only arm (A1) is NOT rerun: it is compared
+# against the Plan B Confirm sweep's A1 runs (same seeds, same code path; with
+# EVAL_RETURN_MAP unset the agent takes the same actions as before the map).
+#   uv run python tools/paired_compare.py --base $(PB_CONFIRM):A1 --new <this manifest>:A4
+PB_CONFIRM := results/sweeps/sweep_20260917_224431.manifest
+map-confirm:
+	mkdir -p $(RESULTS)/sweeps
+ifeq ($(DRY_RUN),1)
+	DRY_RUN=1 ARMS="A4" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) bash sweep.sh
+else
+	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
+	RESUME="$(RESUME)" ARMS="A4" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) \
 	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
 endif
