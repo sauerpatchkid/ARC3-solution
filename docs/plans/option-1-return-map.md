@@ -1,7 +1,9 @@
 # Option 1 — give Goose a map and a way back
 
-Status: dev test PASSED its pre-registered rule on 2026-09-24 (45 vs 32 levels,
-mostly tu93; see `option-1-dev-results.md`). Next: 25-game Confirm, `make map-confirm`. Builds on Plan B's adopted agent (novelty label, A1).
+Status: dev test passed (2026-09-24); 25-game Confirm stopped after two seeds
+(2026-09-25) and did NOT meet the rule: 58 vs 50 levels, but ar25 and tr87 worse
+on both seeds. Helps stuck games, hurts solved ones. See `option-1-confirm-results.md`.
+Builds on Plan B's adopted agent (novelty label, A1).
 Plain-language summary for the advisor: `docs/reports/Goose_Semester2_Progress.docx`.
 
 ## What is still wrong after Plan B
