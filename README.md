@@ -6,6 +6,27 @@ Team B's fork of the StochasticGoose agent for the ARC-AGI-3 capstone (ARC Prize
 See `CLAUDE.md` for repo conventions, focus games, metric definitions, and known
 measurement caveats.
 
+## Semester 2 at a glance (September 2026)
+
+Everything below is **off by default**: an unflagged run is the original
+baseline, verified action-for-action. Plain-language summary for non-technical
+readers: `docs/reports/Goose_Semester2_Progress.docx`.
+
+| Change | Switch | Status | Details |
+|---|---|---|---|
+| **Novelty label.** Goose learns from "did this move reach a screen not seen before in this level?" instead of "did the screen change?", with decorations (blinking cells, progress bars) masked out before each screen is fingerprinted | `EVAL_LABEL=novel` | **Adopted.** 25 games × 3 seeds × 100k: 79 levels vs 54, 18 of 25 games reach a level vs 11, 23 paired wins / 1 loss | `docs/plans/plan-B-*.md` |
+| Tried-action mask ("don't repeat yourself") | `EVAL_MASK_TRIED=1` | Dropped: helped nowhere, hurt games that need repeated presses | `docs/plans/plan-B-dev-sweep-results.md` |
+| **Return map.** A map of the level (which move leads from which screen to which); walks back to untried places when stuck and after a game over | `EVAL_RETURN_MAP=1` | **Not adopted.** Passed its 8-game dev test (45 vs 32 levels) but not the 25-game Confirm after two seeds: helps games Goose was stuck on (tu93 level 5, vc33 level 4, first levels on bp35 and lf52), hurts games it already solved (ar25, tr87) | `docs/plans/option-1-*.md` |
+| LLM advisor (Plan A) | — | Deferred | `docs/plans/plan-A-llm-advisor.md` |
+
+The semester-1 LLM track is archived in `legacy/llm_track/` (section 8).
+
+**Designed to be removable.** Each change lives in its own file
+(`custom_agents/canon.py`, `custom_agents/return_map.py`) behind its own switch.
+Every line the return map adds to `custom_agents/action.py` ends in
+`# [return-map]`; `sed -i '/\[return-map\]/d' custom_agents/action.py` restores
+the previous agent byte for byte.
+
 ---
 
 ## 1. Quickstart
@@ -119,6 +140,8 @@ ARC3-solution/
 │   ├── __init__.py            #   the REGISTRY - add your agent here
 │   ├── TEMPLATE.py            #   copy this to start a new agent
 │   ├── action.py              #   StochasticGoose (the "brain")
+│   ├── canon.py               #   screen fingerprints + per-level memory (novelty label)
+│   ├── return_map.py          #   the return map (EVAL_RETURN_MAP; not adopted)
 │   ├── random_agent.py        #   matched uniform-random floor (uplift baseline)
 │   └── view_utils.py          #   action-probability heatmap rendering
 ├── benchmark.py               # THE FROZEN TEST SET (suites: smoke/quick/standard/full)
@@ -134,7 +157,10 @@ ARC3-solution/
 ├── inspect_corpus.py          # corpus schema validator (contract authority)
 ├── sweep.sh                   # benchmark + ad-hoc sweep orchestrator
 ├── utils.py                   # experiment-directory + logging helpers
-├── docs/plans/                # semester-2 plans (A: LLM advisor, B: memory-aware Goose)
+├── docs/plans/                # semester-2 plans, pre-registered rules and results
+├── docs/reports/              # plain-language reports (Word) + the script that builds them
+├── tools/                     # label_diagnostic.py (Plan B step 1), paired_compare.py (verdicts)
+├── tests/                     # pytest: fingerprints, memory, sampler guard, return map
 ├── legacy/                    # ARCHIVED: API-path scripts + semester-1 LLM track, see section 8
 ├── results/                   # ALL run output (gitignored)
 │   ├── runs/<ts>/<game>/      #   per-run trees (corpus, tensorboard, metrics)
@@ -160,6 +186,8 @@ Every agent imports these so the protocol cannot drift.
 | `EVAL_MASK_TRIED` | Plan B: soft-mask actions already tried from the current canonical state (StochasticGoose only) | off |
 | `EVAL_MASK_DECAY` / `EVAL_MASK_FLOOR` | per-try multiplier / minimum probability for that mask | `0.1` / `1e-4` |
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | online indicator-cell mask: warm-up transitions / recompute cadence | `200` / `250` |
+| `EVAL_RETURN_MAP` | the return map (StochasticGoose only; not adopted) | off |
+| `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning: decisions without a new screen before routing / clicks before a click screen counts as tried / longest route / walk back after game over | `200` / `20` / `100` / `1` |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -226,6 +254,31 @@ intend to compare against a teammate must go through `make bench`.
 
 Every sweep calls `analyze_curves.py` for levels-vs-budget on a log axis, AULC per
 (game, arm), and actions-to-level-k with censoring counts.
+
+### Semester-2 experiment sweeps
+
+All detached (they survive closing the terminal, not the machine sleeping), all
+logging to `results/sweeps/planb_dev.log`, all resumable:
+
+```bash
+make planb-dev        # Plan B dev tier: arms A0-A3 on 6 games (done)
+make planb-confirm    # Plan B Confirm: A0 vs A1 on all 25 games (done)
+make map-dev          # return map dev test: A1 vs A4 on 8 games (done)
+make map-confirm      # return map Confirm: A4 on all 25 games (stopped after 2 seeds)
+make planb-status     # progress
+make planb-pause      # stop after the current run finishes - loses nothing
+make planb-stop       # stop now - loses only the run in progress
+make map-confirm RESUME=results/sweeps/<manifest>   # pick up where it stopped
+```
+
+Arms: A0 = baseline, A1 = novelty label, A2 = tried mask, A3 = both, A4 = novelty
+label + return map. Verdicts against a pre-registered rule, across manifests:
+
+```bash
+uv run python tools/paired_compare.py --base <manifest>:A1 --new <manifest>:A4
+make label-diag       # replay old corpora: how often each label says "good"
+uv run python -m pytest tests/ -q
+```
 
 ## 8. `legacy/` — archived, and why it cannot affect your baselines
 
