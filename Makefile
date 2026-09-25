@@ -40,6 +40,7 @@ help:
 	@echo "  make map-confirm [DRY_RUN=1] [RESUME=m]  Option 1 Confirm: the map on all 25 games, vs the Plan B Confirm runs"
 	@echo "  make planb-pause                        pause after the current run finishes (loses nothing; resume with RESUME=)"
 	@echo "  make planb-stop                         stop it now (loses only the run in progress; resume with RESUME=)"
+	@echo "  make upgrade-screen [DRY_RUN=1] [RESUME=m]  screen every candidate upgrade, short runs, ranked"  # [upgrades]
 	@echo "  make tensorboard"
 	@echo ""
 	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
@@ -250,3 +251,4 @@ baseline:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
 	RECORDINGS_DIR=$(RESULTS)/recordings \
 	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
+-include experiments/upgrade_screen/screen.mk  # [upgrades]

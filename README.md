@@ -18,6 +18,7 @@ readers: `docs/reports/Goose_Semester2_Progress.docx`.
 | Tried-action mask ("don't repeat yourself") | `EVAL_MASK_TRIED=1` | Dropped: helped nowhere, hurt games that need repeated presses | `docs/plans/plan-B-dev-sweep-results.md` |
 | **Return map.** A map of the level (which move leads from which screen to which); walks back to untried places when stuck and after a game over | `EVAL_RETURN_MAP=1` | **Not adopted.** Passed its 8-game dev test (45 vs 32 levels) but not the 25-game Confirm after two seeds: helps games Goose was stuck on (tu93 level 5, vc33 level 4, first levels on bp35 and lf52), hurts games it already solved (ar25, tr87) | `docs/plans/option-1-*.md` |
 | LLM advisor (Plan A) | — | Deferred | `docs/plans/plan-A-llm-advisor.md` |
+| **Upgrade screen.** Nine candidate improvements to the two changes above (catching missed progress bars, walking back only when it pays, skipping dead clicks, object-level clicks, and five more), run briefly and ranked | `EVAL_UPGRADES=...` | **Built, not yet run** (`make upgrade-screen`, ~17 h) | `docs/plans/upgrade-screen.md`, `docs/reports/Goose_Upgrade_Options.docx` |
 
 The semester-1 LLM track is archived in `legacy/llm_track/` (section 8).
 
@@ -25,7 +26,9 @@ The semester-1 LLM track is archived in `legacy/llm_track/` (section 8).
 (`custom_agents/canon.py`, `custom_agents/return_map.py`) behind its own switch.
 Every line the return map adds to `custom_agents/action.py` ends in
 `# [return-map]`; `sed -i '/\[return-map\]/d' custom_agents/action.py` restores
-the previous agent byte for byte.
+the previous agent byte for byte. The upgrade screen works the same way with the tag
+`[upgrades]` (`custom_agents/upgrades.py`, `experiments/upgrade_screen/`), and
+can be removed independently of the map.
 
 ---
 
@@ -142,6 +145,7 @@ ARC3-solution/
 │   ├── action.py              #   StochasticGoose (the "brain")
 │   ├── canon.py               #   screen fingerprints + per-level memory (novelty label)
 │   ├── return_map.py          #   the return map (EVAL_RETURN_MAP; not adopted)
+│   ├── upgrades.py            #   upgrade-screen candidates (EVAL_UPGRADES; experimental)
 │   ├── random_agent.py        #   matched uniform-random floor (uplift baseline)
 │   └── view_utils.py          #   action-probability heatmap rendering
 ├── benchmark.py               # THE FROZEN TEST SET (suites: smoke/quick/standard/full)
@@ -160,6 +164,7 @@ ARC3-solution/
 ├── docs/plans/                # semester-2 plans, pre-registered rules and results
 ├── docs/reports/              # plain-language reports (Word) + the script that builds them
 ├── tools/                     # label_diagnostic.py (Plan B step 1), paired_compare.py (verdicts)
+├── experiments/upgrade_screen/ # the upgrade screen: runner, leaderboard, make targets
 ├── tests/                     # pytest: fingerprints, memory, sampler guard, return map
 ├── legacy/                    # ARCHIVED: API-path scripts + semester-1 LLM track, see section 8
 ├── results/                   # ALL run output (gitignored)
@@ -188,6 +193,7 @@ Every agent imports these so the protocol cannot drift.
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | online indicator-cell mask: warm-up transitions / recompute cadence | `200` / `250` |
 | `EVAL_RETURN_MAP` | the return map (StochasticGoose only; not adopted) | off |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning: decisions without a new screen before routing / clicks before a click screen counts as tried / longest route / walk back after game over | `200` / `20` / `100` / `1` |
+| `EVAL_UPGRADES` | comma list of upgrade-screen candidates: `bars`, `attempt`, `graded`, `deadclick`, `map_gated`, `map_objects`, `map_diverse` (experimental) | unset |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -270,6 +276,11 @@ make planb-pause      # stop after the current run finishes - loses nothing
 make planb-stop       # stop now - loses only the run in progress
 make map-confirm RESUME=results/sweeps/<manifest>   # pick up where it stopped
 ```
+
+The upgrade screen has its own targets and results folder (`results/screen/`):
+`make upgrade-screen`, `make upgrade-screen-status`, `make upgrade-screen-pause`,
+`make upgrade-screen RESUME=<manifest.tsv>`. Parallel runs share the GPU: four
+at once give about 1.15x the speed of one (measured), not 4x.
 
 Arms: A0 = baseline, A1 = novelty label, A2 = tried mask, A3 = both, A4 = novelty
 label + return map. Verdicts against a pre-registered rule, across manifests:

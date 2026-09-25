@@ -24,6 +24,7 @@ from eval_common import env_flag, resolve_seed, resolve_max_actions, write_run_c
 from view_utils import save_action_visualization
 from canon import OnlineCanonicalizer, LevelMemory, DEFAULT_WARMUP, DEFAULT_REFRESH
 from return_map import ReturnMap  # [return-map] Option 1, see custom_agents/return_map.py
+from upgrades import Upgrades  # [upgrades] upgrade screen, see custom_agents/upgrades.py
 
 """
 Action Learner - Learns to predict which actions cause frame changes for efficient exploration.
@@ -177,6 +178,14 @@ class Action(Agent):
         self.return_map = ReturnMap.from_env() if env_flag("EVAL_RETURN_MAP", False) else None  # [return-map]
         if self.return_map is not None and self.canon is None:  # [return-map]
             self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [return-map]
+        # Upgrade screen (experiments/upgrade_screen/): off unless EVAL_UPGRADES is set.  # [upgrades]
+        self.upgrades = Upgrades.from_env() if os.getenv("EVAL_UPGRADES", "").strip() else None  # [upgrades]
+        if self.upgrades is not None:  # [upgrades]
+            self.upgrades.check(getattr(self, "return_map", None) is not None)  # [upgrades]
+            if self.canon is None:  # [upgrades]
+                self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [upgrades]
+            if getattr(self, "return_map", None) is not None:  # [upgrades]
+                self.return_map = self.upgrades.wrap_map(self.return_map)  # [upgrades]
         self._label_n = 0      # experiences stored, and how many were positive,
         self._label_pos = 0    # under whichever label is active (TensorBoard)
         self._degenerate_samples = 0   # times the sampler had to fall back to uniform
@@ -236,6 +245,7 @@ class Action(Agent):
             canon_warmup=self.canon_warmup,
             canon_refresh=self.canon_refresh,
             **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
+            **(self.upgrades.config() if self.upgrades is not None else {}),  # [upgrades]
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -249,6 +259,8 @@ class Action(Agent):
         self.log_dir = env_dir
         if self.return_map is not None:  # [return-map] route counts, written at exit
             atexit.register(self.return_map.dump, os.path.join(env_dir, 'return_map_stats.json'))  # [return-map]
+        if self.upgrades is not None:  # [upgrades]
+            atexit.register(self.upgrades.dump, os.path.join(env_dir, 'upgrades_stats.json'))  # [upgrades]
         
         print(f"Action agent logging to: {tensorboard_dir}")
         self.logger.info(f"Action agent initialized for game_id: {self.game_id}")
@@ -518,6 +530,8 @@ class Action(Agent):
                 self.memory.clear()
             if self.return_map is not None:  # [return-map] a new level is a new map
                 self.return_map.clear()  # [return-map]
+            if self.upgrades is not None:  # [upgrades]
+                self.upgrades.on_level()  # [upgrades]
 
             # Always clear per-step tracking so we never log a transition that
             # spans a level boundary (that jump is not a within-level dynamic).
@@ -530,6 +544,8 @@ class Action(Agent):
         if latest_frame.state in [GameState.NOT_PLAYED, GameState.GAME_OVER]:
             if self.return_map is not None and latest_frame.state == GameState.GAME_OVER:  # [return-map]
                 self.return_map.on_game_over()  # [return-map]
+            if self.upgrades is not None and latest_frame.state == GameState.GAME_OVER:  # [upgrades]
+                self.upgrades.on_game_over()  # [upgrades]
             # Reset previous tracking on game reset
             self.prev_frame = None
             self.prev_action_idx = None
@@ -570,6 +586,11 @@ class Action(Agent):
                 self.canon.update(self.prev_frame_raw, current_frame_raw)  # [return-map]
             self.return_map.observe(current_frame_raw, self.canon.mask,  # [return-map]
                                     self.prev_frame is not None, latest_frame.available_actions)  # [return-map]
+        if self.upgrades is not None:  # [upgrades]
+            if not self.memory_on and getattr(self, "return_map", None) is None and self.prev_frame_raw is not None:  # [upgrades]
+                self.canon.update(self.prev_frame_raw, current_frame_raw)  # [upgrades]
+            self.upgrades.observe(self.prev_frame_raw if self.prev_frame is not None else None,  # [upgrades]
+                                  current_frame_raw, self.canon.mask, self.prev_action_idx)  # [upgrades]
         
         # Create experience from previous action if we have previous data
         if self.prev_frame is not None:
@@ -583,6 +604,8 @@ class Action(Agent):
                 reward = 1.0 if novel else 0.0
             else:
                 reward = 1.0 if frame_changed else 0.0
+            if self.upgrades is not None:  # [upgrades]
+                reward = self.upgrades.reward(reward)  # [upgrades]
             
             # --- Transition corpus: log EVERY transition, before any dedup ---
             # Stores next_frame explicitly (the buffer only keeps the 0/1 label);
@@ -631,6 +654,9 @@ class Action(Agent):
             # Sample from combined action space
             action_idx, coords, coord_idx, all_probs = self._sample_from_combined_output(
                 combined_logits, latest_frame.available_actions, tried_key=cur_key)
+            if self.upgrades is not None:  # [upgrades] dead-click filter, before any map override
+                action_idx, coords, coord_idx = self.upgrades.override(  # [upgrades]
+                    action_idx, coords, coord_idx, all_probs, current_frame_raw)  # [upgrades]
             if self.return_map is not None:  # [return-map] a route step or an untried button
                 action_idx, coords, coord_idx = self.return_map.override(action_idx, coords, coord_idx)  # [return-map]
             

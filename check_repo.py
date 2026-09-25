@@ -44,6 +44,7 @@ BASELINE_FILES = [
     "custom_agents/random_agent.py", "custom_agents/view_utils.py",
     "custom_agents/TEMPLATE.py", "custom_agents/canon.py",
     "custom_agents/return_map.py",
+    "custom_agents/upgrades.py",  # [upgrades]
 ]
 
 # Modules that only exist once run_local.py has synthesized the harness package,
@@ -51,6 +52,7 @@ BASELINE_FILES = [
 PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 # First-party modules in this repo.
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "canon", "return_map",
+         "upgrades",  # [upgrades]
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
          "analyze_curves", "inspect_corpus", "legacy", "llm_track"}

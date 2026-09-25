@@ -71,6 +71,13 @@ make map-confirm             # pause: make planb-pause   resume: make map-confir
 uv run python tools/paired_compare.py --base <manifest>:A1 --new <manifest>:A4
 ```
 
+Upgrade screen (12 arms x 8 games x 2 seeds x 50k, ~17 h, NOT yet run; its own
+targets and `results/screen/`):
+```bash
+make upgrade-screen DRY_RUN=1
+make upgrade-screen          # status / pause: make upgrade-screen-status / -pause
+```
+
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 
 ```bash
@@ -104,6 +111,7 @@ API path (unchanged, slower): `make action`
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | `200` / `250` | transitions before the online indicator-cell mask starts, and its recompute cadence |
 | `EVAL_RETURN_MAP` | off | Option 1: map of the level + walk back to untried screens (`custom_agents/return_map.py`) |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | `200` / `20` / `100` / `1` | Option 1 tuning; see `docs/plans/option-1-return-map.md` |
+| `EVAL_UPGRADES` | unset | upgrade screen candidates, comma list (`custom_agents/upgrades.py`); experimental |
 
 Always run with `PYTHONHASHSEED=0`.
 
@@ -166,6 +174,13 @@ and the cached Qwen models are kept for Plan A.
   removable: every hook line in `action.py` ends in `# [return-map]`, and
   `sed -i '/\[return-map\]/d' custom_agents/action.py` restores the previous
   agent byte for byte. Keep it that way when editing either file.
+- The upgrade screen (`custom_agents/upgrades.py`, `experiments/upgrade_screen/`,
+  `docs/plans/upgrade-screen.md`) is separate from the baseline, the novelty label
+  and the map: every hook line ends in `# [upgrades]` (26 in `action.py`, one in
+  the Makefile, two in `check_repo.py`), and deleting them restores each file
+  byte for byte. Map variants SUBCLASS `ReturnMap`; never edit `return_map.py`
+  or `canon.py` for a screen candidate. Parallel runs share the GPU: 4 at once
+  total ~162 act/s vs 140 for one (measured) - plan sweeps accordingly.
 - Do NOT change `EVAL_RESET_ON_LEVEL` semantics or any hyperparameters
   (learning rate, `train_frequency`, batch size, buffer capacity, confidence
   coefficients) without explicit approval — they'd confound ablation results.
