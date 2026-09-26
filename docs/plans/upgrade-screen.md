@@ -1,7 +1,7 @@
 # Upgrade screen — candidate improvements to the novelty label and the map
 
-Status: built and smoke-tested 2026-09-25; **not run**. Start with
-`make upgrade-screen` (~17 h, pausable). Plain-language version with full
+Status: RUN 2026-09-25/26 (192 runs). Results: `upgrade-screen-results.md`;
+best arm map_bars, tied with map_gated. Plain-language version with full
 reasoning, pros and cons: `docs/reports/Goose_Upgrade_Options.docx`.
 
 ## Why a screen
