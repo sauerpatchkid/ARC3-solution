@@ -71,12 +71,16 @@ make map-confirm             # pause: make planb-pause   resume: make map-confir
 uv run python tools/paired_compare.py --base <manifest>:A1 --new <manifest>:A4
 ```
 
-Upgrade screen (12 arms x 8 games x 2 seeds x 50k, ~17 h, NOT yet run; its own
+Upgrade screen (12 arms x 8 games x 2 seeds x 50k, ~17 h, done 2026-09-26; its own
 targets and `results/screen/`):
 ```bash
 make upgrade-screen DRY_RUN=1
 make upgrade-screen          # status / pause: make upgrade-screen-status / -pause
 ```
+Round 1 is done (best: map_bars and map_gated, tag `upgrade-screen-round1`,
+`docs/plans/upgrade-screen-results.md`). Round 2 (combinations; separate folder
+`experiments/upgrade_screen2/`, results `results/screen2/`, Makefile line tagged
+`# [upgrades2]`, no agent code): `make upgrade-screen2`, `-status`, `-pause`.
 
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 
