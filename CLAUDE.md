@@ -81,6 +81,10 @@ Round 1 is done (best: map_bars and map_gated, tag `upgrade-screen-round1`,
 `docs/plans/upgrade-screen-results.md`). Round 2 (combinations; separate folder
 `experiments/upgrade_screen2/`, results `results/screen2/`, Makefile line tagged
 `# [upgrades2]`, no agent code): `make upgrade-screen2`, `-status`, `-pause`.
+Round 2 is done (`docs/plans/upgrade-screen2-results.md`): best mb_gated_att =
+`EVAL_UPGRADES=bars,map_gated,attempt` with the map on, 41 levels vs map_bars 38
+and novelty 23 on 11 games; worse than novelty on only 1 of 22 game-seeds.
+Next (not started): 25-game x 3-seed x 100k test vs the novelty agent.
 
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 

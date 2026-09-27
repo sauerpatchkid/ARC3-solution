@@ -18,7 +18,7 @@ readers: `docs/reports/Goose_Semester2_Progress.docx`.
 | Tried-action mask ("don't repeat yourself") | `EVAL_MASK_TRIED=1` | Dropped: helped nowhere, hurt games that need repeated presses | `docs/plans/plan-B-dev-sweep-results.md` |
 | **Return map.** A map of the level (which move leads from which screen to which); walks back to untried places when stuck and after a game over | `EVAL_RETURN_MAP=1` | **Not adopted.** Passed its 8-game dev test (45 vs 32 levels) but not the 25-game Confirm after two seeds: helps games Goose was stuck on (tu93 level 5, vc33 level 4, first levels on bp35 and lf52), hurts games it already solved (ar25, tr87) | `docs/plans/option-1-*.md` |
 | LLM advisor (Plan A) | — | Deferred | `docs/plans/plan-A-llm-advisor.md` |
-| **Upgrade screen.** Nine candidate improvements to the two changes above (catching missed progress bars, walking back only when it pays, skipping dead clicks, object-level clicks, and five more), run briefly and ranked | `EVAL_UPGRADES=...` | **Built, not yet run** (`make upgrade-screen`, ~17 h) | `docs/plans/upgrade-screen.md`, `docs/reports/Goose_Upgrade_Options.docx` |
+| **Upgrade screen.** Nine candidate improvements to the two changes above (catching missed progress bars, walking back only when it pays, skipping dead clicks, object-level clicks, and five more), run briefly and ranked | `EVAL_UPGRADES=...` | **Run in two rounds.** Best: the map with bars masked, walk back only when it pays, and half credit within an attempt: 41 levels vs 23 for the novelty agent on 11 games (short screen, 2 seeds); needs a full test before adoption | `docs/plans/upgrade-screen.md`, `docs/reports/Goose_Upgrade_Options.docx` |
 
 The semester-1 LLM track is archived in `legacy/llm_track/` (section 8).
 

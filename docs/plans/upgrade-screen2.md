@@ -1,8 +1,8 @@
 # Upgrade screen, round 2 — combinations of round 1's best
 
-Status: PRE-REGISTERED and launched 2026-09-26 ~07:00 with `make upgrade-screen2`
-(176 runs, ~17 h). Arms confirmed from round 1's full results
-(`upgrade-screen-results.md`, tag `upgrade-screen-round1`).
+Status: RUN 2026-09-26 (176 runs, no failures). Results: `upgrade-screen2-results.md`.
+Winner: mb_gated_att (41 levels vs map_bars 38, novelty 23). Arms were confirmed from
+round 1's full results (`upgrade-screen-results.md`, tag `upgrade-screen-round1`).
 
 ## Why a round 2
 
