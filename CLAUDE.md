@@ -84,7 +84,11 @@ Round 1 is done (best: map_bars and map_gated, tag `upgrade-screen-round1`,
 Round 2 is done (`docs/plans/upgrade-screen2-results.md`): best mb_gated_att =
 `EVAL_UPGRADES=bars,map_gated,attempt` with the map on, 41 levels vs map_bars 38
 and novelty 23 on 11 games; worse than novelty on only 1 of 22 game-seeds.
-Next (not started): 25-game x 3-seed x 100k test vs the novelty agent.
+25-game confirm DONE 2026-09-28 (`docs/plans/upgrade-confirm-results.md`,
+`make upgrade-confirm`): mb_gated_att ADOPTED - 112 vs 79 levels, 22 vs 18 games
+with a level, 31 better / 36 same / 8 worse, no game worse on every seed, no speed
+cost. The adopted Goose is now `EVAL_LABEL=novel EVAL_RETURN_MAP=1
+EVAL_UPGRADES=bars,map_gated,attempt` (defaults unchanged for teammates).
 
 Long-horizon probe (ft09 + tu93, 1 seed, 2M actions each, ~4h/game):
 

@@ -1,6 +1,7 @@
 # Upgrade confirm — round 2's winner on all 25 games
 
-Status: PRE-REGISTERED 2026-09-27, launched with `make upgrade-confirm`.
+Status: DONE 2026-09-28, verdict ADOPT (112 vs 79 levels, 31/36/8, no game worse on
+every seed). Results: `upgrade-confirm-results.md`.
 
 ## What is tested
 
