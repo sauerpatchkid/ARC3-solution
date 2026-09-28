@@ -253,3 +253,4 @@ baseline:
 	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
 -include experiments/upgrade_screen/screen.mk  # [upgrades]
 -include experiments/upgrade_screen2/screen2.mk  # [upgrades2]
+-include experiments/upgrade_confirm/confirm.mk  # [upgrades-confirm]
