@@ -154,7 +154,9 @@ new goes there. Semester-2 work follows `docs/plans/plan-B-goose-novelty.md`
 (no LLM: novelty label + tried-action mask in the agent) and
 `docs/plans/plan-A-llm-advisor.md` (stall-triggered LLM advisor), both built on
 the baseline as it stood at commit 9ccfef6. The vLLM serving env (`.venv-llm`)
-and the cached Qwen models are kept for the LLM track.
+and one cached model are kept for the LLM track: only Qwen3.8-27B
+(`cyankiwi/Qwen3.8-27B-AWQ-INT4`) since 2026-10-03; the semester-1 Qwen3.5 models were
+deleted, so `legacy/llm_track` commands would re-download them.
 
 LLM track, two options kept (renamed 2026-10-03; neither started):
 **Coach** (`docs/plans/llm-coach.md`, was Plan A v2: the LLM suggests what to try

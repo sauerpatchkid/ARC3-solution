@@ -3,7 +3,7 @@
 
 Track: LLM integration. Owner: Matt. Repo: `sauerpatchkid/ARC3-solution` (branch `refactor/shared-baselines`, at 5da1508).
 Base agent: **mb_gated_att** (`EVAL_LABEL=novel EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt`; 112 levels on the 25-game confirm).
-In-loop model: Qwen3.5-35B-A3B GPTQ-Int4 if it fits beside Goose (week-1 measurement), else Qwen3.5-9B. Both are cached.
+In-loop model: **Qwen3.8-27B** (`cyankiwi/Qwen3.8-27B-AWQ-INT4`), the only local model kept (decision 3 Oct; the others were deleted).
 Version: **v2, 3 Oct 2026.** v1 (`plan-A-llm-advisor.md`, 15 Sep, written as "Plan A") is kept unchanged. Most changes come from Rulebook
 (`llm-rulebook.md`, written as "Plan C"). Both plans are kept as options; renamed 3 Oct 2026. §13 lists every change and where it came from, plus the parts of Rulebook not taken.
 Dates: report TOC Oct 9 · first draft Oct 30 · idea lock Nov 2 · final report Dec 7.
@@ -161,10 +161,42 @@ Measured on this card (32,607 MiB total):
 
 So the 35B must run with a short context and a lower memory fraction. This plan's prompts are ≤ 2k tokens with 400
 output tokens, so a few thousand tokens of KV is enough. That is the opposite of Rulebook, which needs ~94k.
-- **Week 1 measures:** the largest `--gpu-mem` that leaves one Goose run its 4 GB (likely with `--max-model-len 8192`
-  and `--enforce-eager`), plus call latency (median and 90th percentile) with Goose resident.
-- **If the 35B doesn't fit:** the 9B (bf16 ~18 GB, or a 4-bit build) is the in-loop model, and the 35B appears only in
-  the offline comparison, where Goose isn't running.
+
+**Step 2 result (3 Oct): the 35B fits beside one Goose run.**
+- **Server:** `experiments/coach/serve.sh` with text only (`--language-model-only`), a fixed 0.5 GiB KV cache
+  (14k tokens), 2,048 batched tokens and forced compact JSON.
+- **Measurement:** `experiments/coach/fit_check.py`, a tu93 10k-move Goose run beside the server, then 20
+  Coach-sized requests (1.7k tokens in, schema-forced JSON out, thinking off).
+  Results are in `results/coach/fit_*.json`.
+
+| Measure | Result |
+|---|---|
+| Server alone | 22.5 GB |
+| Peak, server + Goose + Windows | 28.9 of 32.6 GB (**3.6 GB spare**) |
+| Goose speed beside the idle server | 117–124 act/s (solo: 118–130) |
+| Call latency, Goose paused (how Coach runs) | median **1.4 s**, 90th percentile 1.9 s; ~220 tokens out |
+| Valid JSON | 20 of 20 |
+| Calls while Goose trains | median 2.8 s, and Goose drops to ~53 act/s, so **never overlap them**: B3 runs go one at a time |
+
+- **Two lessons.**
+  - Pretty-printed JSON ran into the 400-token cap and was cut off (11 of 40 in the first run), so the server now
+    forces compact JSON.
+  - The desktop's own GPU use varies. One run started with 3 GB extra held by Windows apps: the peak hit 31.9 GB
+    and Goose slowed to 83 act/s, because WSL spills to system RAM instead of failing. Keep GPU-heavy Windows apps
+    closed during sweeps, and check `peak_mib_by_phase`.
+- **The 9B fallback is not needed.** At 60 calls per run, LLM time is about 1.5 minutes per 100k-move run.
+- **Newer models (checked 3 Oct).** There is no newer 35B-A3B than Qwen3.6-35B-A3B (Apr 2026); Qwen3.8 has no
+  model at that size. Its open 27B dense model (Aug 2026) leads Qwen3.6-35B-A3B on public reasoning and coding
+  benchmarks, at roughly a third of the speed.
+- **Decision (Matt, 3 Oct): use Qwen3.8-27B only.** `cyankiwi/Qwen3.8-27B-AWQ-INT4` (19.6 GiB on disk) is the
+  in-loop model and the only local model in the offline probe. Every other cached model was deleted (~118 GB),
+  including the Qwen3.5-35B measured above. `experiments/coach/serve.sh` now defaults to it, with a 1 GiB KV
+  cache: it needs 0.81 GiB for one 8k-token request.
+  - **Measured so far:** the server alone uses 21.8 GB (card reading before and after loading), against 22.5 GB
+    for the 35B. Beside a 3.9 GB Goose run and a ~2.3 GB idle desktop, that leaves about 4.5 GB spare.
+  - **Still to measure:** the full `fit_check.py` (Goose speed and call latency). The first attempt was taken while
+    a game was running on the same GPU, so it doesn't count. Expect calls to take about 3× as long as the 35B's,
+    roughly 4–5 s each and under 5 minutes of LLM time per run.
 
 ### 4.7 Flags and arms
 
@@ -174,7 +206,7 @@ output tokens, so a few thousand tokens of KV is enough. That is the opposite of
 | `EVAL_ADVISOR_W` / `_P` / `_K` | 1500 / 10000 / 1500 | stall window / periodic fallback / advice window |
 | `EVAL_ADVISOR_BETA` | 1.0 | bias strength |
 | `EVAL_ADVISOR_GATE` | 1 | uplift gate on/off |
-| `EVAL_ADVISOR_BACKEND` / `_MODEL` | `vllm` / Qwen3.5-35B-A3B | backend and model id |
+| `EVAL_ADVISOR_BACKEND` / `_MODEL` | `vllm` / Qwen3.8-27B | backend and model id |
 | `EVAL_ADVISOR_LEVELCTX` | 1 | include the previous-level win summary |
 | `EVAL_ADVISOR_MAX_CALLS` | 60 | per-run cap on LLM requests (metered with tokens and seconds) |
 | `EVAL_ADVISOR_CACHE` | `results/advisor_cache` | response cache for offline reruns and debugging only; scored runs never read another run's answers |
@@ -274,9 +306,9 @@ path with the advisor off (§7.2) and the same engine, games, action space and 1
    once, after the prompt is frozen.
 2. At each point, build the serializer output from history up to that move. These are **frozen evidence packs**: every
    ranker sees identical input.
-3. Rankers: random, heuristic, Qwen3.5-9B, Qwen3.6-27B (dense), Qwen3.5-35B-A3B, and one frontier model on the same
-   packs (~$5). Offline, Goose isn't running, so every local model fits. This is the capability figure, now cheap and
-   matched. It replaces v1's Colab 27B run.
+3. Rankers: random, heuristic, Qwen3.8-27B, and one frontier model on the same packs (~$5). (Decision 3 Oct:
+   Qwen3.8-27B is the only local model. The 9B/27B/35B size ladder is dropped, so the capability figure becomes
+   "local 27B vs frontier" at matched inputs.) It replaces v1's Colab 27B run.
 4. Score:
    - pre-win points on click games: precision@3, "is the winning click's object in the top 3?";
    - stall points: "did the next new screen come from a top-3 object?" This is only defined when Goose happened to try
@@ -332,9 +364,8 @@ games held out from prompt tuning.
 **If time runs short, cut in this order:**
 1. B4.
 2. The B5 ownership ablation.
-3. The 27B column of the probe.
-4. The frontier column.
-5. The confirm shrinks to the 8 dev games + 3 seeds, labelled as such.
+3. The frontier column.
+4. The confirm shrinks to the 8 dev games + 3 seeds, labelled as such.
 
 The offline probe and the B1/B2 arms are never cut. They are the minimum defensible result.
 
@@ -356,7 +387,7 @@ VRAM planning, not speed. Measured runs replace these figures before any date is
 |---|---|---|---|
 | The LLM ranks no better than random | medium | offline probe in week 2 at no online cost; the heuristic arm is the fallback deliverable | G1 |
 | LLM ≈ heuristic | medium–high | pre-registered as acceptable; the matched capability figure turns it into a finding | G1 |
-| The 35B doesn't fit beside Goose | medium | short context, lower `--gpu-mem`, `--enforce-eager`; fall back to the 9B in-loop | week-1 measurement |
+| The in-loop model doesn't fit beside Goose | low (server measured at 21.8 GB; ~4.5 GB spare) | fixed small KV cache, text only; keep GPU-heavy Windows apps (games, video) closed during runs | `fit_check.py` peak |
 | The map overrides most advised moves | medium on map-heavy games (su15, tn36, r11l) | advice-reach metric; B5 ablation if median reach < 50% | dev funnel |
 | JSON failures | medium | guided decoding; validator; failures logged and skipped, never a crash | probe parse-fail rate |
 | Serialization loses what matters | medium | exact changed cells as text; hypotheses hand-checked; version-locked | probe hypotheses table |
@@ -383,7 +414,7 @@ VRAM planning, not speed. Measured runs replace these figures before any date is
 
 - **Section:** "Intervention 2 — an LLM as a stall-time experiment designer."
 - **Figures:**
-  1. offline precision@3 at matched settings (random / heuristic / 9B / 27B / 35B / frontier);
+  1. offline precision@3 at matched settings (random / heuristic / Qwen3.8-27B / frontier);
   2. the advice funnel per game;
   3. paired deltas B1/B2/B3 vs B0 on the dev games, with seeds shown;
   4. confirm levels per game with a bootstrap band.
@@ -416,6 +447,7 @@ VRAM planning, not speed. Measured runs replace these figures before any date is
 | 13 | §2 corrected: Rodionov's study puts the full verification treatment first; v1 quoted only the half that suited it | Rulebook §1.2, checked on arXiv 3 Oct |
 | 14 | `upgrades.screen_objects` and the legacy motion detector reused (copied, not imported) | Rulebook §4 (reuse pattern) |
 | 15 | Rulebook's Stage A + Tier 0a added as the post-lock extension | Rulebook §6.1 |
+| 16 | **After v2 (3 Oct):** in-loop and probe model set to Qwen3.8-27B only; rows 3 and 5 superseded (no 9B fallback, no local size ladder) | Matt's decision after the step-2 model check |
 
 **Not taken from Rulebook, and why:**
 - **The core design: an LLM-written world model, completion test, planner and executor (~3,000 lines).** It is the

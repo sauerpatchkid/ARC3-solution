@@ -4,6 +4,7 @@
 Track: LLM integration · Owner: Matt · Repo: `sauerpatchkid/ARC3-solution` (branch `refactor/shared-baselines`, reviewed at 5da1508)
 Base agent: **mb_gated_att** (`EVAL_LABEL=novel EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt`; documented 112 levels on the 25-game confirm test)
 In-loop model: Qwen3.5-35B-A3B (GPTQ-Int4, vLLM, local RTX 5090)
+Model note (3 Oct): only Qwen3.8-27B (`cyankiwi/Qwen3.8-27B-AWQ-INT4`) is kept locally; the Qwen3.5-35B and the other semester-1 models were deleted. If this plan is revived it uses the 27B, or re-downloads the 35B.
 Version: **v2, 2 Oct 2026.** Folds in design review C01–C31; every change is listed in the changelog (§16). v1 and the annotated review are kept unchanged beside this file.
 Idea lock: 2 Nov · Final report: 7 Dec
 Name: renamed 3 Oct 2026 from "Plan C" to **Rulebook**; the stall-time advisor ("Plan A") is now **Coach** (`docs/plans/llm-coach.md`). Both are kept as options.
