@@ -154,7 +154,13 @@ new goes there. Semester-2 work follows `docs/plans/plan-B-goose-novelty.md`
 (no LLM: novelty label + tried-action mask in the agent) and
 `docs/plans/plan-A-llm-advisor.md` (stall-triggered LLM advisor), both built on
 the baseline as it stood at commit 9ccfef6. The vLLM serving env (`.venv-llm`)
-and the cached Qwen models are kept for Plan A.
+and the cached Qwen models are kept for the LLM track.
+
+LLM track, two options kept (renamed 2026-10-03; neither started):
+**Coach** (`docs/plans/llm-coach.md`, was Plan A v2: the LLM suggests what to try
+when Goose stalls) and **Rulebook** (`docs/plans/llm-rulebook.md`, was Plan C: the
+LLM writes replay-checked rules and a level-completion test, a planner plays them).
+`plan-A-llm-advisor.md` is Coach's v1, kept unchanged.
 
 ## Key conventions
 
