@@ -82,6 +82,12 @@ cannot get more exploration "for free". Every run logs why it ended (§5), inclu
 
 ### 4.2 Serializer (the part that decides everything)
 
+*Built in step 3 as `custom_agents/coach/history.py` (one module instead of the three planned below). Additions found while testing it on real runs:*
+- *Each object and button shows its **most common** effect with a count: the last effect misled.*
+- *A move reports the **rarest** colour that slid: a floor or background shows a mirror-image "move".*
+- *A level's first screen counts as seen.*
+- *Example: on ls20 it reports colour 12, the 10-cell player block, moving up, down, left and right by 5 for ACTION1–4 on 171–196 of the last 200 presses each.*
+
 - **Objects:** reuse `upgrades.screen_objects` (connected same-colour regions, background and bars excluded, salience =
   small size × rare colour; already used by mb_gated_att). Keep the top `N_OBJ = 30` plus any object with click
   history. Per object: `id`, `color`, `bbox`, `size`, `centroid`, `n_same_shape`.
@@ -194,9 +200,15 @@ output tokens, so a few thousand tokens of KV is enough. That is the opposite of
   cache: it needs 0.81 GiB for one 8k-token request.
   - **Measured so far:** the server alone uses 21.8 GB (card reading before and after loading), against 22.5 GB
     for the 35B. Beside a 3.9 GB Goose run and a ~2.3 GB idle desktop, that leaves about 4.5 GB spare.
-  - **Still to measure:** the full `fit_check.py` (Goose speed and call latency). The first attempt was taken while
-    a game was running on the same GPU, so it doesn't count. Expect calls to take about 3× as long as the 35B's,
-    roughly 4–5 s each and under 5 minutes of LLM time per run.
+  - **Full fit check (3 Oct, clean GPU, `results/coach/fit_qwen38_27b_*.json`).**
+    - Server alone: 20.2 GB.
+    - Peak with Goose and the desktop: 26.6 of 32.6 GB (**6.0 GB spare**).
+    - Goose beside the idle server: 117.7 act/s (normal).
+    - Calls with Goose paused: median **3.6 s**, 90th percentile 4.3 s, ~227 tokens out, 20 of 20 valid JSON.
+    - Calls during Goose training: 5.7 s, and Goose falls to 44 act/s. Never overlap them.
+    - Budget: at most 60 calls is under 4 minutes of LLM time per 100k-move run.
+  - An earlier attempt ran while a game was using the GPU (~9 GB, 68% busy) and doesn't count. Before any GPU
+    measurement, confirm the card idles at ~1.4–2.3 GB.
 
 ### 4.7 Flags and arms
 
@@ -229,10 +241,9 @@ deleting those lines restores the file byte for byte (the same convention as the
 | `run_local.py` | changed | ~25 | **done 3 Oct:** writes `run_end.json` beside `run_config.json`: the engine's final level count, the final state and why the run stopped (`cap`, `win`, `is_done`, `error`, `interrupted`) |
 | `compute_metrics.py` | changed | ~15 | **done 3 Oct:** uses the engine count when `run_end.json` exists and warns on a mismatch; a level finished on the final move is added at the last action. Runs without the file score exactly as before |
 | `tools/paired_compare.py` | changed | ~40 | **done 3 Oct:** `--expect N` (exactly N pairs, no duplicates, one action cap, no run ended on an error; else BLOCKED, exit 2) and a game-resampling bootstrap interval. The saved upgrade-confirm verdict reproduces line for line |
-| `custom_agents/objects.py` | new | ~100 | object history and `(color, bbox)` matching on top of `upgrades.screen_objects` |
-| `custom_agents/serializer.py` | new | ~140 | the text summary; motion detector copied from the legacy serializer; deterministic and token-capped |
+| `custom_agents/coach/history.py` | new | ~330 | **done 3 Oct (step 3):** `History`, fed one transition at a time, the same way live and from a corpus. It tracks objects (lazy, on top of `upgrades.screen_objects`), per-object and per-button effects, new screens and previous wins. `render()` gives the ≤ 2k-token text and an id → cells table. The motion detector is copied from the legacy serializer. Deterministic. 0.19–0.34 ms per move on recorded runs |
+| `tools/coach_summary.py` | new | ~90 | **done 3 Oct:** prints the summary at a move (`--at`), at the first stuck point per level (`--stall`) or before each winning move (`--prewin`) of a recorded run |
 | `custom_agents/advisor.py` | new | ~220 | `Advisor`: trigger, request, validate, bias, gate, private RNG, meters; backends `mock`/`vllm`; random and heuristic advisors share the interface |
-| `custom_agents/level_summary.py` | new | ~60 | the level-win summary |
 | `custom_agents/action.py` | changed | ~20 | `# [advisor]` hooks: build from flags, feed per-move stats, bias the sampler, log reach |
 | `tools/advice_probe.py` | new | ~200 | the offline probe (§7.1), with the matched multi-model mode |
 | `prompts/advisor_v2.txt` | new | — | system prompt, hashed into `run_config.json` |
