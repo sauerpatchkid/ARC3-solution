@@ -28,6 +28,7 @@ Then analyze the corpus it prints the path to:
 """
 import argparse
 import importlib.util
+import json
 import os
 import sys
 import time
@@ -188,6 +189,31 @@ def make_env(arc, game_id, game_seed, render):
         return arc.make(game_id)      # older/newer make() without these kwargs
 
 
+def write_run_end(agent, frame, termination, detail, elapsed):
+    """Write run_end.json beside run_config.json: the engine's own level count
+    at the end of the run and why the run stopped. The corpus can't hold the
+    run's last transition (choose_action never sees its result), so a level
+    finished on the final move - including the last level of a won game - is
+    missing from it; compute_metrics.py prefers this count. Logging only."""
+    log_dir = getattr(agent, "log_dir", None)
+    if not log_dir:
+        print("[run_local] (agent has no log_dir; run_end.json not written)")
+        return
+    rec = {
+        "termination": termination,     # cap | win | is_done | error | interrupted
+        "detail": detail,
+        "n_actions": agent.action_counter,
+        "final_levels": int(frame.score),
+        "final_state": frame.state.name,
+        "elapsed_s": round(elapsed, 1),
+        "actions_per_sec": round(agent.action_counter / max(elapsed, 1e-9), 2),
+    }
+    with open(os.path.join(log_dir, "run_end.json"), "w") as f:
+        json.dump(rec, f, indent=1)
+    print(f"[run_local] run_end: {termination}, engine levels={rec['final_levels']}, "
+          f"state={rec['final_state']}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--game", required=True)
@@ -219,33 +245,45 @@ def main():
 
     t0 = time.time()
     consecutive_resets = 0
-    while agent.action_counter < cap:
-        if agent.is_done([frame], frame):
-            print(f"[run_local] is_done at {agent.action_counter} "
-                  f"(state={frame.state.name})")
-            break
+    termination, detail = "cap", ""
+    try:
+        while agent.action_counter < cap:
+            if agent.is_done([frame], frame):
+                print(f"[run_local] is_done at {agent.action_counter} "
+                      f"(state={frame.state.name})")
+                termination = "win" if frame.state is HState.WIN else "is_done"
+                break
 
-        action = agent.choose_action([frame], frame)
-        eng_action, data, is_reset = to_engine_action(
-            action, getattr(agent, "prev_action_idx", None))
+            action = agent.choose_action([frame], frame)
+            eng_action, data, is_reset = to_engine_action(
+                action, getattr(agent, "prev_action_idx", None))
 
-        if is_reset:
-            obs = env.reset()
-            consecutive_resets += 1
-            if consecutive_resets > 10:
-                raise SystemExit("10+ resets with no progress - check reset "
-                                 "semantics / initial state handling")
-        else:
-            obs = env.step(eng_action, data=data)
-            consecutive_resets = 0
+            if is_reset:
+                obs = env.reset()
+                consecutive_resets += 1
+                if consecutive_resets > 10:
+                    raise SystemExit("10+ resets with no progress - check reset "
+                                     "semantics / initial state handling")
+            else:
+                obs = env.step(eng_action, data=data)
+                consecutive_resets = 0
 
-        frame = ShimFrame(obs, getattr(env, "action_space", None))
-        agent.action_counter += 1
+            frame = ShimFrame(obs, getattr(env, "action_space", None))
+            agent.action_counter += 1
 
-        if agent.action_counter % 1000 == 0:
-            aps = agent.action_counter / (time.time() - t0)
-            print(f"  {agent.action_counter:>7} actions  score={frame.score}  "
-                  f"{aps:5.1f} act/s")
+            if agent.action_counter % 1000 == 0:
+                aps = agent.action_counter / (time.time() - t0)
+                print(f"  {agent.action_counter:>7} actions  score={frame.score}  "
+                      f"{aps:5.1f} act/s")
+    except BaseException as e:
+        termination = "interrupted" if isinstance(e, KeyboardInterrupt) else "error"
+        detail = repr(e)[:500]
+        raise
+    finally:
+        try:
+            write_run_end(agent, frame, termination, detail, time.time() - t0)
+        except Exception as e:      # never let logging mask the run's own error
+            print(f"[run_local] (run_end.json not written: {e!r})")
 
     if getattr(agent, "transition_logger", None) is not None:
         agent.transition_logger.flush()

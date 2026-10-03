@@ -194,9 +194,9 @@ deleting those lines restores the file byte for byte (the same convention as the
 
 | File | New / changed | Lines (est.) | What |
 |---|---|---|---|
-| `run_local.py` | changed | ~25 | write the engine's final level count (`frame.score`) and the termination reason (cap, WIN, 8 h, error) to the run folder; deliver the run's last transition to the corpus |
-| `compute_metrics.py` | changed | ~15 | cross-check the counted levels against the engine's final count and warn on a mismatch |
-| `tools/paired_compare.py` | changed | ~40 | `--expect N` (exactly N valid pairs, no duplicates, matching configs) and a bootstrap of the paired level delta that resamples games; defaults unchanged, so old verdicts stand |
+| `run_local.py` | changed | ~25 | **done 3 Oct:** writes `run_end.json` beside `run_config.json`: the engine's final level count, the final state and why the run stopped (`cap`, `win`, `is_done`, `error`, `interrupted`) |
+| `compute_metrics.py` | changed | ~15 | **done 3 Oct:** uses the engine count when `run_end.json` exists and warns on a mismatch; a level finished on the final move is added at the last action. Runs without the file score exactly as before |
+| `tools/paired_compare.py` | changed | ~40 | **done 3 Oct:** `--expect N` (exactly N pairs, no duplicates, one action cap, no run ended on an error; else BLOCKED, exit 2) and a game-resampling bootstrap interval. The saved upgrade-confirm verdict reproduces line for line |
 | `custom_agents/objects.py` | new | ~100 | object history and `(color, bbox)` matching on top of `upgrades.screen_objects` |
 | `custom_agents/serializer.py` | new | ~140 | the text summary; motion detector copied from the legacy serializer; deterministic and token-capped |
 | `custom_agents/advisor.py` | new | ~220 | `Advisor`: trigger, request, validate, bias, gate, private RNG, meters; backends `mock`/`vllm`; random and heuristic advisors share the interface |

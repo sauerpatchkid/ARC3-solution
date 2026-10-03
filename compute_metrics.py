@@ -183,6 +183,41 @@ def compute(corpus_dir):
         "series": p2["series"],
     }
 
+def apply_run_end(m, corpus_dir):
+    """Prefer the engine's own level count over the corpus count when the run
+    left a run_end.json beside its corpus (run_local.py writes one).
+
+    Level-ups are read off the corpus, where a level shows up when the next
+    transition carries the new score. The run's final transition is never
+    logged (the agent never sees its result), so a level finished on the last
+    move - the last level of a won game included - was silently dropped. When
+    the engine is exactly one level ahead, that is the cause, and the level-up
+    is added at the final action. Historical runs have no run_end.json and are
+    scored exactly as before."""
+    path = os.path.join(os.path.dirname(os.path.abspath(corpus_dir.rstrip("/"))), "run_end.json")
+    if not os.path.exists(path):
+        return m
+    with open(path) as f:
+        end = json.load(f)
+    eng, corp = int(end["final_levels"]), m["levels_completed"]
+    m["levels_completed_corpus"] = corp
+    m["levels_engine"] = eng
+    m["termination"] = end.get("termination")
+    if eng != corp:
+        if eng == corp + 1:
+            last = int(end["n_actions"])
+            m["levelup_events"] = list(m["levelup_events"]) + [(last, eng)]
+            m["max_level"] = max(m["max_level"], eng)
+            if m["first_levelup_action"] is None:
+                m["first_levelup_action"] = last
+            why = "a level finished on the final move"
+        else:
+            why = "unexplained - check this run"
+        print(f"  WARNING: corpus counts {corp} levels, engine says {eng} ({why}); "
+              f"using the engine count")
+        m["levels_completed"] = eng
+    return m
+
 SUITE_COLUMNS = ["timestamp","game","agent","seed","n_actions","levels_completed",
     "max_level","first_levelup_action","unique_states","discovery_auc",
     "unique_states_per_action","novelty_late_per_1k",
@@ -248,6 +283,8 @@ def print_summary(m, game, agent, seed):
     print(f"  timing (ms)    : wall {m['wall_ms_med']}/{m['wall_ms_p95']}  "
           f"model {m['model_ms_med']}/{m['model_ms_p95']} (med/p95)")
     print(f"  actions/sec    : {m['actions_per_sec']}  (model-bound ceiling {m['model_bound_aps']})")
+    if "termination" in m:
+        print(f"  run ended      : {m['termination']} (engine levels {m['levels_engine']})")
 
 def main():
     ap = argparse.ArgumentParser()
@@ -255,7 +292,7 @@ def main():
     ap.add_argument("--agent", default="goose"); ap.add_argument("--seed", default="NA")
     ap.add_argument("--out", default=None); ap.add_argument("--suite", default=None)
     a = ap.parse_args()
-    m = compute(a.corpus_dir)
+    m = apply_run_end(compute(a.corpus_dir), a.corpus_dir)
     print_summary(m, a.game, a.agent, a.seed)
     out = a.out or os.path.join(os.path.dirname(a.corpus_dir.rstrip("/")), "metrics.json")
     with open(out, "w") as f:
