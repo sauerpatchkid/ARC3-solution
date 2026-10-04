@@ -284,9 +284,20 @@ class History:
             drop = next((i for i in range(len(shown) - 1, -1, -1) if obj_key(shown[i]) not in lv.clicks),
                         len(shown) - 1)
             shown = shown[:drop] + shown[drop + 1:]
-        return {"text": text, "version": SUMMARY_VERSION,
-                "objects": [{"id": i, "colour": it["colour"], "bbox": it["bbox"], "size": it["size"],
-                             "target": it["target"], "label": it["label"]} for i, it in enumerate(shown)]}
+        objects = []
+        for i, it in enumerate(shown):
+            t, c, n, _ = lv.clicks.get(obj_key(it), (0, 0, 0, None))
+            objects.append({"id": i, "colour": it["colour"], "bbox": it["bbox"], "size": it["size"],
+                            "target": it["target"], "label": it["label"],
+                            "tried": t, "changed": c, "new": n})
+        buttons = []
+        for a in avail:
+            if a < 5:
+                h = lv.buttons[a]
+                buttons.append({"action": a, "uses": len(h), "changed": sum(d for d, _, _ in h),
+                                "new": sum(w for _, w, _ in h)})
+        return {"text": text, "version": SUMMARY_VERSION, "objects": objects, "buttons": buttons,
+                "clicks": 5 in avail}
 
     def _text(self, lv, frame, avail, shown):
         names = [BUTTON_NAMES[a] for a in avail if a < 5] + (["clicks"] if 5 in avail else [])
