@@ -165,9 +165,13 @@ LLM writes replay-checked rules and a level-completion test, a planner plays the
 `plan-A-llm-advisor.md` is Coach's v1, kept unchanged.
 Coach was built through its offline probe, which came back NO-GO (prompt v1 at
 chance, `docs/plans/coach-probe-results.md`); its code stays in
-`custom_agents/coach/`. Since 2026-10-04 the track is on **Rulebook**. Step 1 is the
-frozen Stage A rule-finding test, rerun with Qwen3.8-27B
+`custom_agents/coach/`. Since 2026-10-04 the track is on **Rulebook**. Step 1 was the
+frozen Stage A rule-finding test, rerun with Qwen3.8-27B: NO-GO, 1 of 3 games
 (`docs/plans/rulebook-stageA.md`, `experiments/rulebook/stageA.sh start|status|stop`).
+Step 2 is the offline rule test, Tier 0a (`docs/plans/rulebook-tier0a.md`): code in
+`custom_agents/wm/` and `tools/wm_offline.py`, gate G1 pre-registered there. Built
+and smoke-tested 2026-10-05; the 8-game run (~6-7 h, takes the whole GPU) is started
+with `experiments/rulebook/tier0a.sh start|status|stop` and has NOT been run yet.
 
 ## Key conventions
 
