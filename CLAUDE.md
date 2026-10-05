@@ -158,11 +158,16 @@ and one cached model are kept for the LLM track: only Qwen3.8-27B
 (`cyankiwi/Qwen3.8-27B-AWQ-INT4`) since 2026-10-03; the semester-1 Qwen3.5 models were
 deleted, so `legacy/llm_track` commands would re-download them.
 
-LLM track, two options kept (renamed 2026-10-03; neither started):
+LLM track, two options (renamed 2026-10-03):
 **Coach** (`docs/plans/llm-coach.md`, was Plan A v2: the LLM suggests what to try
 when Goose stalls) and **Rulebook** (`docs/plans/llm-rulebook.md`, was Plan C: the
 LLM writes replay-checked rules and a level-completion test, a planner plays them).
 `plan-A-llm-advisor.md` is Coach's v1, kept unchanged.
+Coach was built through its offline probe, which came back NO-GO (prompt v1 at
+chance, `docs/plans/coach-probe-results.md`); its code stays in
+`custom_agents/coach/`. Since 2026-10-04 the track is on **Rulebook**. Step 1 is the
+frozen Stage A rule-finding test, rerun with Qwen3.8-27B
+(`docs/plans/rulebook-stageA.md`, `experiments/rulebook/stageA.sh start|status|stop`).
 
 ## Key conventions
 
