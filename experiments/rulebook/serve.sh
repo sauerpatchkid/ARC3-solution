@@ -11,11 +11,13 @@
 #
 #   experiments/rulebook/serve.sh            # start (foreground); Ctrl-C to stop
 #   RULEBOOK_MODEL=<hf id> experiments/rulebook/serve.sh
+#   RULEBOOK_GPU_MEM=0.87 experiments/rulebook/serve.sh   # when other apps hold GPU memory
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VENV="$ROOT/.venv-llm"
 MODEL="${RULEBOOK_MODEL:-cyankiwi/Qwen3.8-27B-AWQ-INT4}"
 PORT="${RULEBOOK_PORT:-8018}"
+GPU_MEM="${RULEBOOK_GPU_MEM:-0.90}"     # share of the card; lower it when Windows apps hold GPU memory
 
 [ -x "$VENV/bin/vllm" ] || { echo "no $VENV - build it: make -C legacy/llm_track env"; exit 1; }
 
@@ -32,7 +34,7 @@ exec "$VENV/bin/vllm" serve "$MODEL" \
     --host 127.0.0.1 --port "$PORT" \
     --seed 0 \
     --max-model-len 32768 \
-    --gpu-memory-utilization 0.90 \
+    --gpu-memory-utilization "$GPU_MEM" \
     --max-num-seqs 16 \
     --max-num-batched-tokens 4096 \
     --limit-mm-per-prompt '{"image": 10, "video": 0}' \

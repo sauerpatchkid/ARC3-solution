@@ -70,7 +70,7 @@ the decoration mask flagged.
 | vc33 | 1 | 3,571 | 2,890 | 67 | 0 | 5 |
 | ft09 | 1 | 664 | 581 | 91 | 0 | 4 |
 | m0r0 | 1 | 2,671 | 1,385 | 991 | 13 | 8 |
-| cd82 | 2 | *(filled in by the run)* | | | | |
+| cd82 | 2 | 29,520 | 4,281 | 2,324 | 0 | 11 |
 
 - **tr87:** every button moves a selection marker, wrapping around the screen, so every move changes the board.
 - **g50t:** 16% of its cases are conflicts, which points to state the screen doesn't show. Rules touching those
@@ -112,6 +112,66 @@ experiments/rulebook/tier0a.sh stop      # stop it and free the GPU
 - **Resuming:** answers are cached in `results/rulebook/tier0a/llm_cache.jsonl`, so a stopped run resumes where it
   left off.
 
-## Results
+## Results (2026-10-05 22:27 to 2026-10-06 03:30, 5 h) — G1 FAIL, 2 of 8
 
-*(filled in when the run finishes)*
+Full report: `results/rulebook/tier0a/report.md`; per game: `results/rulebook/tier0a/<game>.json`.
+
+**Run.** The server ran at 87% of the card, because Windows apps held 3.6 GB. The launcher now sizes it to what is
+free; this changes how many answers run at once, not the answers.
+- LLM: 200 requests, 449 answers, 4.66 million tokens.
+- Candidates: 446. Of these, 98 (22%) never reached code and 307 were checked.
+- **17 were admitted (≥ 95% right) and 10 were plan-eligible (right on every case).**
+
+**G1: coverage ≥ 80% on at least 3 of the 8 games → 2 games (vc33, ft09) → FAIL.**
+
+| game | training level | **coverage** (trusted rules) | coverage of the looser 95% book | best rules | transfer level: book vs nothing / memory | wrong on transfer |
+|---|---:|---:|---:|---|---|---:|
+| tu93 | 1 | **0%** | 0% | 91–92% right (2 of 4 buttons) | 0.179 vs 0.179 / 0.179 | 0% |
+| tr87 | 1 | **25%** | 25% | 1 of 4 buttons exact | 0.000 vs 0.000 / 0.000 | 0% |
+| dc22 | 1 | **25%** | 42% | 3 of 4 buttons exact (narrow), 1 at 92% | **0.429 vs 0.277 / 0.277** | 0% |
+| g50t | 1 | **0%** | 0% | 60–76% right | 0.201 vs 0.201 / 0.201 | 0% |
+| vc33 | 1 | **100%** | 100% | the one changing group, exact | 0.835 vs 0.835 / 0.835 | 0% |
+| ft09 | 1 | **100%** | 100% | both changing groups, exact | 0.046 vs 0.046 / 0.046 | **59%** |
+| m0r0 | 1 | **0%** | 48% | 90–96% right (4 buttons) | 0.378 vs 0.378 / 0.378 | 0% |
+| cd82 | 2 | **0%** | 0% | 0–45% right | 0.146 vs 0.146 / 0.146 | 0% |
+
+**What the test found:**
+
+1. **Exact rules come only for simple, one-step click mechanics.**
+   - vc33 (blue buttons shift two boundaries) and ft09 (clicking a tile recolours it) reached 100%.
+   - The 95% book would not change the verdict either: it also clears 80% on only those two games.
+2. **On movement games the model is close but not exact.**
+   - Its rules describe the mechanic correctly in words and are 90–97% right: tu93 92%, m0r0 96%, ls20 97% in the
+     smoke test, dc22's fourth button 92%.
+   - The misses are edge cases: walls, timers, and cases where the same screen gave two results (g50t has 93 such
+     cases, tu93 has 11).
+   - Under "100% or not trusted" that is 0% coverage.
+3. **Mechanics with several moving parts were out of reach.**
+   - cd82 (rotating and painting shapes): no rule above 45%.
+   - tr87 (cycling glyphs): 0% on three of four buttons.
+4. **Transfer is the weakest link.** Only dc22's rules carried over.
+   - dc22: its three exact movement rules were right on all 517 level-2 cases they applied to, and the book beat
+     both baselines.
+   - ft09: the rule hard-coded level 1's colour ("turns it red") and was **wrong on 59%** of level 2's changing
+     cases. Stage A's version, learned from many runs, said "the level's other main colour" and transferred at
+     98.9%.
+   - vc33 and tr87: the rules were tied to level 1's layout and applied to nothing on level 2.
+   - Nowhere did memory beat "nothing changes", so the rule book is the only thing that transfers at all.
+5. **Round 2 did most of the work.** Round 2 shows the model its mistakes.
+   - It produced tr87's, vc33's and dc22's exact rules, and one of ft09's.
+   - The plan's own setting stopped refining a group as soon as one rule was *admitted*. So m0r0's two 96% rules
+     and dc22's 92% rule never got a second round.
+   - 22% of answers ran out of their 20,480 tokens before writing code.
+
+**What it means.** By the pre-registered gate, the full Rulebook build is not justified as designed.
+- **What is established.**
+  - A local 27B can write replay-exact rules for simple click mechanics from one run's recordings.
+  - It gets movement mechanics roughly right.
+  - Its exact rules, where it has them, make no wrong predictions on the level they were written for.
+- **What is not established.**
+  - Coverage of most of a level on most games.
+  - Reliable transfer to the next level without repair.
+
+The pre-registration allows one day of trying other settings on these dev games, then narrowing the build to the
+games and groups that pass. The obvious setting to try is the one finding 5 points at: keep giving feedback rounds
+until a rule is exact, not merely admitted. Any result from that is dev-tuned and must be labelled so.

@@ -32,6 +32,18 @@ esac
 
 pgrep -f "$RUN" >/dev/null && { echo "already running"; exit 1; }
 mkdir -p "$OUT"
+# Size the server to what is free: vLLM refuses to start when its share of the card
+# is not available, and on WSL an oversubscribed card spills into system RAM and
+# crawls. 600 MiB is left as headroom. The share only changes how many answers
+# run at once, never what they are.
+read -r USED TOTAL < <(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits | tr -d ',')
+GPU_MEM=$(python3 -c "print(min(0.90, int((($TOTAL - $USED - 600) / $TOTAL) * 100) / 100))")
+if python3 -c "import sys; sys.exit(0 if $GPU_MEM < 0.80 else 1)"; then
+  echo "GPU has ${USED} MiB in use: too little left for the model (share would be $GPU_MEM). Close GPU-heavy apps."
+  exit 1
+fi
+echo "GPU: ${USED} MiB in use by other apps -> server share $GPU_MEM"
+export RULEBOOK_GPU_MEM=$GPU_MEM
 setsid nohup bash -c '
   started=0
   if ! curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null; then
