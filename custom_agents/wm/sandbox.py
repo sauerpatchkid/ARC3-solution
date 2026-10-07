@@ -4,7 +4,9 @@ Two layers, in order:
   validate(src)   STATIC. The code must parse, define the required functions,
                   and use no imports, no attribute starting with "_" (blocks the
                   classic ().__class__ escapes), and nothing from a denylist of
-                  file, process, introspection and numpy-I/O names.
+                  file, process, introspection and numpy-I/O names. Denied names
+                  are denied as attributes too: numpy's own modules import
+                  `builtins`, so np.ma.core.builtins.open reached the real open().
   run_in_child    DYNAMIC, in a spawned CHILD PROCESS with restricted builtins
                   and a wall-clock timeout, so a crash, an infinite loop or a
                   memory blow-up cannot take down the caller. The worker gets
@@ -50,7 +52,7 @@ DENY_NAMES = {"__import__", "eval", "exec", "compile", "open", "input", "globals
 DENY_ATTRS = {"load", "save", "savez", "savez_compressed", "fromfile", "tofile",
               "loadtxt", "savetxt", "genfromtxt", "memmap", "lib", "ctypeslib",
               "f2py", "testing", "distutils", "os", "sys", "ctypes", "frombuffer",
-              "DataSource", "fromregex"}
+              "DataSource", "fromregex", "builtins"} | DENY_NAMES
 DENY_NODES = (ast.Import, ast.ImportFrom, ast.Global, ast.Nonlocal,
               ast.AsyncFunctionDef, ast.Await, ast.ClassDef, ast.With,
               ast.AsyncWith, ast.Delete)

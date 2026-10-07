@@ -123,7 +123,7 @@ def test_key_is_raw_hash_before_warmup_and_stable():
 
 
 # --------------------------------------------------------------------------
-# Label semantics and the tried-action mask
+# Label semantics
 # --------------------------------------------------------------------------
 def test_label_semantics_change_vs_novel():
     """Scripted sequence: no-op, change-to-new, change-back, change-to-new.
@@ -142,43 +142,9 @@ def test_label_semantics_change_vs_novel():
     assert novel == [0, 1, 0, 1]
 
 
-def test_mask_math_and_floor():
-    mem = LevelMemory(decay=0.1, floor=1e-4)
-    key = 42
-    mem.record(key, 0)
-    mem.record(key, 3); mem.record(key, 3)
-    probs = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5], dtype=np.float32)
-    out = mem.apply(probs, key)
-    np.testing.assert_allclose(out, [0.05, 0.5, 0.5, 0.005, 0.5, 0.5], rtol=1e-6)
-    # floor: after many tries the action is still possible
-    for _ in range(10):
-        mem.record(key, 0)
-    out = mem.apply(probs, key)
-    assert out[0] == pytest.approx(1e-4)
-    # untried state: untouched (same object back)
-    assert mem.apply(probs, 99) is probs
-
-
-def test_unavailable_actions_stay_impossible():
-    mem = LevelMemory(decay=0.1, floor=1e-4)
-    mem.record(7, 2)
-    probs = np.array([0.5, 0.5, 0.0, 0.5], dtype=np.float32)   # action 2 masked out
-    out = mem.apply(probs, 7)
-    assert out[2] == 0.0
-
-
-def test_clear_resets_both_maps():
+def test_clear_forgets_the_seen_states():
     mem = LevelMemory()
-    mem.observe(1); mem.record(1, 0)
+    mem.observe(1)
+    assert mem.observe(1) is False
     mem.clear()
-    assert mem.observe(1) is True
-    assert mem.counts(1) == {}
-
-
-def test_tried_cap_drops_oldest_half():
-    mem = LevelMemory(max_states=4)
-    for k in range(4):
-        mem.record(k, 0)
-    mem.record(100, 0)
-    assert 0 not in mem.tried and 1 not in mem.tried
-    assert 3 in mem.tried and 100 in mem.tried
+    assert mem.observe(1) is True and mem.stats() == {"seen_states": 1}

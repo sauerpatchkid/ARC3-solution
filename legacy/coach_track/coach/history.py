@@ -35,7 +35,8 @@ from collections import Counter, OrderedDict, deque
 import numpy as np
 import xxhash
 
-from upgrades import BarDetector, MAX_OBJECT_CELLS, label_components, screen_objects
+from gridtools import MAX_OBJECT_CELLS, label_components, screen_objects
+from upgrades import BarDetector
 
 SUMMARY_VERSION = "coach-summary-v1"
 GRID = 64

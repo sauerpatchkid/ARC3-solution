@@ -237,3 +237,17 @@ def test_override_keeps_goose_choice_when_map_is_idle():
     m.observe(screen(0), NO_MASK, False, BUTTONS)
     assert m.override(2, None, None) == (2, None, None)
     assert m.stats["map_actions"] == 0
+
+
+def test_a_full_map_does_not_call_every_unstored_screen_new():
+    m = ReturnMap(stall=1000, max_nodes=3)
+    w = Walker(m)
+    for i in range(3):                       # fills the map
+        w.see(i)
+        w.act(0)
+    assert len(m.edges) == 3 and m.since_new == 0
+    for i in range(3, 9):                    # six screens the map has no room for
+        w.see(i)
+        w.act(0)
+    assert len(m.edges) == 3 and len(m.buttons) == 3     # nothing grows past the cap
+    assert m.since_new == 6                              # ...and the stall counter keeps counting

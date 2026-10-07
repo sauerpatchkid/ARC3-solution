@@ -21,8 +21,9 @@ accepts that lag), and the diagnostic in tools/label_diagnostic.py measures
 how far the end-of-run online mask is from the offline one.
 
 Pure numpy + xxhash; nothing here touches torch. custom_agents/action.py uses
-OnlineCanonicalizer + LevelMemory only when EVAL_LABEL=novel or
-EVAL_MASK_TRIED=1; with both at their defaults the agent never constructs them.
+OnlineCanonicalizer + LevelMemory only when EVAL_LABEL=novel (the return map and
+the upgrades borrow the canonicalizer for its mask); at the defaults the agent
+never constructs them.
 """
 import numpy as np
 import xxhash
@@ -102,28 +103,21 @@ class OnlineCanonicalizer:
 
 
 class LevelMemory:
-    """Per-level memory for Plan B: which canonical states have been seen, and
-    which actions were already tried from each (§4.2, §4.3).
+    """Per-level memory for the novelty label (Plan B, section 4.2): which
+    canonical states have been seen this level.
 
-        mem = LevelMemory(decay=0.1, floor=1e-4)
-        novel = mem.observe(key)          # label side: first visit to this state?
-        mult = mem.multipliers(key, n)    # sampler side: per-action multipliers, or None
-        mem.record(key, action_idx)       # after acting
+        mem = LevelMemory()
+        novel = mem.observe(key)          # first visit to this state this level?
         mem.clear()                       # on level change (NOT on game over)
 
-    The tried-action mask is soft: an action tried n times from this state is
-    multiplied by decay**n, never below `floor`, so every available action
-    stays possible ("try something else first, but come back if you must").
-    `max_states` bounds the tried map; when exceeded the oldest half is
-    dropped (dict insertion order), which only matters on very long runs.
+    Until 2026-10-06 this class also held Plan B's tried-action soft mask
+    (EVAL_MASK_TRIED, arms A2 and A3). The confirm sweep dropped the mask
+    (docs/plans/plan-B-confirm-sweep-results.md), so it was removed; the code is
+    at the git tag pre-cleanup-2026-10-06.
     """
 
-    def __init__(self, decay=0.1, floor=1e-4, max_states=500_000):
-        self.decay = float(decay)
-        self.floor = float(floor)
-        self.max_states = int(max_states)
+    def __init__(self):
         self.seen = set()
-        self.tried = {}
 
     def observe(self, key):
         """Mark `key` seen; return True if it was new for this level."""
@@ -131,50 +125,8 @@ class LevelMemory:
         self.seen.add(key)
         return novel
 
-    def record(self, key, action_idx):
-        counts = self.tried.get(key)
-        if counts is None:
-            if len(self.tried) >= self.max_states:
-                for k in list(self.tried)[: self.max_states // 2]:
-                    del self.tried[k]
-            counts = self.tried[key] = {}
-        counts[action_idx] = counts.get(action_idx, 0) + 1
-
-    def counts(self, key):
-        return self.tried.get(key, {})
-
-    def multipliers(self, key, n_actions):
-        """(n_actions,) float32 multipliers for the sampler, or None if
-        nothing has been tried from this state (the common case, so the
-        sampler pays nothing)."""
-        counts = self.tried.get(key)
-        if not counts:
-            return None
-        mult = np.ones(n_actions, dtype=np.float32)
-        for a, n in counts.items():
-            mult[a] = self.decay ** n
-        return mult
-
-    def apply(self, probs, key, available=None):
-        """Apply the soft mask to a (n_actions,) probability array (returns a
-        new array). Tried entries are floored at `floor` so they stay
-        possible; unavailable actions stay at 0. `available` is a bool array
-        saying which actions the game allows right now; without it, "has a
-        nonzero probability" is used as the proxy - which fails when the
-        network's sigmoid has underflowed to exactly 0 (seen on tu93 under
-        the novelty label), so callers that know availability should pass it."""
-        mult = self.multipliers(key, probs.shape[0])
-        if mult is None:
-            return probs
-        out = probs * mult
-        tried_idx = np.fromiter(self.tried[key].keys(), dtype=np.int64)
-        live = available[tried_idx] if available is not None else probs[tried_idx] > 0
-        out[tried_idx[live]] = np.maximum(out[tried_idx[live]], self.floor)
-        return out
-
     def clear(self):
         self.seen.clear()
-        self.tried.clear()
 
     def stats(self):
-        return {"seen_states": len(self.seen), "tried_states": len(self.tried)}
+        return {"seen_states": len(self.seen)}

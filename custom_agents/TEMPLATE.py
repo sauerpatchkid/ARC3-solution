@@ -111,6 +111,7 @@ class MyAgent:
 
         # State needed to log a transition once its outcome is known.
         self.prev_frame_raw = None
+        self.prev_level = 0
         self._last_decision_time = None
         self._last_model_ms = 0.0
 
@@ -138,16 +139,21 @@ class MyAgent:
         frame_raw = np.array(latest_frame.frame, dtype=np.uint8)[-1]
 
         # --- log the transition our PREVIOUS action produced -----------------
+        # Every move, including the one that completed a level and the one
+        # that ended the attempt. `level` is the score when the move was MADE
+        # (so a level-completing move belongs to the level it completed), and
+        # game_over marks a move the game answered with GAME_OVER.
         if self.prev_frame_raw is not None and self.transition_logger is not None:
             self.transition_logger.log(
                 frame=self.prev_frame_raw,
                 action_idx=self.prev_action_idx,
                 next_frame=frame_raw,
                 changed=not np.array_equal(self.prev_frame_raw, frame_raw),
-                level=latest_frame.score,
+                level=self.prev_level,
                 action_num=self.action_counter,
                 wall_ms=wall_ms,
                 model_ms=self._last_model_ms,
+                game_over=latest_frame.state is GameState.GAME_OVER,
             )
 
         if latest_frame.state in (GameState.NOT_PLAYED, GameState.GAME_OVER):
@@ -161,6 +167,7 @@ class MyAgent:
         # =====================================================================
 
         self.prev_frame_raw = frame_raw
+        self.prev_level = latest_frame.score
         self.prev_action_idx = idx          # the runner reads this
 
         if idx < 5:

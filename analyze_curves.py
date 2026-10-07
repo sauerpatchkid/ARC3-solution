@@ -2,8 +2,9 @@
 """analyze_curves.py — levels-vs-action-budget curves, AULC, and RHAE.
 
 Post-processing only: reads the metrics.json that compute_metrics.py already
-wrote for each run, so it never touches a corpus and can be re-run on every
-historical run without re-playing anything.
+wrote for each run, so it can be re-run on every historical run without
+re-playing anything. (For a metrics.json written before `actions_taken`
+existed, the run's last recorded action number is read from its final shard.)
 
 What it produces, per (game, arm) group:
   * max_level(t) as a step function per seed, on a log action axis
@@ -27,9 +28,17 @@ where L(t) is the max level completed by action t. It is the agent's average
 completed level, weighted uniformly in LOG action budget, so early progress
 counts as much as an equal-length later stretch. Units are levels; range is
 [0, max_level]. It is NOT a standardized quantity, so the window matters:
-T_min defaults to 100 and T_max to the SMALLEST n_actions in the group, so
-every seed is integrated over an identical budget and no run is extrapolated
-past where it actually stopped. Both bounds are printed with every number.
+T_min defaults to 100 and T_max to the SMALLEST number of actions taken in the
+group, so every seed is integrated over an identical budget and no run is
+extrapolated past where it actually stopped. Both bounds are printed with every
+number.
+
+T_max is in ACTIONS TAKEN, the same clock level-up times are on. Until
+2026-10-06 it was the number of RECORDED moves, which is smaller (resets and
+the move that ended each attempt were not recorded: 2% fewer on a typical run,
+12% on tu93), so a level completed in the last stretch of a run with many game
+overs fell outside the window. Numbers recomputed now differ slightly from
+older reports (AULC up by 0.001-0.04 on the adopted-agent confirm runs).
 
 Rankings can flip with the budget — always report T_max next to the AULC.
 
@@ -58,25 +67,9 @@ import os
 import statistics as st
 from collections import defaultdict
 
+from manifest import arm_name, read_manifest as load_manifest
+
 T_MIN_DEFAULT = 100.0
-
-
-
-def arm_name(arm):
-    """Manifest arm column: 'on'/'off' are the reset arms; anything else
-    (Plan B's A0-A3) is already a name."""
-    return f"reset_{arm}" if arm in ("on", "off") else str(arm)
-
-def load_manifest(path):
-    """sweep.sh manifest: run_dir <TAB> game <TAB> seed <TAB> arm."""
-    rows = []
-    with open(path) as f:
-        for line in f:
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) >= 4:
-                rows.append({"run_dir": parts[0], "game": parts[1],
-                             "seed": parts[2], "arm": parts[3]})
-    return rows
 
 
 def load_runs(run_dirs):
@@ -100,7 +93,24 @@ def load_runs(run_dirs):
 
 def read_metrics(run_dir):
     with open(os.path.join(run_dir, "metrics.json")) as f:
-        return json.load(f)
+        m = json.load(f)
+    m["_budget"] = budget(m, run_dir)
+    return m
+
+
+def budget(m, run_dir=None):
+    """Actions the run took: the clock its level-up times are on (see the
+    module doc). metrics.json has it as `actions_taken`; for an older file it
+    is the last recorded action number, read from the run's final shard."""
+    if m.get("actions_taken"):
+        return m["actions_taken"]
+    shards = sorted(glob.glob(os.path.join(run_dir, "transitions", "shard_*.npz"))) if run_dir else []
+    if shards:
+        import numpy as np
+        with np.load(shards[-1]) as z:
+            if len(z["action_nums"]):
+                return max(int(z["action_nums"][-1]), m["n_actions"])
+    return m["n_actions"]
 
 
 def level_at(levelups, t):
@@ -135,7 +145,7 @@ def actions_to_level(levelups, k):
 
 def summarize_group(runs, t_min):
     """runs = [(seed, metrics)]. Returns the per-group analysis dict."""
-    budgets = [m["n_actions"] for _, m in runs]
+    budgets = [m.get("_budget", m["n_actions"]) for _, m in runs]
     t_max = float(min(budgets))
     out = {"n_seeds": len(runs), "t_min": t_min, "t_max": t_max,
            "budgets": budgets, "aulc_per_seed": {}, "levels_per_seed": {},
@@ -189,7 +199,7 @@ def plot_curves(groups, t_min, path):
 
     fig, ax = plt.subplots(figsize=(8, 5))
     for (game, arm), runs in sorted(groups.items()):
-        t_max = min(m["n_actions"] for _, m in runs)
+        t_max = min(m.get("_budget", m["n_actions"]) for _, m in runs)
         grid = np.logspace(math.log10(t_min), math.log10(t_max), 400)
         curves = np.array([[level_at(m.get("levelup_events") or [], t)
                             for t in grid] for _, m in runs], dtype=float)

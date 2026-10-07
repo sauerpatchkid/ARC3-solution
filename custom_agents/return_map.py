@@ -159,11 +159,18 @@ class ReturnMap:
         self.step += 1
         self.attempt_steps += 1
         new = k not in self.edges
-        if new and len(self.edges) < self.max_nodes:
+        if new and len(self.edges) >= self.max_nodes:
+            # The map is full, so this screen cannot be remembered - and then
+            # it cannot be told from one seen a moment ago. Calling it new
+            # every time (as before) kept resetting the stall counter, which
+            # switched stall routing off for the rest of the level.
+            new = False
+        if new:
             self.edges[k] = {}
             self.tries[k] = 0
             self.found_at[k] = self.step
-        self.buttons[k], self.clickable[k] = self.availability(available_actions)
+        if k in self.edges:
+            self.buttons[k], self.clickable[k] = self.availability(available_actions)
 
         if self.expect is not None:              # checking a route step
             if has_prev and k == self.expect:

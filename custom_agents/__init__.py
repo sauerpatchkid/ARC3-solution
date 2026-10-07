@@ -30,6 +30,7 @@ import importlib
 # name -> (module inside custom_agents/, class name)
 REGISTRY = {
     "goose": ("action", "Action"),
+    "mb_gated_att": ("presets", "MbGatedAtt"),     # the adopted Goose, see presets.py
     "random": ("random_agent", "RandomAgent"),
 }
 

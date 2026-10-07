@@ -114,3 +114,40 @@ def test_prompt_parts_show_distinct_effects_and_pictures(tmp_path):
     assert R.tail("plain thinking, never closed") == "plain thinking, never closed"
     assert R.tail("thoughts</think>the answer") == "the answer"
     assert R.tail("x" * 30000 + "</think>").startswith("[...earlier reasoning omitted...]")
+
+
+def test_a_dropped_connection_is_retried_and_a_rejected_request_is_not(monkeypatch):
+    import io
+    import urllib.error
+    import wm.llm as L
+    reply = json.dumps({"choices": [{"index": 0, "message": {"content": "ok"}, "finish_reason": "stop"}],
+                        "usage": {"completion_tokens": 3}}).encode()
+    calls = {"n": 0}
+
+    class Reply(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def flaky(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise ConnectionResetError("dropped")
+        return Reply(reply)
+    monkeypatch.setattr(L.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(L.time, "sleep", lambda s: None)
+    c = ChatClient(retries=3)
+    c._served = "m"
+    assert c.complete([{"role": "user", "content": "x"}])[0]["text"] == "ok"
+    assert calls["n"] == 3 and c.meter["retries"] == 2
+
+    def rejected(req, timeout=None):
+        calls["n"] += 1
+        raise urllib.error.HTTPError("u", 400, "bad request", {}, None)
+    calls["n"] = 0
+    monkeypatch.setattr(L.urllib.request, "urlopen", rejected)
+    try:
+        c.complete([{"role": "user", "content": "y"}])
+        assert False, "a 400 must be raised"
+    except urllib.error.HTTPError:
+        pass
+    assert calls["n"] == 1                       # not retried

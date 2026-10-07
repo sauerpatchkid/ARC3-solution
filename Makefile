@@ -24,7 +24,8 @@ help:
 	@echo "  make install                        set up the venv"
 	@echo "  make check                          health check: isolation, agents, deps"
 	@echo "  make suites                         list the frozen benchmark suites"
-	@echo "  make bench SUITE=standard AGENT=x   run a frozen suite (backgrounded)"
+	@echo "  make bench SUITE=standard AGENT=x   run a frozen suite (backgrounded); AGENT=goose is the"
+	@echo "                                      semester-1 baseline, AGENT=mb_gated_att the adopted Goose"
 	@echo "  make bench-fg SUITE=smoke           same, in the foreground"
 	@echo "  make compare M1=<manifest> M2=<..>  put two agents side by side"
 	@echo "  make local GAME=ft09 CAP=2000       one ad-hoc run"
@@ -33,7 +34,7 @@ help:
 	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make label-diag                         Plan B step 1: change vs novel label rate per game"
-	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0-A3, detached"
+	@echo "  make planb-dev [DRY_RUN=1] [RESUME=m]   Plan B step 3: dev sweep, arms A0 A1, detached"
 	@echo "  make planb-status                       progress of the detached Plan B sweep"
 	@echo "  make planb-confirm [DRY_RUN=1] [RESUME=m] Plan B step 4: Confirm tier, A0 vs A1, all 25 games x 3 seeds, detached"
 	@echo "  make map-dev [DRY_RUN=1] [RESUME=m]      Option 1 dev test: novelty label with vs without the map, detached"
@@ -43,7 +44,10 @@ help:
 	@echo "  make upgrade-screen [DRY_RUN=1] [RESUME=m]  screen every candidate upgrade, short runs, ranked"  # [upgrades]
 	@echo "  make tensorboard"
 	@echo ""
-	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/, frozen)"
+	@echo "  make clean CONFIRM=yes                  delete EVERY recorded run under results/runs"
+	@echo ""
+	@echo "Archive: legacy/ (API-path scripts; semester-1 LLM track in legacy/llm_track/ and the"
+	@echo "         Coach in legacy/coach_track/, both frozen)"
 	@echo ""
 	@echo "Add your own agent: see custom_agents/__init__.py and TEMPLATE.py"
 
@@ -136,83 +140,59 @@ label-diag:
 	mkdir -p $(RESULTS)/diagnostics
 	PYTHONHASHSEED=0 uv run python tools/label_diagnostic.py --results $(RESULTS)
 
-# Plan B step 3 (docs/plans/plan-B-goose-novelty.md §7.3), the SMALL first
-# pass: 6 dev games x 3 seeds x 100k actions x 4 arms = 72 runs, ~15 h.
-# Override PB_GAMES / PB_SEEDS / PB_CAP / PB_ARMS on the command line.
-# Started with setsid so it survives this terminal or the Claude window
-# closing (not `wsl --shutdown` or the machine sleeping). DRY_RUN=1 prints
-# the plan and ETA without running anything. After a sleep/reboot, resume
-# with RESUME=<its manifest>: finished (game, seed, arm) runs are skipped.
+# ---------------------------------------------------------------------------
+# Arm sweeps: games x seeds x arms (A0 change label, A1 novelty label, A4
+# novelty label + return map), DETACHED with setsid so they survive this
+# terminal or the Claude window closing (not `wsl --shutdown` or the machine
+# sleeping). DRY_RUN=1 prints the plan and ETA without running anything.
+# RESUME=<manifest> skips the (game, seed, arm) runs already in it. They share
+# one log and the planb-status / planb-pause / planb-stop targets below.
+#
+# The four named sweeps are the finished Plan B and Option 1 experiments, kept
+# so their runs can be resumed or repeated; all four go through `arm-sweep`.
+#   planb-dev      6 dev games x 3 seeds x 100k x A0 A1   (plan-B §7.3; A2 A3,
+#                  the tried-action mask, were removed on 2026-10-06)
+#   planb-confirm  25 games x 3 seeds x 100k x A0 A1, ~30 h   (plan-B §7.4)
+#   map-dev        8 games x 3 seeds x 100k x A1 A4, ~10 h    (option-1 dev test)
+#   map-confirm    25 games x 3 seeds x 100k x A4, ~15 h; A1 comes from the
+#                  Plan B confirm runs ($(PB_CONFIRM)), not rerun:
+#     uv run python tools/paired_compare.py --base $(PB_CONFIRM):A1 --new <manifest>:A4
+# ---------------------------------------------------------------------------
 PB_GAMES ?= ls20 dc22 g50t tu93 ft09 lp85
 PB_SEEDS ?= 0 1 2
 PB_CAP   ?= 100000
-PB_ARMS  ?= A0 A1 A2 A3
+PB_ARMS  ?= A0 A1
 PB_LOG   := $(RESULTS)/sweeps/planb_dev.log
-planb-dev:
-	mkdir -p $(RESULTS)/sweeps
-ifeq ($(DRY_RUN),1)
-	DRY_RUN=1 ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) bash sweep.sh
-else
-	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
-	RESUME="$(RESUME)" ARMS="$(PB_ARMS)" GAMES="$(PB_GAMES)" SEEDS="$(PB_SEEDS)" CAP=$(PB_CAP) \
-	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
-	@echo "started detached; log: $(PB_LOG)   progress: make planb-status"
-endif
-
-# Plan B step 4 (plan §7.4), the Confirm tier: the dev-sweep pick (A1, the
-# novelty label) against the baseline on every public game x 3 seeds x 100k.
-# 25 games x 3 seeds x 2 arms = 150 runs, ~30 h. Same log, status, pause,
-# stop and RESUME as planb-dev.
 PC_GAMES ?= $(shell uv run python -c "import benchmark; print(' '.join(benchmark.ALL_GAMES))")
 PC_SEEDS ?= 0 1 2
 PC_CAP   ?= 100000
 PC_ARMS  ?= A0 A1
-planb-confirm:
-	mkdir -p $(RESULTS)/sweeps
-ifeq ($(DRY_RUN),1)
-	DRY_RUN=1 ARMS="$(PC_ARMS)" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) bash sweep.sh
-else
-	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
-	RESUME="$(RESUME)" ARMS="$(PC_ARMS)" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) \
-	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
-	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
-endif
-
-# Option 1 dev test (docs/plans/option-1-return-map.md): the adopted agent (A1,
-# novelty label) with and without the return map (A4), on the 6 Plan B dev
-# games plus two keyboard games nothing has ever solved. 8 games x 3 seeds x
-# 100k x 2 arms = 48 runs, ~10 h. Same log, status, pause, stop and RESUME.
 MD_GAMES ?= ls20 dc22 g50t tu93 ft09 lp85 re86 wa30
 MD_SEEDS ?= 0 1 2
 MD_CAP   ?= 100000
 MD_ARMS  ?= A1 A4
-map-dev:
+PB_CONFIRM := results/sweeps/sweep_20260917_224431.manifest
+
+.PHONY: arm-sweep
+arm-sweep:
 	mkdir -p $(RESULTS)/sweeps
 ifeq ($(DRY_RUN),1)
-	DRY_RUN=1 ARMS="$(MD_ARMS)" GAMES="$(MD_GAMES)" SEEDS="$(MD_SEEDS)" CAP=$(MD_CAP) bash sweep.sh
+	DRY_RUN=1 ARMS="$(SW_ARMS)" GAMES="$(SW_GAMES)" SEEDS="$(SW_SEEDS)" CAP=$(SW_CAP) bash sweep.sh
 else
 	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
-	RESUME="$(RESUME)" ARMS="$(MD_ARMS)" GAMES="$(MD_GAMES)" SEEDS="$(MD_SEEDS)" CAP=$(MD_CAP) \
+	RESUME="$(RESUME)" ARMS="$(SW_ARMS)" GAMES="$(SW_GAMES)" SEEDS="$(SW_SEEDS)" CAP=$(SW_CAP) \
 	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
 	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
 endif
 
-# Option 1 Confirm tier: the map arm (A4) on all 25 public games x 3 seeds x
-# 100k = 75 runs, ~15 h. The novelty-only arm (A1) is NOT rerun: it is compared
-# against the Plan B Confirm sweep's A1 runs (same seeds, same code path; with
-# EVAL_RETURN_MAP unset the agent takes the same actions as before the map).
-#   uv run python tools/paired_compare.py --base $(PB_CONFIRM):A1 --new <this manifest>:A4
-PB_CONFIRM := results/sweeps/sweep_20260917_224431.manifest
+planb-dev:
+	@$(MAKE) --no-print-directory arm-sweep SW_ARMS="$(PB_ARMS)" SW_GAMES="$(PB_GAMES)" SW_SEEDS="$(PB_SEEDS)" SW_CAP=$(PB_CAP)
+planb-confirm:
+	@$(MAKE) --no-print-directory arm-sweep SW_ARMS="$(PC_ARMS)" SW_GAMES="$(PC_GAMES)" SW_SEEDS="$(PC_SEEDS)" SW_CAP=$(PC_CAP)
+map-dev:
+	@$(MAKE) --no-print-directory arm-sweep SW_ARMS="$(MD_ARMS)" SW_GAMES="$(MD_GAMES)" SW_SEEDS="$(MD_SEEDS)" SW_CAP=$(MD_CAP)
 map-confirm:
-	mkdir -p $(RESULTS)/sweeps
-ifeq ($(DRY_RUN),1)
-	DRY_RUN=1 ARMS="A4" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) bash sweep.sh
-else
-	@pgrep -f "^bash sweep\.sh" >/dev/null && { echo "a sweep is already running (make planb-status)"; exit 1; } || true
-	RESUME="$(RESUME)" ARMS="A4" GAMES="$(PC_GAMES)" SEEDS="$(PC_SEEDS)" CAP=$(PC_CAP) \
-	  setsid nohup bash sweep.sh >> $(PB_LOG) 2>&1 < /dev/null &
-	@echo "started detached; log: $(PB_LOG)   progress: make planb-status   pause: make planb-pause"
-endif
+	@$(MAKE) --no-print-directory arm-sweep SW_ARMS="A4" SW_GAMES="$(PC_GAMES)" SW_SEEDS="$(PC_SEEDS)" SW_CAP=$(PC_CAP)
 
 # Graceful pause: the sweep checks for this file between runs, finishes the
 # run in progress (<= ~12 min), records it, and exits. Nothing is lost.
@@ -239,8 +219,19 @@ planb-status:
 tensorboard:
 	.venv/bin/tensorboard --logdir=$(RESULTS)/runs --port=6006
 
+# Deletes EVERY recorded run under $(RESULTS)/runs - including the Plan B
+# confirm runs that later comparisons still read. Nothing can rebuild them
+# except rerunning the sweeps, so it refuses without CONFIRM=yes.
 clean:
+ifeq ($(CONFIRM),yes)
 	rm -rf ./$(RESULTS)/runs
+else
+	@echo "make clean deletes every recorded run in $(RESULTS)/runs:"
+	@du -sh ./$(RESULTS)/runs 2>/dev/null || echo "  (nothing there)"
+	@echo "Sweep manifests and paired comparisons point into that folder."
+	@echo "If you are sure:  make clean CONFIRM=yes"
+	@exit 1
+endif
 
 # --- API path (original, unchanged apart from where recordings land) ---
 action:

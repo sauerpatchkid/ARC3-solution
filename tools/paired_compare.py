@@ -15,6 +15,13 @@ Adoption rule (docs/plans/option-1-return-map.md; the same shape Plan B used):
   1. levels summed over the pairs: new >= base, and paired wins > losses;
   2. no game where new completes fewer levels than base on every seed.
 
+--rule picks which pre-registered rule the verdict uses. Part 2 is the same in
+all three; part 1 is:
+  adopt    (default) levels new >= base, wins >  losses   Plan B, Option 1, upgrades
+  dev      levels new >= base, wins >= losses             Rulebook dev gates (G3)
+  confirm  levels new >  base, wins >  losses             Rulebook 25-game confirms
+With --rule left out, verdicts are computed and printed exactly as before.
+
 Added for the Coach plan (docs/plans/llm-coach.md §6), both off the rule's path:
   --expect N  blocks the verdict (BLOCKED, exit code 2) unless both arms have
               exactly the N declared (game, seed) runs, one each, the same
@@ -34,6 +41,9 @@ import os
 import statistics as st
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # repo root
+from manifest import read_manifest  # noqa: E402
+
 
 def load(spec, problems=None):
     """{(game, seed): run summary} for one MANIFEST:ARM. Duplicate (game, seed)
@@ -42,28 +52,27 @@ def load(spec, problems=None):
     path, arm = spec.rsplit(":", 1)
     problems = [] if problems is None else problems
     out = {}
-    with open(path) as f:
-        for line in f:
-            rundir, game, seed, a = line.rstrip("\n").split("\t")
-            if a != arm:
-                continue
-            if (game, seed) in out:
-                problems.append(f"{spec}: duplicate run for {game} seed {seed}")
-            mpath = os.path.join(rundir, "metrics.json")
-            if not os.path.exists(mpath):
-                problems.append(f"{spec}: no metrics.json for {game} seed {seed}")
-                continue
-            m = json.load(open(mpath))
-            ms_path = os.path.join(rundir, "return_map_stats.json")
-            cfg_path = os.path.join(rundir, "run_config.json")
-            cfg = json.load(open(cfg_path)) if os.path.exists(cfg_path) else {}
-            out[(game, seed)] = dict(
-                lv=m["levels_completed"], u=m["unique_states"], n=m["n_actions"],
-                late=m.get("novelty_late_per_1k") or 0.0,
-                aps=m.get("actions_per_sec") or 0.0,
-                cap=cfg.get("max_actions"),
-                end=m.get("termination"),      # None for runs before run_end.json
-                ms=json.load(open(ms_path)) if os.path.exists(ms_path) else None)
+    for row in read_manifest(path, strict=True):
+        rundir, game, seed = row["run_dir"], row["game"], row["seed"]
+        if row["arm"] != arm:
+            continue
+        if (game, seed) in out:
+            problems.append(f"{spec}: duplicate run for {game} seed {seed}")
+        mpath = os.path.join(rundir, "metrics.json")
+        if not os.path.exists(mpath):
+            problems.append(f"{spec}: no metrics.json for {game} seed {seed}")
+            continue
+        m = json.load(open(mpath))
+        ms_path = os.path.join(rundir, "return_map_stats.json")
+        cfg_path = os.path.join(rundir, "run_config.json")
+        cfg = json.load(open(cfg_path)) if os.path.exists(cfg_path) else {}
+        out[(game, seed)] = dict(
+            lv=m["levels_completed"], u=m["unique_states"], n=m["n_actions"],
+            late=m.get("novelty_late_per_1k") or 0.0,
+            aps=m.get("actions_per_sec") or 0.0,
+            cap=cfg.get("max_actions"),
+            end=m.get("termination"),      # None for runs before run_end.json
+            ms=json.load(open(ms_path)) if os.path.exists(ms_path) else None)
     return out
 
 
@@ -87,6 +96,19 @@ def expect_check(n, base, new, pairs, problems):
     return bad
 
 
+# part 1 of each rule: (levels test, wins test, how it is printed)
+RULES = {
+    "adopt":   (lambda n, b: n >= b, lambda w, l: w > l,  "new >= base in total, wins > losses"),
+    "dev":     (lambda n, b: n >= b, lambda w, l: w >= l, "new >= base in total, wins >= losses"),
+    "confirm": (lambda n, b: n > b,  lambda w, l: w > l,  "new > base in total, wins > losses"),
+}
+
+
+def rule_one(rule, tot_n, tot_b, wins, losses):
+    levels_ok, wins_ok, _ = RULES[rule]
+    return levels_ok(tot_n, tot_b) and wins_ok(wins, losses)
+
+
 def bootstrap_delta(per_game_delta, reps=10000, seed=0):
     """95% interval for the summed level delta, resampling GAMES with
     replacement (each game keeps all its seeds). Fixed seed: reruns agree."""
@@ -106,6 +128,8 @@ def main():
                     help="require exactly N valid (game, seed) pairs, one run each, same "
                          "action cap, no run ended on an error; otherwise the verdict is "
                          "BLOCKED (exit code 2). Off by default, so earlier verdicts stand.")
+    ap.add_argument("--rule", choices=sorted(RULES), default="adopt",
+                    help="which pre-registered rule the verdict uses (see the top of this file)")
     a = ap.parse_args()
     problems = []
     base, new = load(a.base, problems), load(a.new, problems)
@@ -145,7 +169,7 @@ def main():
         lines.append(f"| {g} | {len(seeds)} | {lb} | {ln} | {w}/{t}/{l} | {ub:.0f} | {un:.0f} | "
                      f"{lab:.1f} | {lan:.1f} | {share} | {routes} |")
 
-    rule1 = tot_n >= tot_b and W > L
+    rule1 = rule_one(a.rule, tot_n, tot_b, W, L)
     rule2 = not worse_everywhere
     aps_b = st.mean(v["aps"] for k, v in base.items() if k in pairs)
     aps_n = st.mean(v["aps"] for k, v in new.items() if k in pairs)
@@ -172,7 +196,7 @@ def main():
         lines += [f"  - {r}" for r in blocked[:20]]
         if len(blocked) > 20:
             lines.append(f"  - ... and {len(blocked) - 20} more")
-    lines += [f"Rule 1 (new >= base in total, wins > losses): {'PASS' if rule1 else 'FAIL'}",
+    lines += [f"Rule 1 ({RULES[a.rule][2]}): {'PASS' if rule1 else 'FAIL'}",
               f"Rule 2 (no game worse on every seed): {'PASS' if rule2 else 'FAIL'}",
               f"Verdict: {verdict}"]
     text = "\n".join(lines)

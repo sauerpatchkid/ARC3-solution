@@ -214,6 +214,59 @@ def write_run_end(agent, frame, termination, detail, elapsed):
           f"state={rec['final_state']}")
 
 
+def play(agent, env, cap, tag="run_local", indent="  "):
+    """THE game loop: drive `agent` on `env` until the action cap, a win or
+    is_done, then write run_end.json. run_local.main() and run_curriculum.py
+    both call this, so a fix to the loop reaches both (run_curriculum used to
+    carry its own copy, and missed run_end.json that way). Returns the seconds
+    the loop took."""
+    obs = env.reset()
+    frame = ShimFrame(obs, getattr(env, "action_space", None))
+
+    t0 = time.time()
+    consecutive_resets = 0
+    termination, detail = "cap", ""
+    try:
+        while agent.action_counter < cap:
+            if agent.is_done([frame], frame):
+                print(f"[{tag}] is_done at {agent.action_counter} "
+                      f"(state={frame.state.name})")
+                termination = "win" if frame.state is HState.WIN else "is_done"
+                break
+
+            action = agent.choose_action([frame], frame)
+            eng_action, data, is_reset = to_engine_action(
+                action, getattr(agent, "prev_action_idx", None))
+
+            if is_reset:
+                obs = env.reset()
+                consecutive_resets += 1
+                if consecutive_resets > 10:
+                    raise SystemExit("10+ resets with no progress - check reset "
+                                     "semantics / initial state handling")
+            else:
+                obs = env.step(eng_action, data=data)
+                consecutive_resets = 0
+
+            frame = ShimFrame(obs, getattr(env, "action_space", None))
+            agent.action_counter += 1
+
+            if agent.action_counter % 1000 == 0:
+                aps = agent.action_counter / (time.time() - t0)
+                print(f"{indent}{agent.action_counter:>7} actions  score={frame.score}  "
+                      f"{aps:5.1f} act/s")
+    except BaseException as e:
+        termination = "interrupted" if isinstance(e, KeyboardInterrupt) else "error"
+        detail = repr(e)[:500]
+        raise
+    finally:
+        try:
+            write_run_end(agent, frame, termination, detail, time.time() - t0)
+        except Exception as e:      # never let logging mask the run's own error
+            print(f"[run_local] (run_end.json not written: {e!r})")
+    return time.time() - t0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--game", required=True)
@@ -240,50 +293,7 @@ def main():
     if env is None:
         raise SystemExit(f"failed to make env for {args.game}")
 
-    obs = env.reset()
-    frame = ShimFrame(obs, getattr(env, "action_space", None))
-
-    t0 = time.time()
-    consecutive_resets = 0
-    termination, detail = "cap", ""
-    try:
-        while agent.action_counter < cap:
-            if agent.is_done([frame], frame):
-                print(f"[run_local] is_done at {agent.action_counter} "
-                      f"(state={frame.state.name})")
-                termination = "win" if frame.state is HState.WIN else "is_done"
-                break
-
-            action = agent.choose_action([frame], frame)
-            eng_action, data, is_reset = to_engine_action(
-                action, getattr(agent, "prev_action_idx", None))
-
-            if is_reset:
-                obs = env.reset()
-                consecutive_resets += 1
-                if consecutive_resets > 10:
-                    raise SystemExit("10+ resets with no progress - check reset "
-                                     "semantics / initial state handling")
-            else:
-                obs = env.step(eng_action, data=data)
-                consecutive_resets = 0
-
-            frame = ShimFrame(obs, getattr(env, "action_space", None))
-            agent.action_counter += 1
-
-            if agent.action_counter % 1000 == 0:
-                aps = agent.action_counter / (time.time() - t0)
-                print(f"  {agent.action_counter:>7} actions  score={frame.score}  "
-                      f"{aps:5.1f} act/s")
-    except BaseException as e:
-        termination = "interrupted" if isinstance(e, KeyboardInterrupt) else "error"
-        detail = repr(e)[:500]
-        raise
-    finally:
-        try:
-            write_run_end(agent, frame, termination, detail, time.time() - t0)
-        except Exception as e:      # never let logging mask the run's own error
-            print(f"[run_local] (run_end.json not written: {e!r})")
+    dt = play(agent, env, cap)
 
     if getattr(agent, "transition_logger", None) is not None:
         agent.transition_logger.flush()
@@ -292,7 +302,6 @@ def main():
     except Exception:
         pass
 
-    dt = time.time() - t0
     print(f"[run_local] done: {agent.action_counter} actions in {dt:.1f}s "
           f"({agent.action_counter / max(dt, 1e-9):.1f} act/s)")
     try:

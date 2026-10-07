@@ -17,26 +17,12 @@ import os
 import statistics as st
 from collections import defaultdict
 
+from manifest import arm_name, read_manifest
 
-
-def arm_name(arm):
-    """Manifest arm column: 'on'/'off' are the reset arms; anything else
-    (Plan B's A0-A3) is already a name."""
-    return f"reset_{arm}" if arm in ("on", "off") else str(arm)
 
 def load_manifest(path):
-    rows = []
-    with open(path) as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if not line.strip():
-                continue
-            parts = line.split("\t")
-            if len(parts) < 4:
-                continue
-            rows.append({"run_dir": parts[0], "game": parts[1],
-                         "seed": int(parts[2]), "arm": parts[3]})
-    return rows
+    """The manifest's rows with the seed as a number (compare.py uses this too)."""
+    return [dict(r, seed=int(r["seed"])) for r in read_manifest(path)]
 
 
 def load_metrics(run_dir):

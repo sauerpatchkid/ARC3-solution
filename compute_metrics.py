@@ -20,6 +20,14 @@ normalized by final unique count and measures curve SHAPE only.
 the run) is the leading stall indicator — it flattens thousands of actions before
 the level counter confirms the agent is stuck.
 
+TWO COUNTS, do not mix them. `n_actions` is the number of RECORDED moves, and
+every per-action rate above divides by it. `actions_taken` is the agent's action
+counter - what EVAL_MAX_ACTIONS caps and what level-up times are measured on.
+They differ because a reset is an action but not a move, and because runs made
+before 2026-10-06 did not record the move that ended each attempt (on the 75
+adopted-agent confirm runs the median run recorded 98% of its actions, the
+lowest, tu93, 88%). Budgets and curves use `actions_taken`.
+
 Corpus-only, so it can never perturb a run. Writes metrics.json beside the
 corpus and optionally appends one row to a shared local_suite.csv.
 
@@ -63,7 +71,7 @@ def pass1(paths):
     tiny_count = 0
     tiny_cell_counts = np.zeros((64, 64), dtype=np.int64)
     wall_all, model_all, levelups = [], [], []
-    prev_level = None
+    prev_level, last_action_num = None, 0
     for s in iter_shards(paths):
         f, nf = s["frames"], s["next_frames"]
         m = f.shape[0]; n += m
@@ -77,6 +85,8 @@ def pass1(paths):
             tiny_cell_counts += diff[tiny].sum(axis=0).astype(np.int64)
         wall_all.append(s["wall_ms"]); model_all.append(s["model_ms"])
         lv_arr, an_arr = s["levels"], s["action_nums"]
+        if m:
+            last_action_num = int(an_arr[-1])
         for i in range(m):
             lv = int(lv_arr[i])
             if prev_level is not None and lv > prev_level:
@@ -87,7 +97,8 @@ def pass1(paths):
     return {"n": n, "diff_count": diff_count,
             "tiny_count": tiny_count, "tiny_cell_counts": tiny_cell_counts,
             "raw_change_rate": raw_changed/n if n else 0.0,
-            "levelups": levelups, "wall": wall, "model": model}
+            "levelups": levelups, "wall": wall, "model": model,
+            "last_action_num": last_action_num}
 
 def pass2(paths, mask, n):
     early_n = int(EARLY_LATE_FRAC * n); late_start = n - early_n
@@ -158,7 +169,8 @@ def compute(corpus_dir):
     wall_sec, model_sec = float(wall.sum())/1000.0, float(model.sum())/1000.0
     lus = p1["levelups"]
     return {
-        "n_actions": n, "decorative_cells_masked": int(mask.sum()),
+        "n_actions": n, "actions_taken": max(p1["last_action_num"], n),
+        "decorative_cells_masked": int(mask.sum()),
         "levels_completed": len(lus),
         "max_level": max((lv for _, lv in lus), default=0),
         "first_levelup_action": lus[0][0] if lus else None,
@@ -203,6 +215,8 @@ def apply_run_end(m, corpus_dir):
     m["levels_completed_corpus"] = corp
     m["levels_engine"] = eng
     m["termination"] = end.get("termination")
+    if end.get("n_actions"):                 # the engine's count includes the final, unrecorded move
+        m["actions_taken"] = max(int(end["n_actions"]), m.get("actions_taken", 0))
     if eng != corp:
         if eng == corp + 1:
             last = int(end["n_actions"])
@@ -266,6 +280,9 @@ def append_suite(path, m, game, agent, seed):
 
 def print_summary(m, game, agent, seed):
     print(f"\n=== {agent} / {game} / seed {seed} ({m['n_actions']} actions) ===")
+    if m.get("actions_taken", m["n_actions"]) != m["n_actions"]:
+        print(f"  ACTIONS TAKEN   : {m['actions_taken']}  ({m['n_actions']} recorded as moves; "
+              f"rates below are per recorded move)")
     if m["levels_completed"]:
         print(f"  LEVELS COMPLETED: {m['levels_completed']}  (max {m['max_level']}, "
               f"first at action {m['first_levelup_action']})")

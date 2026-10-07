@@ -41,9 +41,18 @@ same games played cold (which the solo sweeps already produce): transfer =
 curriculum result minus cold-start result. This script gives you the curriculum
 half; pair it with a from-scratch run of the same games to make the claim.
 
-Design note: this file imports and reuses run_local.py's engine glue and
-compute_metrics.py's scorer, and never edits either — so it can be developed
-while a sweep is running without perturbing the baseline.
+Design note: this file reuses run_local.py's engine glue AND its game loop
+(run_local.play), and compute_metrics.py's scorer. It used to carry its own copy
+of the loop, which is how it missed run_end.json and lost a level finished on a
+leg's last move.
+
+BASELINE AGENT ONLY. What persists across games here is the brain: network,
+optimizer and replay buffer. The novelty label, the return map and the upgrades
+also keep per-GAME state (decoration masks that only grow, the walk-back
+bandit), and nothing here resets it at a game boundary - game 1's masks would
+blank cells of game 2 without any error. So with EVAL_LABEL=novel,
+EVAL_MASK_TRIED, EVAL_RETURN_MAP or EVAL_UPGRADES set and more than one game,
+this script stops instead of producing wrong numbers.
 """
 import argparse
 import os
@@ -52,7 +61,7 @@ import time
 import run_local  # import side effects: sys.path setup, arc_agi, minimal agents pkg
 from eval_common import (resolve_seed, resolve_max_actions, write_run_config,
                          TransitionLogger)
-from compute_metrics import compute, append_suite
+from compute_metrics import apply_run_end, compute, append_suite
 from utils import get_environment_directory
 from torch.utils.tensorboard import SummaryWriter
 
@@ -118,41 +127,9 @@ def begin_game(agent, game, position, games, cap):
 
 
 def play_game(agent, env, cap):
-    """Run one leg of the curriculum to the action cap (or WIN / 8h).
-
-    This mirrors run_local.main()'s inner loop on purpose — run_local is left
-    untouched so the live sweep that imports it is unaffected."""
-    obs = env.reset()
-    frame = run_local.ShimFrame(obs, getattr(env, "action_space", None))
-    t0 = time.time()
-    consecutive_resets = 0
-    while agent.action_counter < cap:
-        if agent.is_done([frame], frame):
-            print(f"  [curriculum] is_done at {agent.action_counter} "
-                  f"(state={frame.state.name})")
-            break
-
-        action = agent.choose_action([frame], frame)
-        eng_action, data, is_reset = run_local.to_engine_action(
-            action, getattr(agent, "prev_action_idx", None))
-
-        if is_reset:
-            obs = env.reset()
-            consecutive_resets += 1
-            if consecutive_resets > 10:
-                raise SystemExit("10+ resets with no progress — check reset "
-                                 "semantics / initial state handling")
-        else:
-            obs = env.step(eng_action, data=data)
-            consecutive_resets = 0
-
-        frame = run_local.ShimFrame(obs, getattr(env, "action_space", None))
-        agent.action_counter += 1
-
-        if agent.action_counter % 1000 == 0:
-            aps = agent.action_counter / (time.time() - t0)
-            print(f"    {agent.action_counter:>7} actions  score={frame.score}  "
-                  f"{aps:5.1f} act/s")
+    """Run one leg of the curriculum to the action cap (or WIN / 8h), with the
+    same loop as a solo run. It writes the leg's run_end.json into agent.log_dir."""
+    run_local.play(agent, env, cap, tag="curriculum", indent="    ")
 
 
 def score_leg(env_dir, game, agent, suite, seed_label, label="goose_curriculum"):
@@ -160,7 +137,7 @@ def score_leg(env_dir, game, agent, suite, seed_label, label="goose_curriculum")
     metrics dict, or None if the leg produced no usable corpus."""
     corpus = os.path.join(env_dir, "transitions")
     try:
-        m = compute(corpus)
+        m = apply_run_end(compute(corpus), corpus)
     except SystemExit as e:            # compute raises SystemExit on empty corpus
         print(f"  [curriculum] no metrics for {game}: {e}")
         return None
@@ -259,6 +236,14 @@ def main():
     # level-up inside a game would wipe the transferred brain. This selects the
     # existing EVAL_RESET_ON_LEVEL=0 behavior; it does not change what the flag
     # means for run_local / the API path.
+    carried = [name for name in ("canon", "return_map", "upgrades")
+               if getattr(agent, name, None) is not None]
+    if carried and len(games) > 1:
+        raise SystemExit(
+            "[curriculum] this run has per-game state that is not reset between games "
+            f"({', '.join(carried)}): masks learned on {games[0]} would be applied to "
+            f"{games[1]}. run_curriculum.py supports the default agent only - unset "
+            "EVAL_LABEL / EVAL_MASK_TRIED / EVAL_RETURN_MAP / EVAL_UPGRADES, or run one game.")
     if agent.reset_on_level:
         print("[curriculum] forcing reset_on_level=False for persistent-brain mode "
               "(model/optimizer/buffer carry across every level AND game)")

@@ -14,7 +14,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from compute_metrics import apply_run_end, compute  # noqa: E402
-from paired_compare import bootstrap_delta, expect_check, load  # noqa: E402
+from paired_compare import bootstrap_delta, expect_check, load, rule_one  # noqa: E402
 
 
 # ---- compute_metrics: run_end.json ------------------------------------------------
@@ -127,3 +127,14 @@ def test_bootstrap_is_deterministic_and_brackets_a_constant_delta():
     assert bootstrap_delta([0, 5, -1, 3]) == bootstrap_delta([0, 5, -1, 3])
     lo, hi = bootstrap_delta([0, 5, -1, 3])
     assert lo <= 7 <= hi
+
+
+def test_the_three_verdict_rules_differ_only_on_ties():
+    assert all(rule_one(r, 113, 112, 5, 3) for r in ("adopt", "dev", "confirm"))
+    # equal levels: the confirm rule needs strictly more
+    assert rule_one("adopt", 112, 112, 5, 3) and rule_one("dev", 112, 112, 5, 3)
+    assert not rule_one("confirm", 112, 112, 5, 3)
+    # as many losses as wins: only the dev rule accepts
+    assert rule_one("dev", 113, 112, 4, 4)
+    assert not rule_one("adopt", 113, 112, 4, 4) and not rule_one("confirm", 113, 112, 4, 4)
+    assert not any(rule_one(r, 111, 112, 9, 0) for r in ("adopt", "dev", "confirm"))

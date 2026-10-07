@@ -36,7 +36,9 @@ import time
 from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import manifest as _manifest  # noqa: E402  (the repo's one manifest reader)
 
 NOVEL = {"EVAL_LABEL": "novel"}
 MAP = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1"}
@@ -56,6 +58,10 @@ ARMS = {
     "map_diverse": (dict(MAP, EVAL_UPGRADES="map_diverse"), "map", "Go-Explore target choice: less-visited first"),
     "map_bars":    (dict(MAP, EVAL_UPGRADES="bars"), "map", "map + novelty with progress bars masked"),
 }
+# Lost the screen and removed from custom_agents/upgrades.py on 2026-10-06. Their
+# entries stay in ARMS so rank.py can still describe the recorded round-1
+# results; to RUN them, check out the git tag upgrade-screen-round1.
+REMOVED = {"graded", "map_objects", "map_diverse"}
 # Two games from each situation the candidates target: the map helped (tu93,
 # su15), the map hurt (ar25, tr87), a missed progress bar makes the walk back
 # drift (dc22, g50t), lots of dead clicks (vc33; su15 too), and the flagship.
@@ -71,13 +77,10 @@ def results_root():
 
 
 def read_manifest(path):
-    done = set()
-    if os.path.exists(path):
-        for line in open(path):
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) == 4:
-                done.add((parts[1], parts[2], parts[3]))
-    return done
+    """The (game, seed, arm) runs already finished, for --resume."""
+    if not os.path.exists(path):
+        return set()
+    return {(r["game"], r["seed"], r["arm"]) for r in _manifest.read_manifest(path)}
 
 
 def main():
@@ -86,7 +89,7 @@ def main():
     ap.add_argument("--games", default=",".join(GAMES))
     ap.add_argument("--seeds", default=",".join(map(str, SEEDS)))
     ap.add_argument("--cap", type=int, default=CAP)
-    ap.add_argument("--arms", default=",".join(ARMS))
+    ap.add_argument("--arms", default=",".join(x for x in ARMS if x not in REMOVED))
     ap.add_argument("--resume", default="", help="an existing manifest.tsv to continue")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -97,6 +100,10 @@ def main():
     bad = [x for x in arms if x not in ARMS]
     if bad:
         sys.exit(f"unknown arms {bad}; known {list(ARMS)}")
+    gone = [x for x in arms if x in REMOVED]
+    if gone:
+        sys.exit(f"arms {gone} were removed from the agent on 2026-10-06; "
+                 f"run them from git tag upgrade-screen-round1")
 
     root = results_root()
     if a.resume:

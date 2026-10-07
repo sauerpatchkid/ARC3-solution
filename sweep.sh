@@ -24,14 +24,16 @@
 #   RESUME path of an existing manifest: (game, seed, arm) triples already in it
 #          are skipped and new runs are appended to it, so a sweep killed by a
 #          sleep/reboot picks up where it stopped (same GAMES/SEEDS/CAP/ARMS).
-#   ARMS   Plan B arms (docs/plans/plan-B-goose-novelty.md), space-separated
-#          from A0 A1 A2 A3. When set, every game x seed is run once per arm
-#          with the matching EVAL_LABEL / EVAL_MASK_TRIED, the ':both/:off'
+#   ARMS   Labelled arms, space-separated from A0 A1 A4. When set, every game x
+#          seed is run once per arm with the matching flags, the ':both/:off'
 #          reset suffixes are ignored, and the manifest's arm column holds the
 #          arm name. Unset = the reset arms, exactly as before.
-#            A0 change/0 (baseline)   A1 novel/0   A2 change/1   A3 novel/1
-#          Option 1 (docs/plans/option-1-return-map.md):
-#            A4 novel/0 + return map (EVAL_RETURN_MAP=1)
+#            A0 change label (baseline)       docs/plans/plan-B-goose-novelty.md
+#            A1 novelty label
+#            A4 novelty label + return map    docs/plans/option-1-return-map.md
+#          (A2 and A3, the tried-action mask, were removed on 2026-10-06.)
+#          The ADOPTED agent is not an arm here: it is the registered agent
+#          mb_gated_att, so run it with AGENT=mb_gated_att and no ARMS.
 #
 # Presets (copy-paste):
 #   # diverse baseline (was sweep_night1.sh):
@@ -111,7 +113,7 @@ else
   echo " Ad-hoc sweep (not comparable across people - use BENCH= for that)"
 fi
 echo " Agent: $AGENT"
-[ -n "$ARMS" ] && echo " Plan B arms: $ARMS   (A0 change/0, A1 novel/0, A2 change/1, A3 novel/1, A4 novel/0+map)"
+[ -n "$ARMS" ] && echo " Arms: $ARMS   (A0 change label, A1 novelty label, A4 novelty label + map)"
 echo " Games: $GAMES"
 echo " Seeds: $SEEDS   Cap: $CAP"
 echo " Manifest: $MANIFEST    Metrics CSV: $SUITE_CSV"
@@ -128,57 +130,35 @@ echo " Runs: $n_runs   Total actions: $total_actions"
 awk -v a=$total_actions 'BEGIN{printf " ETA : %.1f h @140 act/s | %.1f h @130 | %.1f h @120\n", a/140/3600, a/130/3600, a/120/3600}'
 echo "=================================================================="
 if [ "${DRY_RUN:-0}" = "1" ]; then
+  [ -z "$RESUME" ] && rm -f "$MANIFEST"     # a dry run must not leave an empty manifest behind
   echo "DRY_RUN=1 - plan printed above, nothing executed."
   exit 0
 fi
 
-run_one () {
-  local game="$1" seed="$2" arm="$3" label out expdir rundir
-  already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=reset_$arm already in manifest, skipping"; return 0; }
+# One run: play it, score it, record it in the manifest. `arm` is a reset arm
+# (on / off) or a labelled arm (A0 A1 A4). Each run is its own process, so an
+# arm's flags cannot leak into the next run. (This was two near-identical
+# functions, run_one and run_planb, until 2026-10-06.)
+run_arm () {
+  local game="$1" seed="$2" arm="$3" label shown out corpus rundir
+  local -a flags=()
+  case "$arm" in
+    on)  label="$AGENT";           shown="reset_on" ;;
+    off) label="${AGENT}_persist"; shown="reset_off"; flags=(EVAL_RESET_ON_LEVEL=0) ;;
+    A0)  label="${AGENT}_A0"; shown="A0"; flags=(EVAL_LABEL=change EVAL_RETURN_MAP=0) ;;
+    A1)  label="${AGENT}_A1"; shown="A1"; flags=(EVAL_LABEL=novel EVAL_RETURN_MAP=0) ;;
+    A4)  label="${AGENT}_A4"; shown="A4"; flags=(EVAL_LABEL=novel EVAL_RETURN_MAP=1) ;;
+    A2|A3) echo "!! arm $arm used the tried-action mask, which Plan B dropped; it was removed on 2026-10-06 (git tag pre-cleanup-2026-10-06)"; return 1 ;;
+    *) echo "!! unknown arm '$arm' (use on, off, A0, A1 or A4)"; return 1 ;;
+  esac
+  already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=$shown already in manifest, skipping"; return 0; }
   echo ""
-  echo ">>> game=$game seed=$seed arm=reset_$arm   started $(date +%H:%M:%S)"
-  if [ "$arm" = "off" ]; then
-    label="${AGENT}_persist"
-    out=$(EVAL_RESET_ON_LEVEL=0 EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
-          uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
-  else
-    label="$AGENT"
-    out=$(EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
-          uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
-  fi
+  echo ">>> game=$game seed=$seed arm=$shown${flags[*]:+ (${flags[*]})}   started $(date +%H:%M:%S)"
+  out=$(env ${flags[@]+"${flags[@]}"} EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
+        uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
   echo "$out" | grep -E 'Score changed|\[run_local\]' || true
   # run_local.py's last line is "[run_local] transitions: <path>/transitions" -
   # parse that rather than pattern-matching the run tree layout.
-  corpus=$(echo "$out" | sed -n 's/^\[run_local\] transitions: //p' | tail -1)
-  if [ -z "$corpus" ]; then
-    echo "!! could not locate run dir for game=$game seed=$seed arm=$arm - skipping metrics"
-    echo "$out" | tail -20
-    return 1
-  fi
-  rundir=$(dirname "$corpus")
-  uv run python compute_metrics.py "$rundir/transitions" \
-      --game "$game" --agent "$label" --seed "$seed" --suite "$SUITE_CSV"
-  printf '%s\t%s\t%s\t%s\n' "$rundir" "$game" "$seed" "$arm" >> "$MANIFEST"
-}
-
-# Plan B arm -> flags. Each arm is its own process, so the flags cannot leak.
-run_planb () {
-  local game="$1" seed="$2" arm="$3" lbl mask map=0 label out corpus rundir
-  already_done "$game" "$seed" "$arm" && { echo "--- game=$game seed=$seed arm=$arm already in manifest, skipping"; return 0; }
-  case "$arm" in
-    A0) lbl=change; mask=0 ;;
-    A1) lbl=novel;  mask=0 ;;
-    A2) lbl=change; mask=1 ;;
-    A3) lbl=novel;  mask=1 ;;
-    A4) lbl=novel;  mask=0; map=1 ;;
-    *) echo "!! unknown Plan B arm '$arm' (use A0 A1 A2 A3 A4)"; return 1 ;;
-  esac
-  label="${AGENT}_${arm}"
-  echo ""
-  echo ">>> game=$game seed=$seed arm=$arm (EVAL_LABEL=$lbl EVAL_MASK_TRIED=$mask EVAL_RETURN_MAP=$map)   started $(date +%H:%M:%S)"
-  out=$(EVAL_LABEL="$lbl" EVAL_MASK_TRIED="$mask" EVAL_RETURN_MAP="$map" EVAL_SEED="$seed" EVAL_MAX_ACTIONS="$CAP" PYTHONHASHSEED=0 \
-        uv run python run_local.py --game "$game" --agent "$AGENT" 2>&1)
-  echo "$out" | grep -E 'Score changed|\[run_local\]' || true
   corpus=$(echo "$out" | sed -n 's/^\[run_local\] transitions: //p' | tail -1)
   if [ -z "$corpus" ]; then
     echo "!! could not locate run dir for game=$game seed=$seed arm=$arm - skipping metrics"
@@ -196,16 +176,16 @@ for s in $SEEDS; do
     game="${tok%%:*}"
     if [ -n "$ARMS" ]; then
       # Arms innermost, so a partial sweep is still paired per (game, seed).
-      for arm in $ARMS; do check_stop; run_planb "$game" "$s" "$arm"; done
+      for arm in $ARMS; do check_stop; run_arm "$game" "$s" "$arm"; done
       continue
     fi
     check_stop
     arm="on"
     [ "$tok" != "$game" ] && arm="${tok#*:}"   # suffix after ':' if present
     case "$arm" in
-      both) run_one "$game" "$s" on ; run_one "$game" "$s" off ;;
-      off)  run_one "$game" "$s" off ;;
-      *)    run_one "$game" "$s" on ;;
+      both) run_arm "$game" "$s" on ; run_arm "$game" "$s" off ;;
+      off)  run_arm "$game" "$s" off ;;
+      *)    run_arm "$game" "$s" on ;;
     esac
   done
 done

@@ -112,8 +112,26 @@ class RandomAgent:
 
         current_frame_raw = np.array(latest_frame.frame, dtype=np.uint8)[-1]
 
-        # Level boundary: flush and drop the previous-frame tracker so no logged
-        # transition ever spans two levels (mirrors action.py).
+        # Log the transition the PREVIOUS action produced — every transition,
+        # before any filtering, exactly as the contract requires. That includes
+        # the move that completed a level (`level` is still the score BEFORE
+        # it here) and the move that ended the attempt (game_over=True), the
+        # same two moves action.py records. Logging only: no RNG is used.
+        if self.prev_frame_raw is not None and self.transition_logger is not None:
+            self.transition_logger.log(
+                frame=self.prev_frame_raw,
+                action_idx=self.prev_action_idx,
+                next_frame=current_frame_raw,
+                changed=not np.array_equal(self.prev_frame_raw, current_frame_raw),
+                level=self.current_score,
+                action_num=self.action_counter,
+                wall_ms=wall_ms,
+                model_ms=0.0,          # no model: the whole point of the floor
+                game_over=latest_frame.state is GameState.GAME_OVER,
+            )
+
+        # Level boundary: flush and drop the previous-frame tracker so the next
+        # logged transition starts inside the new level (mirrors action.py).
         if latest_frame.score != self.current_score:
             if self.transition_logger is not None:
                 self.transition_logger.flush()
@@ -129,20 +147,6 @@ class RandomAgent:
             action = GameAction.RESET
             action.reasoning = "Game needs reset."
             return action
-
-        # Log the transition the PREVIOUS action produced — every transition,
-        # before any filtering, exactly as the contract requires.
-        if self.prev_frame_raw is not None and self.transition_logger is not None:
-            self.transition_logger.log(
-                frame=self.prev_frame_raw,
-                action_idx=self.prev_action_idx,
-                next_frame=current_frame_raw,
-                changed=not np.array_equal(self.prev_frame_raw, current_frame_raw),
-                level=self.current_score,
-                action_num=self.action_counter,
-                wall_ms=wall_ms,
-                model_ms=0.0,          # no model: the whole point of the floor
-            )
 
         idx = self.rng.choice(self._valid_indices(latest_frame.available_actions))
         self.prev_frame_raw = current_frame_raw

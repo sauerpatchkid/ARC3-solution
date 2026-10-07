@@ -117,6 +117,9 @@ def test_sandbox_rejects_imports_private_attrs_and_files():
     assert validate("def applies(b,a,c): return b.__class__\ndef predict(b,a,c): return b")[0] is False
     assert validate("def applies(b,a,c): return open('x')\ndef predict(b,a,c): return b")[0] is False
     assert validate("def applies(b,a,c): return np.load('x')\ndef predict(b,a,c): return b")[0] is False
+    # a denied name reached as an attribute (numpy's own modules import builtins)
+    assert validate("def applies(b,a,c): return np.ma.core.builtins.open\ndef predict(b,a,c): return b")[0] is False
+    assert validate("def applies(b,a,c): return np.ma.core.eval\ndef predict(b,a,c): return b")[0] is False
     assert validate("def applies(b, a): return True\ndef predict(b,a,c): return b")[0] is False
     assert validate(GOOD_MOVE)[0] is True
     assert "applies" in compile_functions(GOOD_MOVE)
@@ -195,6 +198,22 @@ def test_a_rule_touching_a_conflict_key_is_not_plan_eligible():
         e.save(path)
         g = grade(check_rule(GOOD_MOVE, path), e)
     assert g["admitted"] and g["accuracy"] == round(29 / 30, 4) and not g["plan_eligible"]
+
+
+def test_a_noop_touching_a_conflict_key_is_not_trusted():
+    """ACTION2 leaves the board alone 29 times and changes it once from the same
+    screen. "Nothing changes" matches the majority outcome of that key, but an
+    action that sometimes does something is not a known no-op."""
+    b = start()
+    f = np.array([b] * 30)
+    n = np.array([b] * 29 + [step(b, 0)])
+    e = LevelEvidence.from_moves("toy", 0, f, n, np.ones(30, np.int32), mask=NO_MASK)
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "c.npz")
+        e.save(path)
+        g = grade(check_rule(NOOP, path), e)
+    assert g["exact_all"] and g["conflict_keys"] == 1 and not g["known_noop"]
 
 
 # ---- the book -----------------------------------------------------------------------

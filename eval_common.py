@@ -86,7 +86,16 @@ class TransitionLogger:
     .npz shards. Frames are stored as 64x64 uint8 color indices (NOT one-hot).
 
     Contract notes for implementers:
-      - Log EVERY transition, before any agent-internal dedup/filtering.
+      - Log EVERY transition, before any agent-internal dedup/filtering. That
+        includes the move that completes a level (its `level` is the score
+        BEFORE the move, its next_frame the new level's first screen) and the
+        move that ends an attempt (pass game_over=True; its next_frame is the
+        game-over screen). A RESET is an action but not a transition: it is
+        not logged, so action_num steps by 2 across one.
+      - `game_over` (uint8, 1 = this move was followed by GAME_OVER) was added
+        on 2026-10-06. Shards written before then do not have the array and
+        did not record those moves at all (action_num steps by 3 there);
+        readers must treat a missing array as all zeros.
       - `action_idx` uses the unified index: 0-4 = ACTION1-5,
         5 + (64*y + x) = click at (x, y).
       - `level` = the game score at the time of the action.
@@ -111,9 +120,10 @@ class TransitionLogger:
         self.action_nums = []
         self.wall_ms = []
         self.model_ms = []
+        self.game_overs = []
 
     def log(self, frame, action_idx, next_frame, changed, level, action_num,
-            wall_ms, model_ms):
+            wall_ms, model_ms, game_over=False):
         self.frames.append(frame)
         self.actions.append(action_idx)
         self.next_frames.append(next_frame)
@@ -122,6 +132,7 @@ class TransitionLogger:
         self.action_nums.append(action_num)
         self.wall_ms.append(wall_ms)
         self.model_ms.append(model_ms)
+        self.game_overs.append(1 if game_over else 0)
         if len(self.frames) >= self.flush_every:
             self.flush()
 
@@ -139,6 +150,7 @@ class TransitionLogger:
             action_nums=np.array(self.action_nums, dtype=np.int64),
             wall_ms=np.array(self.wall_ms, dtype=np.float32),
             model_ms=np.array(self.model_ms, dtype=np.float32),
+            game_over=np.array(self.game_overs, dtype=np.uint8),
         )
         self.shard_idx += 1
         self._reset_buffers()

@@ -50,7 +50,9 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
+from manifest import read_manifest  # noqa: E402
 from wm import rules as R  # noqa: E402
 from wm.check import (book_status, check_rule, coverage, grade, pick_book,  # noqa: E402
                       transfer)
@@ -321,14 +323,27 @@ def main():
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     runs = {}
-    for line in open(os.path.join(ROOT, a.manifest)):
-        rundir, game, seed, _ = line.rstrip("\n").split("\t")
-        if int(seed) == a.seed:
-            runs[game] = os.path.join(rundir if os.path.isabs(rundir) else os.path.join(ROOT, rundir), "transitions")
+    for row in read_manifest(os.path.join(ROOT, a.manifest), strict=True):
+        rundir = row["run_dir"]
+        if int(row["seed"]) == a.seed:
+            runs[row["game"]] = os.path.join(rundir if os.path.isabs(rundir) else os.path.join(ROOT, rundir),
+                                             "transitions")
     client = None if a.evidence_only else ChatClient(a.url, cache_path=os.path.join(a.out, "llm_cache.jsonl"))
     if client is not None:
         print(f"model: {client.served_model()}", flush=True)
-    results = [run_game(g, runs[g], a.out, client, a) for g in a.games.split(",")]
+    results, failed = [], []
+    for g in a.games.split(","):
+        try:
+            results.append(run_game(g, runs[g], a.out, client, a))
+        except Exception:                     # keep the other games; this one resumes from the cache
+            import traceback
+            traceback.print_exc()
+            failed.append(g)
+            print(f"[{g}] FAILED - see the traceback above", flush=True)
+    if failed:
+        # No report and no gate verdict on an incomplete set of games.
+        sys.exit(f"{len(failed)} game(s) failed: {', '.join(failed)}. Finished games are saved in "
+                 f"{a.out}; rerun the same command to resume from the answer cache.")
     report(a.out, results, a, client)
 
 

@@ -33,6 +33,9 @@ import os
 import numpy as np
 import xxhash
 
+from gridtools import BAR_BORDER, border_band, connected_components, tick_cells  # noqa: F401
+# (connected_components is re-exported: wm/rules.py and the tests import it from here)
+
 GRID = 64
 PALETTE_NAMES = ["white", "light gray", "gray", "dark gray", "darker gray", "black",
                  "pink", "light pink", "red", "blue", "light blue", "yellow",
@@ -43,8 +46,6 @@ MAX_KEYS = 40000             # check-set cap per level (uniform sample above it)
 MASK_MOVES = 20000           # moves of the level the mask is estimated from
 # Ticker scan thresholds: identical to legacy/llm_track/tickers.py.
 DECOR_THRESHOLD, MAX_TICK_CELLS, MIN_TICK_FRAC, TICK_COVERAGE, MAX_MASK_CELLS = 0.95, 2, 0.30, 0.95, 256
-BAR_BORDER = 4               # rotating ticker cells must lie this close to a screen edge
-_NEIGHBOURS = ((-1, -1), (-1, 0), (-1, 1), (0, -1))
 
 
 # --------------------------------------------------------------------------------
@@ -122,43 +123,8 @@ def _readonly(a):
 
 
 # --------------------------------------------------------------------------------
-# Decoration mask (copied from legacy/llm_track/tickers.py and rule_referee.py)
+# Decoration mask (the scan is legacy/llm_track/tickers.py's; helpers in gridtools.py)
 # --------------------------------------------------------------------------------
-def connected_components(mask):
-    """8-connected components of a bool mask, as a list of (n, 2) int16 arrays."""
-    ys, xs = np.nonzero(mask)
-    if len(ys) == 0:
-        return []
-    cells = list(zip(ys.tolist(), xs.tolist()))
-    index = {c: i for i, c in enumerate(cells)}
-    parent = list(range(len(cells)))
-
-    def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    for (y, x), i in index.items():
-        for dy, dx in _NEIGHBOURS:
-            j = index.get((y + dy, x + dx))
-            if j is not None:
-                ri, rj = find(i), find(j)
-                if ri != rj:
-                    parent[rj] = ri
-    groups = {}
-    for c, i in index.items():
-        groups.setdefault(find(i), []).append(c)
-    return [np.array(v, dtype=np.int16) for v in groups.values()]
-
-
-def border_band(width=BAR_BORDER):
-    b = np.zeros((GRID, GRID), bool)
-    b[:width] = b[-width:] = True
-    b[:, :width] = b[:, -width:] = True
-    return b
-
-
 def ticker_mask(frames, next_frames):
     """(mask, info): cells that change by themselves. FIXED = changes in >= 95%
     of moves; ROTATING = the compact cell set covering 95% of the changes made
@@ -176,15 +142,13 @@ def ticker_mask(frames, next_frames):
         return np.zeros((GRID, GRID), bool), {"n": 0}
     tick_count = np.zeros((GRID, GRID), np.int64)
     n_tick = 0
-    for d in diff:
+    for d in diff:                      # gridtools.tick_cells: changed blobs of <= MAX_TICK_CELLS
         if not d.any():
             continue
-        hit = False
-        for comp in connected_components(d):
-            if len(comp) <= MAX_TICK_CELLS:
-                tick_count[comp[:, 0], comp[:, 1]] += 1
-                hit = True
-        n_tick += hit
+        t = tick_cells(d)
+        if t.any():
+            tick_count += t
+            n_tick += 1
     fixed = diff.mean(axis=0) >= DECOR_THRESHOLD
     rot = np.zeros(GRID * GRID, bool)
     if n_tick / n >= MIN_TICK_FRAC and tick_count.sum() > 0:

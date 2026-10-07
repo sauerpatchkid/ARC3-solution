@@ -15,7 +15,9 @@ TRUST, in rising order:
                   keys has conflicting outcomes. Only these may drive a plan: a
                   20-step plan on a 95% rule fails about 64% of the time.
   known no-op     predicts "nothing changes" on every key it applies to, covers
-                  >= 20 moves, and is right on every one. Used to prune search.
+                  >= 20 moves, is right on every one, and none of those keys has
+                  conflicting outcomes (a screen where the same action sometimes
+                  DID change something is not a no-op). Used to prune search.
 
 THE BOOK. Per action group: its best plan-eligible changing rule (highest gain)
 and its best known no-op (most moves). For a key the book returns the single
@@ -118,7 +120,7 @@ def grade(res, ev, group=None):
            "conflict_keys": conflicts, "exact_all": exact_all,
            "admitted": admitted,
            "plan_eligible": admitted and exact_all and conflicts == 0,
-           "known_noop": noop and moves >= ADMIT["min_moves"] and exact_all,
+           "known_noop": noop and moves >= ADMIT["min_moves"] and exact_all and conflicts == 0,
            "reason": "ok"}
     if not admitted and not out["known_noop"]:
         out["reason"] = (

@@ -13,8 +13,8 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 
 from canon import OnlineCanonicalizer  # noqa: E402
-from upgrades import (Upgrades, UpgradedReturnMap, BarDetector, tick_cells,  # noqa: E402
-                      label_components, screen_objects, DEAD_CLICK_TRIES)
+from gridtools import tick_cells, label_components, screen_objects  # noqa: E402
+from upgrades import Upgrades, UpgradedReturnMap, BarDetector, DEAD_CLICK_TRIES  # noqa: E402
 
 NO_MASK = np.zeros((64, 64), dtype=bool)
 
@@ -125,15 +125,6 @@ def test_attempt_label_gives_half_credit_for_new_this_attempt():
     assert labs == [None, 1.0, 1.0, None, 0.5, 1.0]
 
 
-def test_graded_label_decays_with_visits():
-    u = Upgrades(["graded"])
-    labs = drive(u, [0, 1, 0, 1, 0])
-    assert labs[1] == 1.0
-    assert labs[2] == pytest.approx(1 / np.sqrt(2))
-    assert labs[3] == pytest.approx(1 / np.sqrt(2))
-    assert labs[4] == pytest.approx(1 / np.sqrt(3))
-
-
 def test_reward_passes_through_without_a_label_option():
     u = Upgrades(["deadclick"])
     drive(u, [0, 1])
@@ -175,6 +166,12 @@ def test_map_options_need_the_map():
         Upgrades(["nonsense"])
 
 
+def test_removed_candidates_stop_with_a_pointer_to_the_tag():
+    for name in ("graded", "map_objects", "map_diverse"):
+        with pytest.raises(SystemExit, match="upgrade-screen-round1"):
+            Upgrades([name])
+
+
 # ---- the upgraded map -----------------------------------------------------------------------
 def walk(m, seq, avail=(1, 2, 3, 4), action=0):
     has_prev = False
@@ -206,31 +203,6 @@ def test_gated_map_stops_walking_back_when_it_does_not_pay():
     assert m.stats["gate_stay"] > m.stats["gate_walk"]
     if m.gate_arm == "stay":
         assert not m.return_pending
-
-
-def test_object_map_counts_untried_objects_and_clicks_one_on_arrival():
-    m = UpgradedReturnMap(stall=10**9, objects=True)
-    f = np.zeros((64, 64), dtype=np.uint8)
-    f[5, 5] = 8
-    f[40, 40] = 9
-    k = m.observe(f, NO_MASK, False, [6])
-    assert len(m.obj_targets[k]) == 2 and m._is_frontier(k)
-    m.record(5 + 64 * 5 + 5)                          # click the first object
-    assert m._is_frontier(k)
-    m.arrived = True
-    a = m.choose()
-    assert a == 5 + 64 * 40 + 40                      # the object not yet clicked
-    m.record(a)
-    assert not m._is_frontier(k)
-
-
-def test_diverse_map_picks_a_reachable_frontier():
-    m = UpgradedReturnMap(stall=10**9, diverse=True, rng=np.random.RandomState(0))
-    m.attempts.extend([100] * 3)
-    walk(m, [0, 1, 2, 3])
-    k0 = m.key(screen(0), NO_MASK)
-    path = m._return_route(k0)
-    assert path and 1 <= len(path) <= 3
 
 
 def test_bar_mask_reaches_the_map_fingerprint():

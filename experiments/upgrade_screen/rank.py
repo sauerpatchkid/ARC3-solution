@@ -29,13 +29,14 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from analyze_curves import aulc  # noqa: E402
+from manifest import read_manifest  # noqa: E402
 
 
 def load(manifest):
     runs = {}
     cap = 0
-    for line in open(manifest):
-        rundir, game, seed, arm = line.rstrip("\n").split("\t")
+    for row in read_manifest(manifest, strict=True):
+        rundir, game, seed, arm = row["run_dir"], row["game"], row["seed"], row["arm"]
         path = rundir if os.path.isabs(rundir) else os.path.join(ROOT, rundir)
         m = json.load(open(os.path.join(path, "metrics.json")))
         runs[(arm, game, seed)] = m

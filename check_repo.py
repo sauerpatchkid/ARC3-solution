@@ -5,8 +5,11 @@
 
 Four checks, each of which has caught a real problem in this repo:
 
-  1. ISOLATION — no baseline module may import anything under legacy/
-     (including the archived semester-1 LLM track, legacy/llm_track). Archived
+  1. ISOLATION — no module outside legacy/ may import anything under legacy/
+     (including the archived semester-1 LLM track, legacy/llm_track). Every
+     .py file outside legacy/ is scanned, not only the baseline list, so new
+     folders (custom_agents/wm, tools/, experiments/, tests/) are covered
+     the day they are added. Archived
      code may import from the baseline (it reads the corpus and the
      canonicalizer); the arrow must never point the other way, because then an
      edit to archived code would silently alter a teammate's baseline run.
@@ -43,7 +46,8 @@ BASELINE_FILES = [
     "custom_agents/__init__.py", "custom_agents/action.py",
     "custom_agents/random_agent.py", "custom_agents/view_utils.py",
     "custom_agents/TEMPLATE.py", "custom_agents/canon.py",
-    "custom_agents/return_map.py",
+    "custom_agents/return_map.py", "custom_agents/gridtools.py",
+    "custom_agents/presets.py",
     "custom_agents/upgrades.py",  # [upgrades]
 ]
 
@@ -52,12 +56,13 @@ BASELINE_FILES = [
 PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 # First-party modules in this repo.
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "canon", "return_map",
+         "gridtools", "presets", "manifest",
          "upgrades",  # [upgrades]
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
          "analyze_curves", "inspect_corpus", "legacy", "llm_track"}
 # Archived packages no baseline file may import.
-ARCHIVED = {"legacy", "llm_track"}
+ARCHIVED = {"legacy", "llm_track", "coach", "coach_track"}
 
 # Baseline tooling that must never run LLM code or use its environment.
 BASELINE_TOOLING = ["Makefile", "sweep.sh"]
@@ -89,19 +94,31 @@ def imported_modules(path):
     return out
 
 
+# Folders that are not this repo's live code: the archive itself, the harness
+# submodule, virtualenvs, run output and downloaded games.
+NOT_LIVE = {"legacy", "ARC-AGI-3-Agents", "results", "environment_files"}
+
+
+def live_python_files():
+    """Every .py file outside legacy/ (and outside the folders in NOT_LIVE)."""
+    out = []
+    for d, dirs, files in os.walk(ROOT):
+        dirs[:] = sorted(x for x in dirs if not x.startswith(".") and x != "__pycache__"
+                         and not (d == ROOT and x in NOT_LIVE))
+        out += [os.path.relpath(os.path.join(d, f), ROOT) for f in sorted(files) if f.endswith(".py")]
+    return out
+
+
 def check_isolation():
     print("\n1. Isolation: baseline code and tooling never touch legacy/ (incl. llm_track)")
-    bad = []
     for rel in BASELINE_FILES:
-        p = os.path.join(ROOT, rel)
-        if not os.path.exists(p):
+        if not os.path.exists(os.path.join(ROOT, rel)):
             notes.append(f"{rel} not found (skipped)")
-            continue
-        if imported_modules(p) & ARCHIVED:
-            bad.append(rel)
+    files = live_python_files()
+    bad = [rel for rel in files if imported_modules(os.path.join(ROOT, rel)) & ARCHIVED]
     check("baseline does not depend on legacy/ or llm_track", not bad,
           f"offenders: {', '.join(bad)}" if bad else
-          f"{len(BASELINE_FILES)} files clean")
+          f"{len(files)} files clean")
     bad_tool = [rel for rel in BASELINE_TOOLING
                 if os.path.exists(os.path.join(ROOT, rel))
                 and LLM_INVOCATION.search(open(os.path.join(ROOT, rel)).read())]

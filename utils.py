@@ -5,11 +5,18 @@ from datetime import datetime
 
 
 def get_git_info():
-    """Return current git commit hash and uncommitted diff as strings"""
-    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+    """Return current git commit hash and uncommitted diff as strings.
+
+    Outside a git checkout (a zip download, a notebook) there is nothing to
+    record; that must not stop a run from starting."""
+    try:
+        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                         stderr=subprocess.DEVNULL).decode().strip()
+    except (subprocess.CalledProcessError, OSError):
+        return 'unknown (not a git checkout)', ''
     try:
         diff = subprocess.check_output(['git', 'diff']).decode()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         diff = ''
     return commit, diff
 

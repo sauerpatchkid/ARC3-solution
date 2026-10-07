@@ -155,24 +155,24 @@ class Action(Agent):
         # EVAL_RESET_ON_LEVEL=0 to DISABLE resets (the persistence arm).
         self.reset_on_level = env_flag("EVAL_RESET_ON_LEVEL", True)
 
-        # --- Plan B (docs/plans/plan-B-goose-novelty.md): memory-aware Goose ---
+        # --- Plan B (docs/plans/plan-B-goose-novelty.md): the novelty label ---
         # EVAL_LABEL=novel trains on "did this action reach a canonical state
-        # not seen before in this level" instead of "did the frame change";
-        # EVAL_MASK_TRIED=1 soft-masks actions already tried from the current
-        # canonical state at sampling time. Both default to the baseline, and
-        # with both off none of this code runs, so an unflagged run is the
-        # old agent. Arms: A0 change/0, A1 novel/0, A2 change/1, A3 novel/1.
+        # not seen before in this level" instead of "did the frame change".
+        # It defaults to the baseline, and with it off none of this code runs,
+        # so an unflagged run is the old agent. Arms: A0 change, A1 novel.
+        # (Plan B's tried-action mask, arms A2/A3, was dropped by its confirm
+        # sweep and removed on 2026-10-06; git tag pre-cleanup-2026-10-06.)
         self.label = os.getenv("EVAL_LABEL", "change").strip().lower()
         if self.label not in ("change", "novel"):
             raise SystemExit(f"EVAL_LABEL must be 'change' or 'novel', got {self.label!r}")
-        self.mask_tried = env_flag("EVAL_MASK_TRIED", False)
-        self.mask_decay = float(os.getenv("EVAL_MASK_DECAY", "0.1"))
-        self.mask_floor = float(os.getenv("EVAL_MASK_FLOOR", "1e-4"))
+        if env_flag("EVAL_MASK_TRIED", False):
+            raise SystemExit("EVAL_MASK_TRIED was removed on 2026-10-06 (Plan B dropped the "
+                             "tried-action mask); run it from git tag pre-cleanup-2026-10-06")
         self.canon_warmup = int(os.getenv("EVAL_CANON_WARMUP", DEFAULT_WARMUP))
         self.canon_refresh = int(os.getenv("EVAL_CANON_REFRESH", DEFAULT_REFRESH))
-        self.memory_on = self.label == "novel" or self.mask_tried
+        self.memory_on = self.label == "novel"
         self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh) if self.memory_on else None
-        self.memory = LevelMemory(self.mask_decay, self.mask_floor) if self.memory_on else None
+        self.memory = LevelMemory() if self.memory_on else None
         # Option 1: a map of the level and a way back (docs/plans/option-1-return-map.md).  # [return-map]
         # Off unless EVAL_RETURN_MAP=1. It needs the screen fingerprint's mask.  # [return-map]
         self.return_map = ReturnMap.from_env() if env_flag("EVAL_RETURN_MAP", False) else None  # [return-map]
@@ -199,11 +199,14 @@ class Action(Agent):
         self.action_model = None
         self.optimizer = None
 
-        # Experience buffer for training with uniqueness tracking
-        # NOTE: each state is stored as a one-hot bool tensor (16×64×64 ≈ 64 KB).
-        # Storing the uint8 index frame (64×64) and one-hot-ing at train time would
-        # cut buffer RAM ~16×, but changes the hash input and thus which experiences
-        # are stored — not behavior-preserving. Deferred.
+        # Experience buffer for training with uniqueness tracking.
+        # Each state is stored as the 64×64 uint8 colour-index frame (4 KB) and
+        # one-hot encoded when a batch is built (_train_action_model). Until
+        # 2026-10-06 it was stored already one-hot (16×64×64 bool, 64 KB): 13 GB
+        # for a full buffer. The uniqueness hash is still computed from the
+        # one-hot frame, so exactly the same experiences are stored, and the
+        # batch tensor is the same floats - checked move for move on the CPU
+        # (tools/cpu_check.py).
         self.experience_buffer = deque(maxlen=200000)
         self.experience_hashes = set()  # Track unique frame+action combinations
         self.batch_size = 64
@@ -239,9 +242,6 @@ class Action(Agent):
             log_transitions=self.log_transitions,
             reset_on_level=self.reset_on_level,
             label=self.label,
-            mask_tried=self.mask_tried,
-            mask_decay=self.mask_decay,
-            mask_floor=self.mask_floor,
             canon_warmup=self.canon_warmup,
             canon_refresh=self.canon_refresh,
             **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
@@ -267,13 +267,9 @@ class Action(Agent):
         if self.save_action_visualizations:
             self.logger.info(f"Action visualizations enabled: saving {self.vis_samples_per_save} samples every {self.vis_save_frequency} steps")
 
-    def _sample_from_combined_output(self, combined_logits: torch.Tensor, available_actions: list[int] = None,
-                                     tried_key: int = None) -> tuple[int, int, int, np.ndarray]:
-        """Sample from combined 5 + 64x64 action space with masking for invalid actions.
-
-        `tried_key` is the current frame's canonical key; with EVAL_MASK_TRIED
-        on, actions already tried from that state are soft-masked (Plan B §4.3).
-        """
+    def _sample_from_combined_output(self, combined_logits: torch.Tensor,
+                                     available_actions: list[int] = None) -> tuple[int, int, int, np.ndarray]:
+        """Sample from combined 5 + 64x64 action space with masking for invalid actions."""
         # Split logits
         action_logits = combined_logits[:5]  # First 5
         coord_logits = combined_logits[5:]   # Remaining 4096
@@ -306,26 +302,13 @@ class Action(Agent):
         action_probs = torch.sigmoid(action_logits)
         coord_probs_raw = torch.sigmoid(coord_logits)
         
-        if self.mask_tried and tried_key is not None:
-            # Plan B tried-action soft mask: on the raw sigmoid values (0-1),
-            # BEFORE the 1/4096 coordinate scaling, so the floor means the
-            # same thing for a button and for a click. Unavailable actions are
-            # already 0 here and stay 0; the floor is keyed on availability,
-            # not on "probability > 0", because the sigmoid can underflow to
-            # exactly 0 late in an exhausted level. Separate branch so the
-            # baseline path below is untouched bit for bit.
-            raw = torch.cat([action_probs, coord_probs_raw]).cpu().numpy()
-            raw = self.memory.apply(raw, tried_key, available=self._available_vector(action_logits, action6_available))
-            raw[5:] /= self.num_coordinates
-            all_probs_sampling_np = raw / raw.sum()
-        else:
-            # For fair sampling: treat coordinates as one action type with total prob divided by 4096
-            coord_probs_scaled = coord_probs_raw / self.num_coordinates
-            
-            # Combine for sampling (normalize)
-            all_probs_sampling = torch.cat([action_probs, coord_probs_scaled])
-            all_probs_sampling = all_probs_sampling / all_probs_sampling.sum()
-            all_probs_sampling_np = all_probs_sampling.cpu().numpy()
+        # For fair sampling: treat coordinates as one action type with total prob divided by 4096
+        coord_probs_scaled = coord_probs_raw / self.num_coordinates
+
+        # Combine for sampling (normalize)
+        all_probs_sampling = torch.cat([action_probs, coord_probs_scaled])
+        all_probs_sampling = all_probs_sampling / all_probs_sampling.sum()
+        all_probs_sampling_np = all_probs_sampling.cpu().numpy()
         
         # Degenerate-distribution guard. If every available action's sigmoid
         # underflowed to 0 (all logits < ~-104, which the novelty label can
@@ -405,8 +388,13 @@ class Action(Agent):
         batch_indices = np.random.choice(len(self.experience_buffer), self.batch_size, replace=False)
         batch = [self.experience_buffer[i] for i in batch_indices]
         
-        # Prepare batch data — stack on CPU, transfer to GPU in one shot
-        states = torch.from_numpy(np.stack([exp['state'] for exp in batch])).float().to(self.device)
+        # Prepare batch data — stack the stored colour-index frames on CPU,
+        # transfer in one shot, one-hot encode on the device: (B, 64, 64) uint8
+        # -> (B, 16, 64, 64) float, the tensor _frame_to_tensor builds per frame.
+        frames = torch.from_numpy(np.stack([exp['state'] for exp in batch])).to(self.device).long()
+        states = torch.zeros(len(batch), self.num_colours, self.grid_size, self.grid_size,
+                             dtype=torch.float32, device=self.device)
+        states.scatter_(1, frames.unsqueeze(1), 1)
         action_indices = torch.tensor([exp['action_idx'] for exp in batch], dtype=torch.long, device=self.device)
         rewards = torch.tensor([exp['reward'] for exp in batch], dtype=torch.float32, device=self.device)
         
@@ -542,6 +530,28 @@ class Action(Agent):
             self.current_score = latest_frame.score
         
         if latest_frame.state in [GameState.NOT_PLAYED, GameState.GAME_OVER]:
+            # --- Log the move that ENDED THE ATTEMPT before prev_* is cleared ---
+            # Same gap as the level-completing move above: clearing prev_frame
+            # below dropped it (action_num jumped by 3 at every game over), so
+            # no recording showed what ends an attempt or how long one lasted.
+            # Logging only - consumes no RNG and touches no model state. It is
+            # deliberately NOT added to the experience buffer: that would
+            # change what the agent trains on.
+            if (latest_frame.state == GameState.GAME_OVER and self.prev_frame is not None
+                    and self.transition_logger is not None):
+                over = np.array(latest_frame.frame, dtype=np.uint8)
+                if over.ndim == 3 and over.shape[1:] == (self.grid_size, self.grid_size):
+                    self.transition_logger.log(
+                        frame=self.prev_frame_raw,
+                        action_idx=self.prev_action_idx,
+                        next_frame=over[-1],
+                        changed=not np.array_equal(self.prev_frame_raw, over[-1]),
+                        level=self.current_score,
+                        action_num=self.action_counter,
+                        wall_ms=wall_ms,
+                        model_ms=self._last_model_ms,
+                        game_over=True,
+                    )
             if self.return_map is not None and latest_frame.state == GameState.GAME_OVER:  # [return-map]
                 self.return_map.on_game_over()  # [return-map]
             if self.upgrades is not None and latest_frame.state == GameState.GAME_OVER:  # [upgrades]
@@ -631,7 +641,7 @@ class Action(Agent):
                     evicted = self.experience_buffer[0]
                     self.experience_hashes.discard(evicted['hash'])
                 experience = {
-                    'state': self.prev_frame,            # numpy bool
+                    'state': self.prev_frame_raw.copy(),  # (64, 64) uint8 colour indices
                     'action_idx': self.prev_action_idx,  # unified action index
                     'reward': reward,
                     'hash': experience_hash,
@@ -653,7 +663,7 @@ class Action(Agent):
             
             # Sample from combined action space
             action_idx, coords, coord_idx, all_probs = self._sample_from_combined_output(
-                combined_logits, latest_frame.available_actions, tried_key=cur_key)
+                combined_logits, latest_frame.available_actions)
             if self.upgrades is not None:  # [upgrades] dead-click filter, before any map override
                 action_idx, coords, coord_idx = self.upgrades.override(  # [upgrades]
                     action_idx, coords, coord_idx, all_probs, current_frame_raw)  # [upgrades]
@@ -680,9 +690,6 @@ class Action(Agent):
             self.prev_action_idx = action_idx
         else:
             self.prev_action_idx = 5 + coord_idx  # Unified action space
-        # Plan B: remember that this action was tried from this state
-        if self.memory is not None:
-            self.memory.record(cur_key, self.prev_action_idx)
         if self.return_map is not None:  # [return-map]
             self.return_map.record(self.prev_action_idx)  # [return-map]
         
@@ -730,7 +737,6 @@ class Action(Agent):
             if self.memory_on:
                 self.writer.add_scalar('Canon/masked_cells', int(self.canon.mask.sum()), self.action_counter)
                 self.writer.add_scalar('Memory/seen_states', len(self.memory.seen), self.action_counter)
-                self.writer.add_scalar('Memory/tried_states', len(self.memory.tried), self.action_counter)
             if self.return_map is not None:  # [return-map]
                 for name, val in self.return_map.summary().items():  # [return-map]
                     self.writer.add_scalar(f'Map/{name}', val, self.action_counter)  # [return-map]
