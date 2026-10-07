@@ -22,6 +22,14 @@ all three; part 1 is:
   confirm  levels new >  base, wins >  losses             Rulebook 25-game confirms
 With --rule left out, verdicts are computed and printed exactly as before.
 
+--seal PATH (Rulebook v2 confirms, docs/plans/rulebook-v2-prereg.md section 5.3):
+per-game rows of the held-out tiers (A/B-offline and untouched) are NOT printed.
+They are written to PATH, packed so that they are not read by accident, and
+each held-out tier is shown as one subtotal row. The verdict is unchanged: it
+is computed on every game. Open a sealed file with
+    uv run python tools/paired_compare.py --open-sealed PATH --reason "CP3 artifacts frozen"
+which prints it and logs the opening in artifacts/registry.json.
+
 Added for the Coach plan (docs/plans/llm-coach.md §6), both off the rule's path:
   --expect N  blocks the verdict (BLOCKED, exit code 2) unless both arms have
               exactly the N declared (game, seed) runs, one each, the same
@@ -109,6 +117,29 @@ def rule_one(rule, tot_n, tot_b, wins, losses):
     return levels_ok(tot_n, tot_b) and wins_ok(wins, losses)
 
 
+def seal(path, rows, meta):
+    """Write held-out per-game rows where they will not be read by accident."""
+    import base64
+    import zlib
+    blob = base64.b64encode(zlib.compress(json.dumps({"meta": meta, "rows": rows}).encode())).decode()
+    with open(path, "w") as f:
+        f.write("SEALED per-game held-out results (docs/plans/rulebook-v2-prereg.md section 5.3).\n"
+                "Do not open before the CP3 artifacts are frozen and registered. Open with:\n"
+                "  uv run python tools/paired_compare.py --open-sealed <this file> --reason \"...\"\n\n"
+                + blob + "\n")
+
+
+def open_sealed(path, reason):
+    import base64
+    import zlib
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "custom_agents"))
+    from wm import registry
+    blob = open(path).read().strip().split("\n")[-1]
+    data = json.loads(zlib.decompress(base64.b64decode(blob)))
+    registry.log_event("sealed results opened", f"{path}: {reason}")
+    return data
+
+
 def bootstrap_delta(per_game_delta, reps=10000, seed=0):
     """95% interval for the summed level delta, resampling GAMES with
     replacement (each game keeps all its seeds). Fixed seed: reruns agree."""
@@ -121,8 +152,8 @@ def bootstrap_delta(per_game_delta, reps=10000, seed=0):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--base", required=True, help="MANIFEST:ARM for the reference arm")
-    ap.add_argument("--new", required=True, help="MANIFEST:ARM for the candidate arm")
+    ap.add_argument("--base", default="", help="MANIFEST:ARM for the reference arm")
+    ap.add_argument("--new", default="", help="MANIFEST:ARM for the candidate arm")
     ap.add_argument("--out", default="", help="optional .md path for the table")
     ap.add_argument("--expect", type=int, default=0, metavar="N",
                     help="require exactly N valid (game, seed) pairs, one run each, same "
@@ -130,7 +161,25 @@ def main():
                          "BLOCKED (exit code 2). Off by default, so earlier verdicts stand.")
     ap.add_argument("--rule", choices=sorted(RULES), default="adopt",
                     help="which pre-registered rule the verdict uses (see the top of this file)")
+    ap.add_argument("--seal", default="", metavar="PATH",
+                    help="write held-out tiers' per-game rows to PATH instead of printing them")
+    ap.add_argument("--open-sealed", default="", metavar="PATH", help="print a sealed file (logged)")
+    ap.add_argument("--reason", default="", help="why a sealed file is being opened (required with --open-sealed)")
     a = ap.parse_args()
+    if a.open_sealed:
+        if not a.reason.strip():
+            sys.exit("--open-sealed needs --reason: say why the held-out results may be read now")
+        data = open_sealed(a.open_sealed, a.reason)
+        print(f"sealed on {data['meta'].get('sealed')} for base {data['meta'].get('base')} vs new {data['meta'].get('new')}\n")
+        print("\n".join(data["rows"]))
+        return
+    if not (a.base and a.new):
+        ap.error("the following arguments are required: --base, --new")
+    sealed_tier, sealed_rows, tier_sum = {}, [], {}
+    if a.seal:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "custom_agents"))
+        from wm import tiers
+        sealed_tier = {g: t for t in ("ab_offline", "untouched") for g in tiers.TIERS[t]}
     problems = []
     base, new = load(a.base, problems), load(a.new, problems)
     pairs = sorted(set(base) & set(new))
@@ -166,8 +215,18 @@ def main():
             routes = f"{sum(m['routes_completed'] for m in ms)}/{sum(m['routes_aborted'] for m in ms)}"
         else:
             share, routes = "-", "-"
-        lines.append(f"| {g} | {len(seeds)} | {lb} | {ln} | {w}/{t}/{l} | {ub:.0f} | {un:.0f} | "
-                     f"{lab:.1f} | {lan:.1f} | {share} | {routes} |")
+        row = (f"| {g} | {len(seeds)} | {lb} | {ln} | {w}/{t}/{l} | {ub:.0f} | {un:.0f} | "
+               f"{lab:.1f} | {lan:.1f} | {share} | {routes} |")
+        if g in sealed_tier:                     # held out: the row goes to the sealed file
+            sealed_rows.append(row)
+            s = tier_sum.setdefault(sealed_tier[g], dict(games=0, runs=0, lb=0, ln=0, w=0, t=0, l=0))
+            s["games"] += 1; s["runs"] += len(seeds); s["lb"] += sum(lb); s["ln"] += sum(ln)
+            s["w"] += w; s["t"] += t; s["l"] += l
+        else:
+            lines.append(row)
+    for name, s in sorted(tier_sum.items()):
+        lines.append(f"| ({name}: {s['games']} games, sealed) | {s['runs']} runs | {s['lb']} | {s['ln']} | "
+                     f"{s['w']}/{s['t']}/{s['l']} | - | - | - | - | - | - |")
 
     rule1 = rule_one(a.rule, tot_n, tot_b, W, L)
     rule2 = not worse_everywhere
@@ -184,7 +243,10 @@ def main():
               f"Level delta (new - base): {tot_n - tot_b:+d}; 95% bootstrap interval over "
               f"games: [{lo:+d}, {hi:+d}] (descriptive; not part of the rule).",
               f"Paired (game, seed): new better {W}, same {T}, worse {L}.",
-              f"Games where new is worse on every seed: {', '.join(worse_everywhere) or 'none'}.",
+              "Games where new is worse on every seed: "
+              + (", ".join([g for g in worse_everywhere if g not in sealed_tier]
+                           + ([f"{sum(g in sealed_tier for g in worse_everywhere)} sealed game(s)"]
+                              if any(g in sealed_tier for g in worse_everywhere) else [])) or "none") + ".",
               f"Throughput: base {aps_b:.1f} act/s, new {aps_n:.1f} act/s.",
               ""]
     if problems and not a.expect:
@@ -199,6 +261,11 @@ def main():
     lines += [f"Rule 1 ({RULES[a.rule][2]}): {'PASS' if rule1 else 'FAIL'}",
               f"Rule 2 (no game worse on every seed): {'PASS' if rule2 else 'FAIL'}",
               f"Verdict: {verdict}"]
+    if a.seal:
+        from datetime import date
+        seal(a.seal, [lines[0], lines[1]] + sealed_rows,
+             {"base": a.base, "new": a.new, "rule": a.rule, "sealed": date.today().isoformat()})
+        lines.append(f"Held-out per-game rows ({len(sealed_rows)} games) sealed in {a.seal}.")
     text = "\n".join(lines)
     print(text)
     if a.out:

@@ -138,3 +138,29 @@ def test_the_three_verdict_rules_differ_only_on_ties():
     assert rule_one("dev", 113, 112, 4, 4)
     assert not rule_one("adopt", 113, 112, 4, 4) and not rule_one("confirm", 113, 112, 4, 4)
     assert not any(rule_one(r, 111, 112, 9, 0) for r in ("adopt", "dev", "confirm"))
+
+
+def test_sealed_confirm_hides_held_out_games_but_not_the_verdict(tmp_path, monkeypatch, capsys):
+    import paired_compare as pc
+    sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
+    from wm import registry
+    rows_b = [("ft09", "0", 1), ("ft09", "1", 1), ("bp35", "0", 2), ("bp35", "1", 2), ("ar25", "0", 0), ("ar25", "1", 1)]
+    rows_n = [("ft09", "0", 2), ("ft09", "1", 1), ("bp35", "0", 1), ("bp35", "1", 1), ("ar25", "0", 1), ("ar25", "1", 2)]
+    base, new = _manifest(tmp_path, "b", rows_b), _manifest(tmp_path, "n", rows_n)
+    sealed = str(tmp_path / "confirm1.sealed")
+    monkeypatch.setattr(sys, "argv", ["pc", "--base", base, "--new", new, "--rule", "confirm", "--seal", sealed])
+    pc.main()
+    out = capsys.readouterr().out
+    assert "| ft09 |" in out and "| bp35 |" not in out and "| ar25 |" not in out      # held-out rows hidden
+    assert "(untouched: 1 games, sealed)" in out and "(ab_offline: 1 games, sealed)" in out
+    assert "Levels summed: base 7, new 8." in out and "1 sealed game(s)" in out       # bp35 worse on every seed
+    assert "Verdict: DO NOT ADOPT" in out                                              # rule 2, computed on all games
+    assert "bp35" not in open(sealed).read()                                           # not readable by accident
+    reg = str(tmp_path / "registry.json")
+    monkeypatch.setattr(registry, "PATH", reg)
+    monkeypatch.setattr(registry.log_event, "__defaults__", (reg, None))
+    monkeypatch.setattr(sys, "argv", ["pc", "--open-sealed", sealed, "--reason", "CP3 frozen"])
+    pc.main()
+    opened = capsys.readouterr().out
+    assert "| bp35 |" in opened and "| ar25 |" in opened
+    assert registry.load(reg)["events"][0]["what"] == "sealed results opened"
