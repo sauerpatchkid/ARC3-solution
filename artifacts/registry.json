@@ -87,6 +87,39 @@
     "results/rulebook/tier0a_smoke/ls20_transfer.npz": "c46eb5253bd6d05a15438aaa30be42f36f55ef36e7468c47e015f07daec45d42",
     "results/rulebook/tier0a_smoke/report.md": "00c3431d2cb812423143e17d440ab241a39ddaee05187af88946e3f2968b2fb8"
    }
+  },
+  {
+   "name": "rulebook_v2_cp0_nearmiss",
+   "kind": "results",
+   "frozen": "2026-10-07",
+   "source_games": [
+    "cd82",
+    "dc22",
+    "ft09",
+    "g50t",
+    "m0r0",
+    "tr87",
+    "tu93",
+    "vc33"
+   ],
+   "note": "CP0 (7 Oct 2026): the near-miss refinement run (73 calls, answer cache, per-group steps and rules, original and re-score logs) and v1's books re-measured with v2's tools. Tuned on dev games. Sources for CP3's playbook and CP5's training data.",
+   "n_files": 13,
+   "sha256": "2a2342fd10a4f9719586d9e4b1c5731ba3dbe69bd720219776ce1d719a00b63d",
+   "files": {
+    "results/rulebook/v2/nearmiss/dc22__ACTION4.json": "cb18c1f330e68bfd788c3982206a8f0c97ed2fb5a46866884034985c6df6579f",
+    "results/rulebook/v2/nearmiss/llm_cache.jsonl": "5bf2b2f9f22e6f1ad80823e7f8afdada1d4c385cc9c5e368ec224205f889ff7f",
+    "results/rulebook/v2/nearmiss/m0r0__ACTION1.json": "62c891a8700533ed954cffef0ca33c7c6e82a52f7ea7fc2cd37b62b4e585ea4d",
+    "results/rulebook/v2/nearmiss/m0r0__ACTION2.json": "cfbcb5a6af1464e3f3951fb55c46587d87d191af1e359bd4431a9be2a8846486",
+    "results/rulebook/v2/nearmiss/m0r0__ACTION3.json": "66fdf36a5a1a5103c38996318ec55b8cbe3d6ed8019f514dfad566ea9853c99e",
+    "results/rulebook/v2/nearmiss/m0r0__ACTION4.json": "6bdecf4dce5a377773a3201a415bf6f005d0c88eb73a0740ebd2ac9ed06547fa",
+    "results/rulebook/v2/nearmiss/report.md": "99493bb2fddfee2df4a89b136fddd4aa0b93fe06274b4c6c509c796139173385",
+    "results/rulebook/v2/nearmiss/rescore.log": "15f9cd5375c669fc96842e9f71460bbb9afe5d8ea7ef6d92435fdb2a04718a2f",
+    "results/rulebook/v2/nearmiss/run.log": "d96324ed5377e3f4166cd795d261864a3651b07bc9d3ba82e42c523788f65966",
+    "results/rulebook/v2/nearmiss/run_original_2026-10-07.log": "d96324ed5377e3f4166cd795d261864a3651b07bc9d3ba82e42c523788f65966",
+    "results/rulebook/v2/nearmiss/tu93__ACTION1.json": "deefe92c5197c36411eb18258b8fc4b1f549218418fad23378a6c5661b1d9b53",
+    "results/rulebook/v2/nearmiss/tu93__ACTION3.json": "a23fba772794372ab51f8382d6dd2dad4f3edf476f83cf3ca5fbac169b0fc23c",
+    "results/rulebook/v2/v1_under_v2/report.md": "0945245c740619a455d000e49822bebbef02eac5a3c5f1279ae6eb117d5e878f"
+   }
   }
  ],
  "events": []

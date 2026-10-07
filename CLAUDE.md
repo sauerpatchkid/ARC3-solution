@@ -126,10 +126,32 @@ from `.venv-llm`; the only cached model):
   `rulebook-v1` is the code that produced them. Full v1 record:
   `results/rulebook-full-writeup.md` (not in the repo).
 - **Rulebook v2** — the CURRENT plan: `docs/plans/rulebook-v2.md`, checkpoints
-  CP0–CP5, every gate pre-registered before the run it judges (the file
-  `docs/plans/rulebook-v2-prereg.md` is still to be written). Nothing of v2 is
-  built yet. Dates that matter: 9 Oct report TOC, 30 Oct full draft, 2 Nov idea
-  lock, 7 Dec final report.
+  CP0–CP5. Every gate is pre-registered in `docs/plans/rulebook-v2-prereg.md`
+  before the run it judges; nothing in a registered section is edited after its
+  run starts (corrections go in its section 10). Dates that matter: 9 Oct
+  report TOC, 30 Oct full draft, 2 Nov idea lock, 7 Dec final report.
+  - **CP0 DONE 2026-10-07** (`docs/plans/rulebook-v2-cp0-results.md`). Near-miss
+    refinement: 2 of 7 groups reached an exact rule (expected 2–4), so CP1 goes
+    ahead as written; both exact rules got there by covering less, and rules
+    still did not carry to the next level. v1's books on v2's ruler: 1 of 8
+    beats both baselines (dc22), ft09 wrong on 58.8%.
+  - **NEXT: CP1** (transferable rules, offline; plan section 4): `PARAMS` and
+    re-binding, the literal lint, every-level trust, partial claims and the
+    composed book, then Tier 0a v2. Two pre-registration items are still OPEN
+    and need Matt's decision: 4.4 (how CP1's interval is resampled with one
+    recording per game) before the CP1 run, 6.4 before 28 Oct.
+  - v2 code: `custom_agents/wm/metrics.py` (claimed-cell grades, T0),
+    `tiers.py` (who may use which game), `registry.py` + `tools/artifacts.py`
+    (frozen artifacts, `artifacts/registry.json`), `LevelEvidence.split` (fit /
+    score), `tools/wm_refine.py` (the refinement bandit; `--from-cache`
+    re-scores without a GPU), `tools/wm_baseline.py`, `paired_compare --seal`.
+  - Offline LLM jobs run detached through
+    `experiments/rulebook/llm_run.sh start|status|stop <job>` and write under
+    `results/rulebook/v2/`. While one runs, do not edit `custom_agents/wm/*.py`
+    or `gridtools.py`: its check workers re-import them. The server takes ~88%
+    of the GPU; the PC must stay on AC power.
+  - v1's result folders are frozen: registered, read-only, copy in
+    `results/rulebook_v1_frozen_2026-10-07.tar.gz`. `tier0a.sh` refuses to run.
 
 `legacy/llm_track/` (semester-1 LLM work, all NO-GO or unfinished) is frozen.
 

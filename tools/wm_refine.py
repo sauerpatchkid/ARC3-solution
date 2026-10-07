@@ -30,6 +30,8 @@ code-only retry, one repair attempt), one candidate per call.
 
   experiments/rulebook/llm_run.sh start nearmiss          # server + this, detached
   uv run python tools/wm_refine.py --dry-run               # the starting pools, no LLM
+  uv run python tools/wm_refine.py --from-cache            # re-score a finished run: no server,
+                                                           # and an answer not in the cache is an error
 Writes <out>/{<game>__<group>.json, report.md, llm_cache.jsonl}.
 """
 import argparse
@@ -155,27 +157,36 @@ def refine_parts(ev, group, arm, rng_examples, rng_cases):
     return parts, shown
 
 
+def request_seconds(client, outs):
+    """How long the request that produced `outs` took when it was really made
+    (the cache keeps it), so a re-score from the cache reports the true time."""
+    return next((r.get("seconds", 0.0) for r in client.cache.values() if r["outputs"] is outs), 0.0)
+
+
 def ask(client, conv, step, ev, ev_path, group):
     """One refinement call: a thinking answer, a code-only retry if it ran out of
     room, one repair attempt if the code cannot run. Returns the child arm."""
-    o = client.complete(conv, n=1, max_tokens=R.MAX_TOKENS[True], thinking=True,
-                        seed=100 + step, **R.SAMPLING[True])[0]
+    outs = client.complete(conv, n=1, max_tokens=R.MAX_TOKENS[True], thinking=True,
+                           seed=100 + step, **R.SAMPLING[True])
+    o = outs[0]
     tokens, finished, retried = o["tokens"], o["finish"] == "stop", False
+    took = request_seconds(client, outs)
     code = R.extract_code(o["text"])
     child = (evaluate(code, ev, ev_path, group) if code else
              {"code": None, "stage": "no-code",
               "reason": "no ```python block in the answer" + ("" if finished else " (ran out of tokens)")})
     if (code is None and not finished) or child["stage"] in ("static", "runtime", "timeout"):
         msg = R.FINISH if code is None else R.REPAIR.format(reason=child["reason"])
-        o2 = client.complete(conv + [{"role": "assistant", "content": R.tail(o["text"])},
-                                     {"role": "user", "content": msg}],
-                             n=1, max_tokens=R.MAX_TOKENS[False], thinking=False,
-                             seed=150 + step, **R.SAMPLING[False])[0]
-        tokens, retried = tokens + o2["tokens"], True
+        outs2 = client.complete(conv + [{"role": "assistant", "content": R.tail(o["text"])},
+                                        {"role": "user", "content": msg}],
+                                n=1, max_tokens=R.MAX_TOKENS[False], thinking=False,
+                                seed=150 + step, **R.SAMPLING[False])
+        o2 = outs2[0]
+        tokens, retried, took = tokens + o2["tokens"], True, took + request_seconds(client, outs2)
         code2 = R.extract_code(o2["text"])
         if code2:
             child = evaluate(code2, ev, ev_path, group)
-    child.update(tokens=tokens, finished=finished, retried=retried)
+    child.update(tokens=tokens, finished=finished, retried=retried, llm_seconds=took)
     return child
 
 
@@ -214,8 +225,8 @@ def run_group(game, group, client, out, calls):
                                         rng_for(game, group, "cases", step))
             child = ask(client, R.conversation(parts, thinking=True), step, ev, ev_path, group)
             parent["refined"] += 1
-            child.update(refined=0, origin="refined", step=step, parent=pool.index(parent),
-                         shown_failing=shown, seconds=round(time.time() - ts))
+            child.update(refined=0, origin="refined", step=step, parent=i,
+                         shown_failing=shown, seconds=round(child.pop("llm_seconds", None) or (time.time() - ts)))
             child["duplicate"] = bool(child["code"] and child["code"] in seen)
             steps.append(child)
             acc = child["grade"]["accuracy"] if "grade" in child else None
@@ -229,10 +240,17 @@ def run_group(game, group, client, out, calls):
             if in_pool(child) and not child["duplicate"]:
                 seen.add(child["code"])
                 pool.append(child)
-    everything = pool + [s for s in steps if s not in pool]
+    # by identity: comparing two arms with == compares their result arrays, which raised
+    # when a child had exactly the same code as an arm (the 7 Oct run died here for one group)
+    in_pool_ids = {id(a) for a in pool}
+    everything = pool + [s for s in steps if id(s) not in in_pool_ids]
     checked = [a for a in everything if a["stage"] == "checked"]
-    best = winner or max(checked, key=lambda a: (a["grade"]["plan_eligible"], a["grade"]["admitted"] and a["grade"]["exact_all"],
-                                                 a["grade"]["accuracy"], a["grade"]["moves"]), default=None)
+    # "Best" for a group that did not reach exact: the most accurate rule that qualifies as an arm
+    # (>= 20 moves, gain > 0). Without that floor a rule right on 6 moves was shown as the best.
+    qualified = [a for a in checked if in_pool(a)]
+    best = winner or max(qualified or checked,
+                         key=lambda a: (a["grade"]["admitted"] and a["grade"]["exact_all"],
+                                        a["grade"]["accuracy"], a["grade"]["moves"]), default=None)
     t_path = os.path.join(V1, f"{game}_transfer.npz")
     if best is not None and os.path.exists(t_path):          # T0: the rule untouched on the next level
         r2 = check_rule(best["code"], t_path)
@@ -270,6 +288,12 @@ def report(out, results, client):
               "## Result", "",
               f"**{n_exact} of {len(results)} groups reached an exact rule** (expected: 2-4).", "",
               verdict(n_exact)]
+    steps = [s for r in results for s in r["steps"]]
+    L += ["", f"Totals: {len(steps)} refinement calls of {CALLS * len(results)} allowed, "
+              f"{sum(s.get('tokens', 0) for s in steps):,} generated tokens, "
+              f"{sum(not s.get('finished', True) for s in steps)} answers ran out of room, "
+              f"{sum(bool(s.get('retried')) for s in steps)} needed the code-only retry or a repair, "
+              f"{sum(s.get('seconds', 0) for s in steps) / 60:.0f} call-minutes."]
     L += ["", "| game | group | moves | changing cases | cases with conflicting outcomes | starting arms | best before | "
               "calls | best after | exact (at call) | exact up to conflicts | group's changing cases it covers | "
               "next level: applies / right |",
@@ -309,11 +333,23 @@ def main():
     ap.add_argument("--url", default="http://127.0.0.1:8018/v1")
     ap.add_argument("--calls", type=int, default=CALLS)
     ap.add_argument("--dry-run", action="store_true", help="no LLM: print each group's starting pool")
+    ap.add_argument("--from-cache", action="store_true",
+                    help="re-score a finished run from its answer cache: no server is contacted, "
+                         "and a request that is not in the cache is an error, never a new answer")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     client = None if a.dry_run else ChatClient(a.url, cache_path=os.path.join(a.out, "llm_cache.jsonl"))
+    if client is not None and a.from_cache:
+        models = {r["model"] for r in client.cache.values()}
+        if len(models) != 1:
+            sys.exit(f"--from-cache needs a cache from exactly one model, found {sorted(models)}")
+        client._served = models.pop()
+
+        def refuse(messages, n):
+            raise RuntimeError("an answer is not in the cache: the run did not follow the cached path")
+        client.mock = refuse
     if client is not None:
-        print(f"model: {client.served_model()}", flush=True)
+        print(f"model: {client.served_model()}" + (" (answers from the cache only)" if a.from_cache else ""), flush=True)
     results, failed = [], []
 
     def job(gg):

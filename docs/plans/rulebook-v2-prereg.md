@@ -15,7 +15,7 @@ this file, before the run they affect.
 |---|---|---|
 | 1 | v1 is closed | registered |
 | 2 | game tiers | registered |
-| 3 | CP0 near-miss refinement day | registered; run follows this commit |
+| 3 | CP0 near-miss refinement day | registered in `3601f18`; run 7 Oct 2026: 2 of 7 exact, CP1 as written (`rulebook-v2-cp0-results.md`) |
 | 4 | CP1 gate (Tier 0a v2) | registered, with one OPEN item (4.4) |
 | 5 | CP2 gates and Confirm 1 | registered |
 | 6 | CP3 gate | registered, with one OPEN item (6.4) |
@@ -289,4 +289,17 @@ intervention budget exhausted). v2 adds:
 
 ## 10. Changes after registration
 
-*(none)*
+- **7 Oct 2026, section 3 (the run itself).** All 73 answers of the near-miss
+  run were generated in one pass (09:45–11:43). The tool then stopped while
+  writing one group's summary: it compared two rules with identical code, which
+  failed. No answer was lost and no setting was changed. The bug was fixed and
+  the run re-scored from its answer cache with no server running and new
+  answers refused (`tools/wm_refine.py --from-cache`); the re-score matches the
+  original log at every one of the 73 calls (same rule refined, same result).
+  This is the "resumed from its answer cache with the same settings" case that
+  section 3 allows.
+- **7 Oct 2026, section 3 (what is displayed, not what is counted).** For a
+  group that did not reach exact, the report first showed as its "best rule" a
+  rule right on 6 moves. It now shows the most accurate rule that still
+  qualifies as an arm (≥ 20 moves, gain > 0). The count of exact groups, 2 of 7,
+  is not affected.
