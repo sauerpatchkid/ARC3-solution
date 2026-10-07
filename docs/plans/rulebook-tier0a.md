@@ -175,3 +175,22 @@ free; this changes how many answers run at once, not the answers.
 The pre-registration allows one day of trying other settings on these dev games, then narrowing the build to the
 games and groups that pass. The obvious setting to try is the one finding 5 points at: keep giving feedback rounds
 until a rule is exact, not merely admitted. Any result from that is dev-tuned and must be labelled so.
+
+## Changes to the code after this run (2026-10-06)
+
+The results above were produced by the code at git tag `rulebook-v1` and stand as
+run. Three things changed afterwards, none of which moves the G1 verdict:
+
+- **A "known no-op" now needs conflict-free evidence**, as a plan-eligible rule
+  always did. One rule in the books above is affected: g50t's ACTION5 no-op
+  (184 moves, 2 keys with conflicting outcomes) would no longer be trusted.
+  g50t's coverage was 0% either way.
+- **The sandbox denies its forbidden names as attributes too**
+  (`np.ma.core.builtins.open` used to pass the static check). None of the 344
+  candidates that passed the check uses such an attribute.
+- **The ticker scan uses the shared vectorised helper** (`gridtools.tick_cells`).
+  All 16 evidence files of this run rebuild bit for bit.
+
+The LLM client also retries a dropped connection, and one failed game no longer
+ends the others (no report is written for an incomplete set).
+

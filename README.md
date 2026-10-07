@@ -6,7 +6,7 @@ Team B's fork of the StochasticGoose agent for the ARC-AGI-3 capstone (ARC Prize
 See `CLAUDE.md` for repo conventions, focus games, metric definitions, and known
 measurement caveats.
 
-## Semester 2 at a glance (September 2026)
+## Semester 2 at a glance (updated 6 October 2026)
 
 Everything below is **off by default**: an unflagged run is the original
 baseline, verified action-for-action. Plain-language summary for non-technical
@@ -15,10 +15,10 @@ readers: `docs/reports/Goose_Semester2_Progress.docx`.
 | Change | Switch | Status | Details |
 |---|---|---|---|
 | **Novelty label.** Goose learns from "did this move reach a screen not seen before in this level?" instead of "did the screen change?", with decorations (blinking cells, progress bars) masked out before each screen is fingerprinted | `EVAL_LABEL=novel` | **Adopted.** 25 games × 3 seeds × 100k: 79 levels vs 54, 18 of 25 games reach a level vs 11, 23 paired wins / 1 loss | `docs/plans/plan-B-*.md` |
-| Tried-action mask ("don't repeat yourself") | `EVAL_MASK_TRIED=1` | Dropped: helped nowhere, hurt games that need repeated presses | `docs/plans/plan-B-dev-sweep-results.md` |
+| Tried-action mask ("don't repeat yourself") | was `EVAL_MASK_TRIED=1` | Dropped: helped nowhere, hurt games that need repeated presses. Code removed 2026-10-06 (git tag `pre-cleanup-2026-10-06`) | `docs/plans/plan-B-dev-sweep-results.md` |
 | **Return map.** A map of the level (which move leads from which screen to which); walks back to untried places when stuck and after a game over | `EVAL_RETURN_MAP=1` | **Not adopted on its own** (adopted in the combination below). Passed its 8-game dev test (45 vs 32 levels) but not the 25-game Confirm after two seeds: helps games Goose was stuck on (tu93 level 5, vc33 level 4, first levels on bp35 and lf52), hurts games it already solved (ar25, tr87) | `docs/plans/option-1-*.md` |
-| LLM track: **Coach** (LLM suggests what to try when stuck) or **Rulebook** (LLM writes checked rules, a planner plays them) | — | Planned; not started | `docs/plans/llm-coach.md`, `docs/plans/llm-rulebook.md` |
-| **Upgrade screen + 25-game confirm.** Nine candidate improvements screened in two rounds; the winner combines the map with progress bars masked, walking back only when it pays, and half credit within an attempt | `EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt` (with `EVAL_LABEL=novel`) | **Adopted.** All 25 games × 3 seeds × 100k: 112 levels vs 79 for the novelty label alone, 22 of 25 games reach a level vs 18, 31 paired wins / 8 losses, no game worse on every seed, no speed cost | `docs/plans/upgrade-*.md` |
+| LLM track. **Coach** (LLM suggests what to try when stuck) and **Rulebook** (LLM writes checked rules, a planner plays them) | — | **Coach:** offline probe NO-GO (at chance); archived in `legacy/coach_track/`. **Rulebook v1:** Stage A NO-GO (1 of 3 games), offline rule test G1 FAIL (2 of 8). **Rulebook v2** (rules that carry between levels, checkpoints CP0–CP5) is the current plan; nothing of it is built yet | `docs/plans/rulebook-v2.md`, `rulebook-tier0a.md`, `rulebook-stageA.md`, `coach-probe-results.md` |
+| **Upgrade screen + 25-game confirm.** Nine candidate improvements screened in two rounds; the winner combines the map with progress bars masked, walking back only when it pays, and half credit within an attempt | `--agent mb_gated_att` (= `EVAL_LABEL=novel EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt`) | **Adopted.** All 25 games × 3 seeds × 100k: 112 levels vs 79 for the novelty label alone, 22 of 25 games reach a level vs 18, 31 paired wins / 8 losses, no game worse on every seed, no speed cost | `docs/plans/upgrade-*.md` |
 
 The semester-1 LLM track is archived in `legacy/llm_track/` (section 8).
 
@@ -144,8 +144,11 @@ ARC3-solution/
 │   ├── TEMPLATE.py            #   copy this to start a new agent
 │   ├── action.py              #   StochasticGoose (the "brain")
 │   ├── canon.py               #   screen fingerprints + per-level memory (novelty label)
-│   ├── return_map.py          #   the return map (EVAL_RETURN_MAP; not adopted)
-│   ├── upgrades.py            #   upgrade-screen candidates (EVAL_UPGRADES; experimental)
+│   ├── return_map.py          #   the return map (EVAL_RETURN_MAP; part of the adopted agent)
+│   ├── upgrades.py            #   bars / attempt / map_gated / deadclick (EVAL_UPGRADES)
+│   ├── presets.py             #   the adopted Goose as a named agent: --agent mb_gated_att
+│   ├── gridtools.py           #   shared 64x64 screen helpers (bars, blobs, objects)
+│   ├── wm/                    #   Rulebook: evidence index, rule checker, sandbox, LLM client
 │   ├── random_agent.py        #   matched uniform-random floor (uplift baseline)
 │   └── view_utils.py          #   action-probability heatmap rendering
 ├── benchmark.py               # THE FROZEN TEST SET (suites: smoke/quick/standard/full)
@@ -160,13 +163,15 @@ ARC3-solution/
 ├── summarize_overnight.py     # aggregate a sweep into one report
 ├── inspect_corpus.py          # corpus schema validator (contract authority)
 ├── sweep.sh                   # benchmark + ad-hoc sweep orchestrator
+├── manifest.py                # the one reader for sweep manifests
 ├── utils.py                   # experiment-directory + logging helpers
 ├── docs/plans/                # semester-2 plans, pre-registered rules and results
 ├── docs/reports/              # plain-language reports (Word) + the script that builds them
-├── tools/                     # label_diagnostic.py (Plan B step 1), paired_compare.py (verdicts)
-├── experiments/upgrade_screen/ # the upgrade screen: runner, leaderboard, make targets
+├── tools/                     # paired_compare.py (verdicts), cpu_check.py (did a change alter the agent?),
+│                              #   wm_offline.py (Rulebook offline rule test), label_diagnostic.py
+├── experiments/               # upgrade_screen*/ + upgrade_confirm/ (done), rulebook/ (LLM server + launchers)
 ├── tests/                     # pytest: fingerprints, memory, sampler guard, return map
-├── legacy/                    # ARCHIVED: API-path scripts + semester-1 LLM track, see section 8
+├── legacy/                    # ARCHIVED: API-path scripts, semester-1 LLM track, the Coach; see section 8
 ├── results/                   # ALL run output (gitignored)
 │   ├── runs/<ts>/<game>/      #   per-run trees (corpus, tensorboard, metrics)
 │   ├── sweeps/                #   manifests, summaries, logs
@@ -188,14 +193,25 @@ Every agent imports these so the protocol cannot drift.
 | `EVAL_RESET_ON_LEVEL` | reset model+optimizer+buffer at each level (StochasticGoose only) | on |
 | `EVAL_RESULTS_DIR` | root for all output | `results` |
 | `EVAL_LABEL` | Plan B training label: `change` (frame changed) or `novel` (new canonical state this level) (StochasticGoose only) | `change` |
-| `EVAL_MASK_TRIED` | Plan B: soft-mask actions already tried from the current canonical state (StochasticGoose only) | off |
-| `EVAL_MASK_DECAY` / `EVAL_MASK_FLOOR` | per-try multiplier / minimum probability for that mask | `0.1` / `1e-4` |
+| `EVAL_MASK_TRIED` | REMOVED 2026-10-06 (Plan B dropped the mask). Setting it stops the run with a pointer to the git tag | — |
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | online indicator-cell mask: warm-up transitions / recompute cadence | `200` / `250` |
-| `EVAL_RETURN_MAP` | the return map (StochasticGoose only; not adopted) | off |
+| `EVAL_RETURN_MAP` | the return map (StochasticGoose only; on in the adopted agent `mb_gated_att`) | off |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning: decisions without a new screen before routing / clicks before a click screen counts as tried / longest route / walk back after game over | `200` / `20` / `100` / `1` |
-| `EVAL_UPGRADES` | comma list of upgrade-screen candidates: `bars`, `attempt`, `graded`, `deadclick`, `map_gated`, `map_objects`, `map_diverse` (experimental) | unset |
+| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`; the adopted agent uses the first three (`graded`, `map_objects`, `map_diverse` lost the screen and were removed 2026-10-06) | unset |
 
 Always run with `PYTHONHASHSEED=0`.
+
+**What a recording holds.** One row per move, including the move that completes
+a level and, since 2026-10-06, the move that ends an attempt (flagged
+`game_over=1`; before that date those moves were not recorded at all). A reset
+is an action but not a row. So `n_actions` in `metrics.json` (rows) is a little
+smaller than `actions_taken` (the action counter that `EVAL_MAX_ACTIONS` caps
+and level-up times are measured on). Per-action rates divide by `n_actions`;
+budgets and curves use `actions_taken`.
+
+**Did my change alter the agent?** GPU runs cannot answer that (see section 3),
+so use the CPU check: record 2,000 moves before and after and compare them move
+for move. See `tools/cpu_check.py`.
 
 A run writes `results/runs/<timestamp>/<game>/`: `transitions/` (the `.npz`
 corpus), `run_config.json` (exact configuration), `tensorboard/`, and after
@@ -267,7 +283,7 @@ All detached (they survive closing the terminal, not the machine sleeping), all
 logging to `results/sweeps/planb_dev.log`, all resumable:
 
 ```bash
-make planb-dev        # Plan B dev tier: arms A0-A3 on 6 games (done)
+make planb-dev        # Plan B dev tier: arms A0 A1 on 6 games (done; A2 A3 removed)
 make planb-confirm    # Plan B Confirm: A0 vs A1 on all 25 games (done)
 make map-dev          # return map dev test: A1 vs A4 on 8 games (done)
 make map-confirm      # return map Confirm: A4 on all 25 games (stopped after 2 seeds)
@@ -282,7 +298,7 @@ The upgrade screen has its own targets and results folder (`results/screen/`):
 `make upgrade-screen RESUME=<manifest.tsv>`. Parallel runs share the GPU: four
 at once give about 1.15x the speed of one (measured), not 4x.
 
-Arms: A0 = baseline, A1 = novelty label, A2 = tried mask, A3 = both, A4 = novelty
+Arms: A0 = baseline, A1 = novelty label, A4 = novelty
 label + return map. Verdicts against a pre-registered rule, across manifests:
 
 ```bash
