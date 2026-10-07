@@ -277,6 +277,34 @@ class LevelEvidence:
         f, n, a = read_level(corpus, level)
         return cls.from_moves(game, level, f, n, a, **kw) if len(a) else None
 
+    @classmethod
+    def split(cls, game, corpus, level, fit_moves=300, known_mask=None, **kw):
+        """(fit, score) for a transfer level (docs/plans/rulebook-v2.md section
+        3.3): the level's first `fit_moves` moves are what re-binding and
+        repair may look at, the rest are what scores are computed on, so no
+        arm is scored on moves it was fitted to.
+
+        Masks. `score` uses the level's own mask, estimated as for any level
+        (so it is the same mask v1 scored this level with). `fit` uses only
+        what is known by then: the ticker scan over the fit moves themselves,
+        joined with `known_mask` (the training level's mask, which a live agent
+        carries over). `fit` is None if the level has no moves; `score` is None
+        if it has `fit_moves` or fewer."""
+        f, n, a = read_level(corpus, level)
+        if not len(a):
+            return None, None
+        level_mask, _ = ticker_mask(f[:MASK_MOVES], n[:MASK_MOVES])
+        fit_mask, _ = ticker_mask(f[:fit_moves], n[:fit_moves])
+        if known_mask is not None:
+            fit_mask = fit_mask | np.asarray(known_mask, bool)
+        fit = cls.from_moves(game, level, f[:fit_moves], n[:fit_moves], a[:fit_moves], mask=fit_mask, **kw)
+        score = (cls.from_moves(game, level, f[fit_moves:], n[fit_moves:], a[fit_moves:], mask=level_mask, **kw)
+                 if len(a) > fit_moves else None)
+        if score is not None:
+            score.first = _readonly(f[0])     # the level's first board, not the split's
+            score._api = None
+        return fit, score
+
     def save(self, path):
         np.savez_compressed(path, game=self.game, level=self.level, first=self.first, mask=self.mask,
                             info=np.array(repr(self.info)), before=self.before, after=self.after,

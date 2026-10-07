@@ -27,6 +27,17 @@ that the move does nothing.
 
 COVERAGE (gate G1) = the share of the level's distinct CHANGING keys the book
 predicts exactly; UNKNOWN and wrong both count as misses.
+
+CLAIMED CELLS (Rulebook v2, docs/plans/rulebook-v2.md section 4.5). predict()
+may return (next_board, claimed) instead of next_board: `claimed` is a 64x64
+bool array of the cells the rule vouches for, every other cell is UNKNOWN as
+far as that rule goes. A v1 rule returns a bare board and so claims every cell.
+For each key the worker also reports, beside v1's whole-board `correct`:
+  claimed_ok    every claimed (non-decoration) cell matches the real next board
+  cells_right   changed cells that are claimed and predicted right
+  cells_false   claimed cells predicted to change that did not
+  claimed_n     how many cells were claimed
+The v2 grades built from these are in wm/metrics.py; nothing above changes.
 """
 import collections
 import time
@@ -50,6 +61,8 @@ def _rule_worker(src, ev_path, seed, q):
         n = len(ev.actions)
         applies, correct, changes = np.zeros(n, bool), np.zeros(n, bool), np.zeros(n, bool)
         phash = np.zeros(n, np.uint64)
+        claimed_ok = np.zeros(n, bool)
+        cells_right, cells_false, claimed_n = (np.zeros(n, np.int32) for _ in range(3))
         ms = np.zeros(n)
         errors, first_error = 0, None
         rng, wrong, n_wrong = np.random.default_rng(seed), [], 0
@@ -59,13 +72,31 @@ def _rule_worker(src, ev_path, seed, q):
             t0 = time.perf_counter()
             try:
                 if ns["applies"](board, act, api):
-                    pred = np.asarray(ns["predict"](board, act, api))
+                    out, claim = ns["predict"](board, act, api), None
+                    if isinstance(out, tuple):                # v2: (next_board, claimed cells)
+                        if len(out) != 2:
+                            raise ValueError("predict must return a board or (board, claimed)")
+                        out, claim = out
+                    pred = np.asarray(out)
                     if pred.shape != (GRID, GRID):
                         raise ValueError(f"predict must return a 64x64 board, got shape {pred.shape}")
+                    if claim is None:
+                        claim = live                          # v1: vouches for every cell
+                    else:
+                        claim = np.asarray(claim)
+                        if claim.shape != (GRID, GRID):
+                            raise ValueError(f"claimed must be a 64x64 array, got shape {claim.shape}")
+                        claim = claim.astype(bool) & live
                     applies[k] = True
                     correct[k] = ev.exact(k, pred)
                     changes[k] = bool((pred[live] != board[live]).any())
                     phash[k] = xxhash.xxh64(np.where(live, pred, 255).astype(np.uint8).tobytes()).intdigest()
+                    after = ev.after[k]
+                    really = (after != board) & live          # cells that really changed
+                    claimed_ok[k] = bool((pred[claim] == after[claim]).all())
+                    cells_right[k] = int((claim & really & (pred == after)).sum())
+                    cells_false[k] = int((claim & ~really & (pred != board)).sum())
+                    claimed_n[k] = int(claim.sum())
                     if not correct[k]:                    # reservoir sample of the mistakes
                         n_wrong += 1
                         keep = (k, np.clip(pred, 0, 15).astype(np.uint8))
@@ -80,7 +111,9 @@ def _rule_worker(src, ev_path, seed, q):
                     raise RuntimeError(first_error)
             ms[k] = (time.perf_counter() - t0) * 1000.0
         q.put({"ok": True, "rule": str(ns.get("RULE", ""))[:300], "applies": applies, "correct": correct,
-               "changes": changes, "phash": phash, "ms_mean": float(ms.mean()) if n else 0.0,
+               "changes": changes, "phash": phash, "claimed_ok": claimed_ok, "cells_right": cells_right,
+               "cells_false": cells_false, "claimed_n": claimed_n,
+               "ms_mean": float(ms.mean()) if n else 0.0,
                "errors": errors, "first_error": first_error, "wrong": wrong})
     except Exception as e:
         q.put({"ok": False, "stage": "runtime", "reason": f"{type(e).__name__}: {e}"})
@@ -210,22 +243,30 @@ def _delta(before, after, y, x, live):
 
 def baseline_memory(train, test):
     """Per test key: is "repeat what the same screen + action did in training,
-    or else what the same 9x9 click neighbourhood did" exactly right?"""
-    live = train.live & test.live
+    or else what the same 9x9 click neighbourhood did" exactly right?
+
+    `train` is one LevelEvidence or a list of them (Rulebook v2: the training
+    level plus the transfer level's fit split, so memory sees the same evidence
+    as every other arm); with a list, later entries win a tie on the same key."""
+    trains = train if isinstance(train, (list, tuple)) else [train]
+    live = test.live.copy()
+    for t in trains:
+        live &= t.live
     exact = {}
     local = collections.defaultdict(collections.Counter)
-    for i in range(len(train.actions)):
-        b, a, act = train.before[i], train.after[i], int(train.actions[i])
-        exact[(np.where(live, b, 255).tobytes(), act)] = i
-        if act >= 5:
-            y, x = divmod(act - 5, GRID)
-            local[_patch(b, y, x)][_delta(b, a, y, x, live)] += int(train.count[i])
+    for t in trains:
+        for i in range(len(t.actions)):
+            b, a, act = t.before[i], t.after[i], int(t.actions[i])
+            exact[(np.where(live, b, 255).tobytes(), act)] = a
+            if act >= 5:
+                y, x = divmod(act - 5, GRID)
+                local[_patch(b, y, x)][_delta(b, a, y, x, live)] += int(t.count[i])
     ok = np.zeros(len(test.actions), bool)
     for k in range(len(test.actions)):
         b, a, act = test.before[k], test.after[k], int(test.actions[k])
         key = (np.where(live, b, 255).tobytes(), act)
         if key in exact:
-            pred = train.after[exact[key]]
+            pred = exact[key]
         elif act >= 5 and _patch(b, *divmod(act - 5, GRID)) in local:
             y, x = divmod(act - 5, GRID)
             pred = b.copy()

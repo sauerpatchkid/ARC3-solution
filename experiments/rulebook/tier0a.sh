@@ -31,6 +31,16 @@ case "${1:-start}" in
 esac
 
 pgrep -f "$RUN" >/dev/null && { echo "already running"; exit 1; }
+# Rulebook v1 is finished and its results are FROZEN (2026-10-07): registered in
+# artifacts/registry.json as rulebook_v1_results, read-only on disk, with a copy
+# in results/rulebook_v1_frozen_2026-10-07.tar.gz. Starting this again would
+# write over them. v2 runs go through experiments/rulebook/llm_run.sh and write
+# under results/rulebook/v2/.
+if [ -f "$OUT/report.md" ]; then
+  echo "Tier 0a has been run and its results are frozen ($OUT/report.md). Not starting."
+  echo "v2 runs: experiments/rulebook/llm_run.sh   |   v1 code: git tag rulebook-v1"
+  exit 1
+fi
 mkdir -p "$OUT"
 # Size the server to what is free: vLLM refuses to start when its share of the card
 # is not available, and on WSL an oversubscribed card spills into system RAM and
