@@ -9,6 +9,6 @@ holds everything Coach adds; the agent only calls it from lines tagged
                render(): the text the LLM reads (step 3)
 
 HOW TO REMOVE IT
-Delete this folder, tests/test_coach_history.py and tools/coach_summary.py.
+Delete this folder, legacy/coach_track/tests/test_coach_history.py and legacy/coach_track/tools/coach_summary.py.
 Nothing else in the baseline imports it.
 """

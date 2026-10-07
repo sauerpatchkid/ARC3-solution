@@ -7,7 +7,7 @@ Advice is the JSON the LLM is asked for:
    "action_weights": {"ACTION1": 0-5, ...},             available buttons only
    "avoid": {"objects": [id, ...], "actions": ["ACTION2", ...]}}
 
-Sources: the LLM (`LLMClient`, OpenAI-compatible HTTP to experiments/coach/serve.sh,
+Sources: the LLM (`LLMClient`, OpenAI-compatible HTTP to legacy/coach_track/experiments/serve.sh,
 standard library only - the agent never imports vLLM), the hand-written rule
 (`heuristic_advice`, arm B2) and random advice (`random_advice`, arm B1, the
 placebo). `ranking()` turns any advice into the ordered objects and buttons the

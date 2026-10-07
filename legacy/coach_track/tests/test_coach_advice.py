@@ -1,5 +1,5 @@
-"""Unit tests for the Coach's advice handling (custom_agents/coach/advice.py) and
-the offline probe's scoring (tools/advice_probe.py). No LLM needed.
+"""Unit tests for the Coach's advice handling (legacy/coach_track/coach/advice.py) and
+the offline probe's scoring (legacy/coach_track/tools/advice_probe.py). No LLM needed.
 
     uv run python -m pytest tests/ -q
 """
@@ -7,10 +7,12 @@ import os
 import random
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))        # legacy/coach_track
+ROOT = os.path.dirname(os.path.dirname(TRACK))                               # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, TRACK)
+sys.path.insert(0, os.path.join(TRACK, "tools"))
 
 from coach.advice import (heuristic_advice, random_advice, ranking, schema,  # noqa: E402
                           validate)

@@ -6,9 +6,9 @@ Replays a transition corpus through coach.history.History exactly as the live
 agent would feed it, and renders the summary on the screen the next move is
 made on.
 
-  uv run python tools/coach_summary.py <run>/transitions --at 20000
-  uv run python tools/coach_summary.py <run>/transitions --prewin      # before each winning move
-  uv run python tools/coach_summary.py <run>/transitions --stall 1500  # first stuck point per level
+  uv run python legacy/coach_track/tools/coach_summary.py <run>/transitions --at 20000
+  uv run python legacy/coach_track/tools/coach_summary.py <run>/transitions --prewin      # before each winning move
+  uv run python legacy/coach_track/tools/coach_summary.py <run>/transitions --stall 1500  # first stuck point per level
 
 Prints each summary with its length and a token estimate, then the replay speed.
 """
@@ -20,8 +20,10 @@ import time
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))        # legacy/coach_track
+ROOT = os.path.dirname(os.path.dirname(TRACK))                               # the repo
+sys.path.insert(0, os.path.join(ROOT, "custom_agents"))   # upgrades.py, gridtools.py
+sys.path.insert(0, TRACK)                                  # the coach package
 from coach.history import History  # noqa: E402
 
 

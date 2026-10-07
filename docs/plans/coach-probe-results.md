@@ -1,5 +1,7 @@
 # Coach offline probe (step 4): results, prompt v1 — NO-GO (3 Oct 2026)
 
+> **Archived 2026-10-06.** The Coach code moved to `legacy/coach_track/` (see its README): `custom_agents/coach/` is now `legacy/coach_track/coach/`, `tools/advice_probe.py` and `tools/coach_summary.py` are under `legacy/coach_track/tools/`, `experiments/coach/` is `legacy/coach_track/experiments/`. Paths below are as they were when this was written.
+
 The question: shown the text summary of a stuck or about-to-win screen, does the LLM pick the next experiment
 better than random and no worse than a hand rule? Tool and pre-registered rule: `tools/advice_probe.py`
 (written before any LLM answer was scored). Full report: `results/coach/probe_20261003_121021/report.md`.

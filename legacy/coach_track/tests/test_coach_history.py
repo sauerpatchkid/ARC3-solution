@@ -1,4 +1,4 @@
-"""Unit tests for the Coach's screen summary (custom_agents/coach/history.py).
+"""Unit tests for the Coach's screen summary (legacy/coach_track/coach/history.py).
 
     uv run python -m pytest tests/ -q
 """
@@ -7,9 +7,11 @@ import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))        # legacy/coach_track
+ROOT = os.path.dirname(os.path.dirname(TRACK))                               # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
+sys.path.insert(0, TRACK)
 
 from coach.history import History, Objects, describe  # noqa: E402
 

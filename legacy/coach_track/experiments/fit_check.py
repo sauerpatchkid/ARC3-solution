@@ -2,11 +2,11 @@
 """fit_check.py - Coach step 2: does the in-loop LLM fit beside one Goose run on
 this GPU, and how fast does it answer a Coach-sized request?
 
-Needs the server from experiments/coach/serve.sh already running. Standard
+Needs the server from legacy/coach_track/experiments/serve.sh already running. Standard
 library only (the coach will talk to the server the same way: HTTP, no vLLM).
 
-  uv run python experiments/coach/fit_check.py              # server from serve.sh on :8017
-  uv run python experiments/coach/fit_check.py --label qwen38_27b
+  uv run python legacy/coach_track/experiments/fit_check.py              # server from serve.sh on :8017
+  uv run python legacy/coach_track/experiments/fit_check.py --label qwen38_27b
 
 Three phases, GPU memory sampled throughout (nvidia-smi, whole card):
   1. Goose beside an IDLE server: one mb_gated_att run (tu93, 10k actions, the
@@ -31,7 +31,7 @@ import threading
 import time
 import urllib.request
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 GOOSE_ENV = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1",
              "EVAL_UPGRADES": "bars,map_gated,attempt"}
 

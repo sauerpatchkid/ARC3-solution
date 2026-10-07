@@ -5,8 +5,8 @@
 # coach talks to it over localhost. Nothing in the root Makefile or sweep.sh calls
 # this script (make check enforces that for .venv-llm).
 #
-#   experiments/coach/serve.sh                     # Qwen3.8-27B, sized to sit beside one Goose run
-#   COACH_MODEL=<other hf id> experiments/coach/serve.sh
+#   legacy/coach_track/experiments/serve.sh                     # Qwen3.8-27B, sized to sit beside one Goose run
+#   COACH_MODEL=<other hf id> legacy/coach_track/experiments/serve.sh
 #
 # Sizing (step 2, 2026-10-03): Coach prompts are <= 2k tokens with <= 400 tokens out,
 # so the KV cache is fixed at COACH_KV_BYTES (default 1 GiB: Qwen3.8-27B needs 0.81 GiB
@@ -16,7 +16,7 @@
 # disable_any_whitespace forces compact JSON: pretty-printed answers ran into the
 # 400-token cap and were cut off (11 of 40 in the first fit check).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 VENV="$ROOT/.venv-llm"
 MODEL="${COACH_MODEL:-cyankiwi/Qwen3.8-27B-AWQ-INT4}"
 PORT="${COACH_PORT:-8017}"

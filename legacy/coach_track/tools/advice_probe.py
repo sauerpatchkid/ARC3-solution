@@ -6,8 +6,8 @@ hand rule, on screens from runs we already have? No agent changes: recorded
 mb_gated_att runs are replayed through coach.history.History exactly as the live
 agent would feed it.
 
-  uv run python tools/advice_probe.py                  # 8 dev games, needs serve.sh running
-  uv run python tools/advice_probe.py --no-llm         # build points, score random + rule only
+  uv run python legacy/coach_track/tools/advice_probe.py                  # 8 dev games, needs serve.sh running
+  uv run python legacy/coach_track/tools/advice_probe.py --no-llm         # build points, score random + rule only
 
 PRE-REGISTERED (written 2026-10-03, before any LLM answer was scored):
   Points, from the B0 confirm runs (mb_gated_att, 100k) of the dev games
@@ -48,8 +48,10 @@ from multiprocessing import Pool
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))        # legacy/coach_track
+ROOT = os.path.dirname(os.path.dirname(TRACK))                               # the repo
+sys.path.insert(0, os.path.join(ROOT, "custom_agents"))   # upgrades.py, gridtools.py
+sys.path.insert(0, TRACK)                                  # the coach package
 from coach.history import History, SUMMARY_VERSION, obj_key  # noqa: E402
 from coach.advice import (BUTTON_NAMES, LLMClient, heuristic_advice, prompt_hash,  # noqa: E402
                           ranking)
@@ -299,7 +301,7 @@ def report(out, points, answers, rows, a, games):
              f"prompt `{prompt_hash()}`.", ""]
     allv = verdict(rows)
     if "go" in allv:
-        lines += ["## G1 verdict (pre-registered in tools/advice_probe.py)", "",
+        lines += ["## G1 verdict (pre-registered in legacy/coach_track/tools/advice_probe.py)", "",
                   f"- 1. at least 15 scored points: {allv['n']} → {'PASS' if allv['c1'] else 'FAIL'}",
                   f"- 2. LLM beats random: {allv['llm_hits']} hits vs {allv['random_expected']} expected, "
                   f"p = {allv['p_llm_vs_random']:.4f} → {'PASS' if allv['c2'] else 'FAIL'}",

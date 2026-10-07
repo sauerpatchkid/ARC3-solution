@@ -1,4 +1,6 @@
 # Coach (v2) — the stall-triggered LLM advisor
+
+> **Archived 2026-10-06.** The Coach code moved to `legacy/coach_track/` (see its README): `custom_agents/coach/` is now `legacy/coach_track/coach/`, `tools/advice_probe.py` and `tools/coach_summary.py` are under `legacy/coach_track/tools/`, `experiments/coach/` is `legacy/coach_track/experiments/`. Paths below are as they were when this was written.
 ### A local LLM ranks *what to try next* for mb_gated_att, only when it is stuck, and the advice is kept only if the numbers say it helped
 
 Track: LLM integration. Owner: Matt. Repo: `sauerpatchkid/ARC3-solution` (branch `refactor/shared-baselines`, at 5da1508).
