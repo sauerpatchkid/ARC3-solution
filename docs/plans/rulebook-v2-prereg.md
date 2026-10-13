@@ -16,10 +16,10 @@ this file, before the run they affect.
 | 1 | v1 is closed | registered |
 | 2 | game tiers | registered |
 | 3 | CP0 near-miss refinement day | registered in `3601f18`; run 7 Oct 2026: 2 of 7 exact, CP1 as written (`rulebook-v2-cp0-results.md`) |
-| 4 | CP1 gate (Tier 0a v2) | registered, with one OPEN item (4.4) |
+| 4 | CP1 gate (Tier 0a v2) | registered; 4.4 settled 13 Oct 2026 |
 | 5 | CP2 gates and Confirm 1 | registered |
 | 6 | CP3 gate | registered, with one OPEN item (6.4) |
-| 7 | CP4, CP5 | to be added before their runs |
+| 7 | CP4, CP5, the frontier showcase | gates and designs to be added before their runs; the showcase's limits are registered (7.2) |
 | 8 | honesty rules | registered |
 | 9 | failure taxonomy | registered |
 
@@ -162,20 +162,41 @@ result then come from the rule contract and the refinement policy.
 coverage ≥ 80% (target: ≥ 3 of 8), strict case coverage, T0 and T2, tokens,
 the rate of answers that ran out of room.
 
-### 4.4 OPEN: how the interval is computed
+### 4.4 How the interval is computed
+
+*Settled 13 Oct 2026 (Matt), before any CP1 run. It was marked OPEN when the
+rest of section 4 was registered.*
 
 The plan says "computed as in Stage A's R1". Stage A's R1 is a paired bootstrap
-of the difference in exact-prediction rate that resamples whole **runs** (2,000
-resamples, seed 0, 2.5th–97.5th percentile). Stage A had many runs per game;
-Tier 0a v2 has one recording per game, so there is nothing to resample at that
-level. To be settled here before the CP1 run. Options:
+of the difference in exact-prediction rate that resamples whole runs. Stage A
+had many runs per game; Tier 0a v2 has one recording per game, so the unit that
+is resampled is the **attempt** instead. Everything else follows R1.
 
-1. *(recommended)* resample **attempts**, the stretches of play between game
-   overs, within the score split; if a level has fewer than 20 attempts, resample
-   blocks of 50 consecutive moves instead;
-2. score the transfer level on all three recorded seeds and resample runs (only
-   3 units);
-3. resample distinct cases (treats cases as independent, which they are not).
+- **Unit.** An attempt is a stretch of consecutive recorded moves between game
+  overs, within the transfer level's score split. In the recordings CP1 uses
+  (made before 6 Oct 2026) a game over shows as the action number stepping by
+  more than 1 between two consecutive recorded moves; in later recordings the
+  move flagged `game_over` ends its attempt. The score split's first, partial
+  attempt counts as one.
+- **Too few attempts.** If the score split has fewer than 20 attempts, the unit
+  is a block of 50 consecutive recorded moves instead (the last block may be
+  shorter).
+- **Resampling.** 2,000 resamples, seed 0. Each draws as many units as the split
+  has, with replacement, and pools their moves.
+- **Rates.** On the pooled moves, the one-step exact rate of each arm, per move:
+  a move is right for an arm if the arm's prediction matches that move's own
+  recorded next screen on every non-decoration cell. For the book, unclaimed
+  cells are read as unchanged, and a move no rule covers is predicted unchanged.
+- **Interval.** For each difference (book − "nothing", book − "memory"), the
+  2.5th to 97.5th percentile of its resampled values, paired: both arms are
+  scored on the same resample. "Above zero" means the lower end is greater than
+  zero.
+- **Too little to resample.** A game whose score split has fewer than 5 units is
+  reported without an interval and does not count as beating the baselines.
+
+Reported beside the per-move rates: v1's rate over distinct cases, so the
+numbers can be set next to v1's tables. The safety criterion in 4.3 is
+unchanged: it is a share of distinct changing cases.
 
 ## 5. CP2: rule-guided Goose
 
@@ -249,9 +270,31 @@ Whether "wrong predictions and overrun rate no higher" is judged per game or
 pooled over the 8 games is not stated in the plan. To be settled here before
 the CP3 A/B. Default if nothing else is written: pooled over the 8 games.
 
-## 7. CP4 and CP5
+## 7. CP4, CP5 and the frontier showcase
+
+### 7.1 CP4 and CP5
 
 Their gates (plan sections 8.4 and 9.3) are added here before their runs.
+
+### 7.2 The frontier showcase (optional; plan section 9A)
+
+Registered 13 Oct 2026, long before any such run. The design (model, games,
+budget, the table to be reported) is added here before it runs. Whatever the
+design, these limits hold:
+
+- It is **descriptive only**. It is not a gate, it cannot change any verdict in
+  sections 3 to 6 or any adoption decision, and its levels are never added to
+  the totals of our own arms.
+- **Nothing flows back.** Frontier-written rules, helpers or lessons do not
+  enter any registered artifact, the playbook or CP5's training data, and no
+  setting of our own system is changed after seeing its results.
+- It uses **dev and seen games only**. The A/B-offline and untouched tiers are
+  not shown to a frontier model.
+- Only the rule writer changes: the same recordings, prompts, checker, trust
+  rules, measuring tools and budgets in calls and tokens as the local run it is
+  compared with. A hard spend cap is set before it starts.
+- It is reported apart from every other result, with the caveat that a frontier
+  model may have seen these public games.
 
 ## 8. Honesty rules
 
@@ -303,3 +346,11 @@ intervention budget exhausted). v2 adds:
   rule right on 6 moves. It now shows the most accurate rule that still
   qualifies as an arm (≥ 20 moves, gain > 0). The count of exact groups, 2 of 7,
   is not affected.
+- **13 Oct 2026, section 7.** The plan gained an optional frontier-model
+  showcase for the last week of November (plan section 9A). Section 7 now also
+  covers it, and its limits are registered as 7.2. No registered section was
+  changed.
+- **13 Oct 2026, section 4.4.** The OPEN item is settled: the interval resamples
+  attempts (blocks of 50 moves when a level has fewer than 20 attempts), with
+  per-move rates, 2,000 resamples and a floor of 5 units. No CP1 answer had been
+  generated; section 4 is now binding in full.

@@ -1,6 +1,14 @@
 # Rulebook — Verified World Model (v2)
 ### Goose explores; a local LLM writes the game's rules and a level-completion test as code, checked against everything the run has recorded; a planner uses the checked rules to finish levels
 
+> **This is the plan for Rulebook v1, and its build order is superseded.** (Do not be misled by the "v2"
+> in the title and on the version line below: that is the second draft of THIS document, written 2 Oct 2026.)
+> Its results are final: Stage A NO-GO (`rulebook-stageA.md`), Tier 0a G1 FAIL (`rulebook-tier0a.md`). After
+> the G1 fail the build order was replaced on 6 Oct 2026 by **`rulebook-v2.md`** ("Rulebook v2: rules that carry
+> over"), whose gates are in `rulebook-v2-prereg.md`. Still used from this file: the design of the triggers,
+> the completion test, the planner and executor, and the exposure caps (v2 sections 5 and 8). The frontier
+> "showcase" of section 9 is kept in v2 as an optional end-of-November comparison (v2 section 9A).
+
 Track: LLM integration · Owner: Matt · Repo: `sauerpatchkid/ARC3-solution` (branch `refactor/shared-baselines`, reviewed at 5da1508)
 Base agent: **mb_gated_att** (`EVAL_LABEL=novel EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt`; documented 112 levels on the 25-game confirm test)
 In-loop model: Qwen3.5-35B-A3B (GPTQ-Int4, vLLM, local RTX 5090)

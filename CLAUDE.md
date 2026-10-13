@@ -107,7 +107,7 @@ After the 25-game sweep (`results/sweeps/sweep_20260727_225828_summary.md`):
 - **ar25 / cd82 / lp85** — the other level-2 games; no semester-1 medians.
 - **tu93** — weak and seed-dependent; long-horizon runs only, paired with ft09.
 
-## Semester 2: where things stand (2026-10-06)
+## Semester 2: where things stand (2026-10-13)
 
 Goose side, done: Plan B (novelty label adopted, tried mask dropped), Option 1
 (return map), two upgrade screens and the 25-game confirm that adopted
@@ -128,28 +128,63 @@ from `.venv-llm`; the only cached model):
 - **Rulebook v2** — the CURRENT plan: `docs/plans/rulebook-v2.md`, checkpoints
   CP0–CP5. Every gate is pre-registered in `docs/plans/rulebook-v2-prereg.md`
   before the run it judges; nothing in a registered section is edited after its
-  run starts (corrections go in its section 10). Dates that matter: 9 Oct
-  report TOC, 30 Oct full draft, 2 Nov idea lock, 7 Dec final report.
+  run starts (corrections go in its section 10). Report dates, fixed: 30 Oct
+  full draft, 2 Nov idea lock, 7 Dec final.
   - **CP0 DONE 2026-10-07** (`docs/plans/rulebook-v2-cp0-results.md`). Near-miss
     refinement: 2 of 7 groups reached an exact rule (expected 2–4), so CP1 goes
     ahead as written; both exact rules got there by covering less, and rules
     still did not carry to the next level. v1's books on v2's ruler: 1 of 8
     beats both baselines (dc22), ft09 wrong on 58.8%.
-  - **NEXT: CP1** (transferable rules, offline; plan section 4): `PARAMS` and
-    re-binding, the literal lint, every-level trust, partial claims and the
-    composed book, then Tier 0a v2. Two pre-registration items are still OPEN
-    and need Matt's decision: 4.4 (how CP1's interval is resampled with one
-    recording per game) before the CP1 run, 6.4 before 28 Oct.
-  - v2 code: `custom_agents/wm/metrics.py` (claimed-cell grades, T0),
-    `tiers.py` (who may use which game), `registry.py` + `tools/artifacts.py`
-    (frozen artifacts, `artifacts/registry.json`), `LevelEvidence.split` (fit /
-    score), `tools/wm_refine.py` (the refinement bandit; `--from-cache`
-    re-scores without a GPU), `tools/wm_baseline.py`, `paired_compare --seal`.
+  - **NEXT: CP1, NOT STARTED as of 2026-10-13** (transferable rules, offline;
+    plan section 4, gate in pre-registration section 4). The calendar is about
+    five days behind (plan section 10.4): by the plan's own slip rule, if CP1 is
+    not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus
+    the LLM-free carry-over and CP1 continues beside it.
+  - **Pre-registration status.** Sections 1–5 are binding in full. 4.4 was
+    settled on 13 Oct: CP1's interval resamples ATTEMPTS (stretches between game
+    overs; blocks of 50 moves if a level has fewer than 20), per-move rates,
+    2,000 resamples, a floor of 5 units. One item is still OPEN and is Matt's:
+    6.4 (CP3's "no higher": per game or pooled), before 28 Oct.
+  - **Frontier models.** Everything is the local model, and most of the report
+    is to be our own system on it (Matt, 13 Oct). The only frontier uses are
+    optional: one helper-extraction pass in CP3 (plan 6.2), and a showcase in
+    the last week of November (plan 9A, limits registered in pre-registration
+    7.2): the same pipeline with a frontier rule writer, reported as a short
+    comparison. Never a gate, nothing flows back, dev and seen games only, cut
+    first if time is short.
+  - **CP1 starting notes.**
+    - *Exists:* `check.py`'s worker accepts `predict()` returning `(board,
+      claimed)` and reports claimed-cell results; `wm/metrics.py`
+      (`claimed_grade` = v2 admitted / trusted on ONE level, `cell_coverage`,
+      `three_numbers`, `transfer_t0`); `LevelEvidence.split` (fit = first 300
+      moves, score = the rest); `tools/wm_refine.py` (the bandit CP1's
+      refinement policy reuses; `--from-cache` re-scores without a GPU);
+      `tools/wm_baseline.py` (v1's books on the score split: the "v1, for
+      comparison" row); `wm/tiers.py`; `wm/registry.py` + `tools/artifacts.py`
+      (`artifacts/registry.json`); `paired_compare --seal`.
+    - *To build:* the v2 rule contract (`PARAMS`, slot types, optional `bind()`,
+      `applies` / `predict` taking the binding); new `api` fields (`level`,
+      `colours`, `t`, `attempt`); the literal lint; the re-binding enumerator
+      and a batch call in the sandbox; trust across every level seen; the
+      composed book (up to 4 rules per group; a cell claimed with different
+      values is UNKNOWN), which replaces how `metrics.cell_coverage` combines
+      rules today; residual and two-level prompts; T1 and T2; the Tier 0a v2
+      driver.
+    - *Keep v1 reproducible:* do not edit `tools/wm_offline.py` or the prompt
+      text in `wm/rules.py` (v1's answer cache is keyed on the prompts). v2's
+      driver and prompt additions are new files, v2 runs write under
+      `results/rulebook/v2/`, and each gets a job name in `llm_run.sh`.
+    - `api.t`, `attempt` and the gate's interval (pre-registration 4.4) all
+      need action numbers and per-move scoring; `read_level` does not read
+      action numbers yet and the evidence index keeps cases, not move order.
+      The recordings CP1 uses were made before 2026-10-06, so a game over shows
+      only as the action number stepping by 3. `tools/wm_baseline.py` should
+      report v1's row with the same interval once it exists.
   - Offline LLM jobs run detached through
-    `experiments/rulebook/llm_run.sh start|status|stop <job>` and write under
-    `results/rulebook/v2/`. While one runs, do not edit `custom_agents/wm/*.py`
-    or `gridtools.py`: its check workers re-import them. The server takes ~88%
-    of the GPU; the PC must stay on AC power.
+    `experiments/rulebook/llm_run.sh start|status|stop <job>` (~2 h for the
+    near-miss job). While one runs, do not edit `custom_agents/wm/*.py` or
+    `gridtools.py`: its check workers re-import them. The server takes ~88% of
+    the GPU, so ask whether Matt is using it; the PC must stay on AC power.
   - v1's result folders are frozen: registered, read-only, copy in
     `results/rulebook_v1_frozen_2026-10-07.tar.gz`. `tier0a.sh` refuses to run.
 

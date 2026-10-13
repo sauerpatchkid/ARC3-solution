@@ -2,6 +2,8 @@
 
 *Revised plan, written 6 Oct 2026. It replaces the build order in `docs/plans/llm-rulebook.md` after Tier 0a's G1 fail. The v1 record is the 6 Oct write-up `rulebook-full-writeup.md` (kept outside the repo; `docs/plans/rulebook-stageA.md` and `rulebook-tier0a.md` hold the same results). v1's results and verdicts stand unchanged. Every v2 gate is pre-registered before the run it judges.*
 
+> **Status, 13 Oct 2026.** CP0 is done (`rulebook-v2-cp0-results.md`): the near-miss refinement day made 2 of 7 groups exact, so CP1 goes ahead as written. CP1 has not started, and the calendar is about five days behind (section 10.4). The gates that bind are the ones in `rulebook-v2-prereg.md`, not the summaries here. Added 13 Oct: an optional frontier-model showcase in the last week of November (section 9A).
+
 ---
 
 ## 0. The short version
@@ -25,6 +27,8 @@
 | **CP3** Cross-game layer | helper library, mechanic schemas, playbook, Goose prior; built from dev games and frozen | rule-guided Goose with learned cross-game priors | held-out offline A/B: more trusted rules and coverage on ≥ 5 of 8 held-out games, no rise in wrong predictions | 19–31 Oct |
 | **CP4** Two-layer model and planner | finders → object state; completion test; planner; executor | rule-guided Goose that plans where its rules suffice | ≥ 2 dev games with a fitted, path-checked completion test; replay-to-level clears ≥ 1 level Goose didn't | 2–22 Nov; Confirm 2 23–28 Nov |
 | **CP5** Self-trained rule writer | hindsight-relabelled fine-tune on Colab | a rule writer trained for this task, usable at any rung | beats the base writer on the held-out offline A/B at equal budget | 2–20 Nov, if CP1–CP3 look promising |
+
+**Not a rung:** an optional frontier-model showcase in the last week of November (section 9A). The same pipeline is rerun with a frontier model writing the rules, and reported as a short comparison beside our own results. It is never a gate.
 
 **The calendar this is built around.**
 - 9 Oct: report table of contents and Meeting Log 1.
@@ -341,7 +345,7 @@ The first 300 moves of the transfer level form the fit split for T1 and T2; scor
 
 | | Criterion | v1, for comparison |
 |---|---|---|
-| Primary | On the transfer level, the re-bound book (T1: one-step exact rate, unclaimed cells read as unchanged) beats both "nothing" and "memory", with the 95% CI above zero (computed as in Stage A's R1), on ≥ 3 of 8 games | 1 of 8 (dc22) |
+| Primary | On the transfer level, the re-bound book (T1: one-step exact rate, unclaimed cells read as unchanged) beats both "nothing" and "memory", with the 95% CI above zero (computed as in Stage A's R1, resampling attempts: pre-registration 4.4), on ≥ 3 of 8 games | 1 of 8 (dc22) |
 | Safety | T1 wrong predictions ≤ 5% of the transfer level's changing cases, on every game | ft09: 59% |
 | Reported, not gating | claimed-cell trusted coverage ≥ 80% (target: ≥ 3 of 8); strict coverage; T0 and T2; tokens; overrun rate | strict coverage: 2 of 8 |
 
@@ -664,7 +668,7 @@ The A/B needs seed-0 recordings of the 8 A/B-offline games from the mb_gated_att
 
 > **Rulebook v2.** An exploring agent (Goose) works with a local LLM that writes replay-checked, parameterised rules from Goose's transitions. Rules carry from level to level by automatic re-binding, and they steer what Goose tries. Knowledge carries from game to game as frozen ways of learning: helpers, mechanic schemas, lessons and a trained rule writer. Where a completion test fits, a planner uses the rules to finish levels. The build proceeds in five stages (CP1–CP5), each a refinement of this one idea.
 
-Any work after 2 Nov is a stage of this statement, not a new idea.
+Any work after 2 Nov is a stage of this statement, not a new idea. A frontier-model rerun of the same pipeline (section 9A) compares models; it is not part of the method and does not change this statement.
 
 ### 7.2 Confirm 1 (23–27 Oct): CP2
 
@@ -800,6 +804,39 @@ If it passes, it replaces the base writer in the CP2 and CP4 dev runs and in Con
 
 ---
 
+## 9A. Optional: the frontier showcase (last week of November)
+
+*Added 13 Oct 2026. v1's plan listed a frontier "showcase" as one of the project's goals (`llm-rulebook.md` §9, 13–19 Nov). v2 keeps it as an option: smaller, later, and clearly apart from our own results.*
+
+**Goal.** One short, separate comparison for the report: the same pipeline with a frontier model writing the rules instead of the local 27B. It answers "how much of what we see is the model, and how much is the method?" Everything else in the report is our own system on a local model. This is a blurb beside it, saying how much better or worse the frontier model did and why.
+
+**What changes and what doesn't.** Only the rule writer changes. The recordings, prompts, checker, trust rules, measuring tools and budgets (in calls and tokens) stay the same.
+
+**Versions, cheapest first.**
+
+1. **Offline (the default).** Tier 0a v2 rerun on the 8 dev games with the frontier writer. Reported beside the local model's row: trusted rules, cell coverage, case coverage, T0 and T1 transfer, wrong predictions, answers that ran out of room, tokens and cost.
+2. **Live (only if 1 is done and budget remains).** The furthest passed configuration with the frontier writer on a few dev or seen games, 1 seed. A demonstration; one seed carries no statistical weight.
+
+**Rules.**
+
+- **Descriptive only.** It is never a gate, never changes an adoption verdict, and its levels are never added to our totals.
+- **Nothing flows back.** Frontier-written rules, helpers and lessons do not enter the registered artifacts, the playbook or CP5's training data, and nothing is tuned after seeing its results. (The optional frontier pass for helper extraction in section 6.2 is a different thing and is unchanged: that one is an input, declared and frozen before any held-out use.)
+- **Dev and seen games only,** so the held-out tiers stay clean.
+- **A hard spend cap,** from the same ~$100 as section 6.2.
+- **Registered before it runs** (pre-registration section 7): the model, the games, the budget and the table to be reported.
+- **Caveat stated with the result:** these are public games, and a frontier model may have seen them or write-ups about them (section 1.4).
+
+**What it needs.** An API backend for `custom_agents/wm/llm.py` (key, provider differences, the spend cap; the answer cache already exists). About half a day. The model is chosen when the run is registered.
+
+**When.** 23–30 Nov, beside Confirm 2 (it needs no local GPU). **Cut first** if anything else is behind.
+
+**How it reads in the report, either way.**
+
+- *The frontier model does better:* the method works and the local model is the limit. Say where: which mechanics, which failure types.
+- *It does no better, or worse:* the limit is in the method or the evidence, not the model. Say which gate it also fails.
+
+---
+
 ## 10. Calendar and compute
 
 ### 10.1 Calendar
@@ -825,6 +862,7 @@ If it passes, it replaces the base writer in the CP2 and CP4 dev runs and in Con
 | 2–22 Nov | CP4 build and dev evaluation | daytime | |
 | 2–20 Nov | CP5 data on the local CPU, training on Colab, if promising | Colab | |
 | 23–28 Nov | Confirm 2 | ~55–95 h | |
+| 23–30 Nov | Frontier showcase (optional, section 9A): the offline rule test with a frontier writer | none (API) | a short boxed comparison in the final report |
 | 29 Nov–7 Dec | write-up | none | final report, 7 Dec |
 
 ### 10.2 Slip rules
@@ -835,6 +873,7 @@ If it passes, it replaces the base writer in the CP2 and CP4 dev runs and in Con
 - **The CP3 freeze slips past 30 Oct:** drop the Goose prior and keep 6 schemas.
 - **CP4 isn't through its gate by 22 Nov:** Confirm 2 runs CP2 + CP3.
 - **CP5** starts only if CP1–CP3 results look promising, which is also when the Colab credits come into play.
+- **The frontier showcase** (section 9A) is cut before anything else.
 
 ### 10.3 Effort summary
 
@@ -848,6 +887,13 @@ If it passes, it replaces the base writer in the CP2 and CP4 dev runs and in Con
 | CP5 | 5–8 | Colab, plus ~5 h of local evaluation |
 
 That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 are the rungs most likely to be cut.
+
+### 10.4 Where the calendar stands (13 Oct)
+
+- **Done:** CP0 (7 Oct). **Not started:** CP1, which the table above has built by 13 Oct with its overnight run on 13–14 Oct.
+- By the first rule in 10.2, if CP1 is not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus the LLM-free carry-over, and CP1 continues offline beside it. CP1 is a 4–5 day build, so that rule is likely to apply.
+- The dates after that (CP2 dev gate 22 Oct, Confirm 1 on 23–27 Oct) have not been moved. Their rule is the second one in 10.2: no dev gate by 24 Oct means Confirm 1 is skipped and Confirm 2 decides the headline.
+- The report dates are fixed and unchanged: 30 Oct full draft, 2 Nov idea statement, 7 Dec final.
 
 ---
 
@@ -863,6 +909,7 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 | C3 | C2 plus the frozen cross-game layer |
 | C4 | C3 plus the planner on the two-layer model |
 | C5 | any of the above with the fine-tuned writer |
+| F | the frontier showcase (section 9A): the same pipeline with a frontier model as the rule writer; descriptive only, never judged by a gate |
 
 ### 11.2 Gates at a glance
 
@@ -889,6 +936,7 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 - Every result is on the 25 public games. "Held-out" means our own split, not ARC-AGI-3's private sets.
 - Dev-game results are labelled as tuned.
 - The cross-game claim rests on the untouched tier in Confirm 2, plus the A/B-offline tier.
+- The frontier showcase (section 9A) is reported apart from every other result and supports no claim about our method beyond "this is what a stronger rule writer does in the same pipeline".
 
 ---
 
@@ -926,7 +974,8 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 - triggers and budgets (CP2, smaller);
 - the completion test (CP4);
 - the planner and executor (CP4);
-- the exposure caps (CP4).
+- the exposure caps (CP4);
+- the frontier showcase (section 9A): optional, descriptive, last week of November.
 
 **Changed:**
 
@@ -970,6 +1019,7 @@ Another module can consume these, or supply its own versions through the same gu
 5. CP5's model: **the small model first**; 27B QLoRA only if Colab allows.
 6. `api.t` in CP1: **yes**, as an optional field.
 7. Using the Goose prior at level resets: **yes**, the prior instead of random weights, if it passes its folds.
+8. A frontier showcase in the last week of November (section 9A): **yes, if time and budget allow** (Matt, 13 Oct). The offline version first; never a gate; most of the report is our own system on a local model.
 
 ---
 

@@ -176,6 +176,11 @@ The pre-registration allows one day of trying other settings on these dev games,
 games and groups that pass. The obvious setting to try is the one finding 5 points at: keep giving feedback rounds
 until a rule is exact, not merely admitted. Any result from that is dev-tuned and must be labelled so.
 
+**What happened next.** That one day was run on 7 Oct 2026, exactly as described here (feedback until exact, on
+the seven near-miss groups): 2 of 7 reached an exact rule, both by covering fewer cases
+(`rulebook-v2-cp0-results.md`). The build was NOT narrowed to the games that pass. Instead the plan was
+revised: `rulebook-v2.md`, with its gates registered in `rulebook-v2-prereg.md` before any v2 run.
+
 ## Changes to the code after this run (2026-10-06)
 
 The results above were produced by the code at git tag `rulebook-v1` and stand as
