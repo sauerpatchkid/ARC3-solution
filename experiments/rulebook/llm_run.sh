@@ -9,25 +9,33 @@
 #   experiments/rulebook/llm_run.sh stop   <job>
 #
 # Jobs (each writes under results/rulebook/v2/ - never into v1's frozen folders):
-#   nearmiss    CP0: near-miss refinement with a bandit (tools/wm_refine.py, ~1.5-2 h)
+#   nearmiss        CP0: near-miss refinement with a bandit (tools/wm_refine.py, ~1.5-2 h)
+#   tier0a2         CP1: Tier 0a v2, the 8 dev games (tools/wm_tier0a_v2.py, ~12-14 h). THE GATE RUN:
+#                   pre-registered in docs/plans/rulebook-v2-prereg.md section 4; start it once.
+#   tier0a2-smoke   CP1: the same tool on lp85 alone, a "seen" game that is not one of the gate's
+#                   eight - does the whole pipeline run with the real model? (~55 min)
 #
 # Keep the PC on AC power (it sleeps on battery) and GPU-heavy Windows apps
 # closed: the server takes up to 90% of the card. v1's launchers (tier0a.sh,
 # stageA.sh) are kept for the record and refuse to overwrite their results.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
+ARGS=""
 case "${2:-}" in
   nearmiss) TOOL=tools/wm_refine.py; OUT=results/rulebook/v2/nearmiss ;;
-  *) echo "usage: $0 start|status|stop <job>   (jobs: nearmiss)"; exit 1 ;;
+  tier0a2) TOOL=tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2 ;;
+  tier0a2-smoke) TOOL=tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2_smoke; ARGS="--games lp85" ;;
+  *) echo "usage: $0 start|status|stop <job>   (jobs: nearmiss, tier0a2, tier0a2-smoke)"; exit 1 ;;
 esac
 LOG=$OUT/run.log
-RUN="python ${TOOL//./\\.} --out"     # the job's own command line, nothing that merely mentions the tool
+# the job's own command line (tool AND output folder), nothing that merely mentions the tool
+RUN="python ${TOOL//./\\.} --out $OUT( |\$)"
 SRV='[b]in/vllm serve'
 
 case "${1:-}" in
   status)
     pgrep -f "$RUN" >/dev/null && echo "RUNNING" || echo "not running"
-    [ -f "$LOG" ] && grep -E "^\[|^model:|exact|Traceback|Error|failed|exit=" "$LOG" | tail -16
+    [ -f "$LOG" ] && grep -E "^\[|^model:|exact|PASS|FAIL|Traceback|Error|failed|exit=" "$LOG" | tail -16
     [ -f "$OUT/report.md" ] && echo "REPORT READY: $OUT/report.md"
     exit 0 ;;
   stop)
@@ -62,7 +70,7 @@ setsid nohup bash -c '
     started=1
     for i in $(seq 1 120); do curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null && break; sleep 5; done
   fi
-  uv run python '"$TOOL"' --out '"$OUT"'
+  uv run python '"$TOOL"' --out '"$OUT"' '"$ARGS"'
   echo "exit=$?"
   if [ "$started" = 1 ]; then P=$(pgrep -f "[b]in/vllm serve"); [ -n "$P" ] && kill $P; fi
 ' > "$LOG" 2>&1 < /dev/null &

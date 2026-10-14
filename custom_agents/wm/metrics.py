@@ -27,12 +27,27 @@ of the transfer level, with the memory baseline also given the fit split.
 
 Counts are in recorded moves (a case seen 40 times counts 40) wherever v1's
 were, and over distinct cases where v1's coverage was.
+
+THE GATE'S INTERVAL (docs/plans/rulebook-v2-prereg.md section 4.4, settled 13 Oct
+2026 before any CP1 run). Rates here are PER MOVE: a move is right for an arm if
+the arm's prediction for its case matches that move's OWN recorded next screen
+on every non-decoration cell (so a case seen to end two ways cannot be right on
+all its moves). The unit resampled is the ATTEMPT (a stretch of recorded moves
+between game overs within the score split; its first, partial one counts), or a
+block of 50 consecutive moves when the split has fewer than 20 attempts. 2,000
+resamples, seed 0; each draws as many units as the split has, with replacement,
+and pools their moves. The interval of each difference (book - "nothing", book -
+"memory") is the 2.5th to 97.5th percentile of its resampled values, every arm
+scored on the same resample. Fewer than 5 units: no interval, and the game does
+not count as beating the baselines.
 """
 import numpy as np
 
-from .check import ADMIT, EXACT, UNKNOWN, baseline_memory, coverage
+from .check import ADMIT, EXACT, UNKNOWN, baseline_memory, coverage, memory_boards
+from .evidence import screen_hash
 
 MIN_CELLS = 20               # changed cells an admitted rule must predict right in total
+MIN_ATTEMPTS, BLOCK, MIN_UNITS, RESAMPLES = 20, 50, 5, 2000      # the gate's interval (pre-registration 4.4)
 
 
 def claimed_grade(res, ev):
@@ -108,3 +123,81 @@ def transfer_t0(status, train, fit, score):
             "beats_both": bool(n and book_ok.mean() > (~ch).mean() and book_ok.mean() > mem.mean()),
             "wrong_on_changing": coverage(status, score)["wrong"],
             "per_case": {"book": book_ok, "nothing": ~ch, "memory": mem}}
+
+
+# --------------------------------------------------------------------------------
+# Per-move rates and the gate's interval (see the module doc)
+# --------------------------------------------------------------------------------
+def nothing_hash(ev):
+    """Per case: the hash of "nothing changes" (the board before, decorations blanked)."""
+    return np.array([screen_hash(b, ev.live) for b in ev.before], np.uint64)
+
+
+def memory_hash(train, test):
+    """Per test case: the hash of what the memory baseline predicts."""
+    return np.array([screen_hash(p, test.live) for p in memory_boards(train, test)], np.uint64)
+
+
+def v1_book_hash(results, ev):
+    """Per case: the hash of what a v1-style book predicts, from its rules'
+    check results. Where the rules that apply agree it is their prediction;
+    where none applies or they disagree (UNKNOWN) it is "nothing changes"."""
+    out = nothing_hash(ev)
+    if results:
+        ap = np.stack([r["applies"] for r in results])
+        ph = np.stack([r["phash"] for r in results])
+        for k in np.flatnonzero(ap.any(axis=0)):
+            who = np.flatnonzero(ap[:, k])
+            if len(set(ph[who, k].tolist())) == 1:
+                out[k] = ph[who[0], k]
+    return out
+
+
+def moves_right(ev, pred_hash):
+    """Per recorded move of `ev`: does the prediction for its case match the
+    move's own next screen? A move whose case the check-set cap dropped has no
+    prediction and is never right (resample_units leaves it out of the rates)."""
+    key = ev.moves["key"]
+    return (key >= 0) & (np.asarray(pred_hash, np.uint64)[np.maximum(key, 0)] == ev.moves["out"])
+
+
+def resample_units(ev):
+    """(unit per move, what the unit is, attempts in the split): the attempt
+    each move belongs to, or its block of 50 moves if there are under 20 attempts."""
+    if not ev.moves or "attempt" not in ev.moves:
+        raise ValueError("this evidence has no move order: rebuild it from the recording (LevelEvidence.split)")
+    att = np.unique(ev.moves["attempt"], return_inverse=True)[1]
+    n_att = int(att.max()) + 1 if len(att) else 0
+    if n_att >= MIN_ATTEMPTS:
+        return att, "attempts", n_att
+    return np.arange(len(att)) // BLOCK, f"blocks of {BLOCK} moves", n_att
+
+
+def gate_interval(ev, right, arm="book", baselines=("nothing", "memory"), resamples=RESAMPLES, seed=0):
+    """The gate's numbers for one game's score split. `right` maps each arm to
+    a bool per recorded move (moves_right). Returns the per-move rates and, for
+    each baseline, the difference arm - baseline with its 95% interval;
+    `beats_both` is the gate's primary criterion for this game."""
+    unit, kind, n_att = resample_units(ev)
+    scored = ev.moves["key"] >= 0
+    n_units = int(unit.max()) + 1 if len(unit) else 0
+    per_unit = lambda v: np.bincount(unit[scored], np.asarray(v, float)[scored], minlength=n_units)
+    size = per_unit(np.ones(len(unit)))
+    hits = {a: per_unit(right[a]) for a in (arm, *baselines)}
+    total = float(size.sum())
+    out = {"moves": int(total), "moves_without_a_case": int((~scored).sum()), "attempts": n_att,
+           "unit": kind, "units": n_units,
+           "rate": {a: round(float(h.sum()) / total, 4) if total else 0.0 for a, h in hits.items()}, "diff": {}}
+    draw = None
+    if n_units >= MIN_UNITS:
+        draw = np.random.default_rng(seed).integers(0, n_units, size=(resamples, n_units))
+        pooled = size[draw].sum(axis=1)
+    for b in baselines:
+        d = {"point": round(float(hits[arm].sum() - hits[b].sum()) / total, 4) if total else 0.0,
+             "lo": None, "hi": None, "above_zero": False}
+        if draw is not None:
+            lo, hi = np.percentile((hits[arm][draw].sum(axis=1) - hits[b][draw].sum(axis=1)) / pooled, [2.5, 97.5])
+            d.update(lo=round(float(lo), 4), hi=round(float(hi), 4), above_zero=bool(lo > 0))
+        out["diff"][b] = d
+    out["beats_both"] = all(d["above_zero"] for d in out["diff"].values())
+    return out

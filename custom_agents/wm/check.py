@@ -241,9 +241,10 @@ def _delta(before, after, y, x, live):
     return tuple((int(r + y0 - y), int(c + x0 - x), int(after[r + y0, c + x0])) for r, c in ch)
 
 
-def baseline_memory(train, test):
-    """Per test key: is "repeat what the same screen + action did in training,
-    or else what the same 9x9 click neighbourhood did" exactly right?
+def memory_boards(train, test):
+    """Per test key, in order: the board "repeat what the same screen + action
+    did in training, or else what the same 9x9 click neighbourhood did"
+    predicts (the board unchanged when it has seen neither).
 
     `train` is one LevelEvidence or a list of them (Rulebook v2: the training
     level plus the transfer level's fit split, so memory sees the same evidence
@@ -261,9 +262,8 @@ def baseline_memory(train, test):
             if act >= 5:
                 y, x = divmod(act - 5, GRID)
                 local[_patch(b, y, x)][_delta(b, a, y, x, live)] += int(t.count[i])
-    ok = np.zeros(len(test.actions), bool)
     for k in range(len(test.actions)):
-        b, a, act = test.before[k], test.after[k], int(test.actions[k])
+        b, act = test.before[k], int(test.actions[k])
         key = (np.where(live, b, 255).tobytes(), act)
         if key in exact:
             pred = exact[key]
@@ -275,7 +275,14 @@ def baseline_memory(train, test):
                     pred[y + dy, x + dx] = c
         else:
             pred = b
-        ok[k] = np.array_equal(pred[test.live], a[test.live])
+        yield pred
+
+
+def baseline_memory(train, test):
+    """Per test key: is memory's prediction (memory_boards) exactly right?"""
+    ok = np.zeros(len(test.actions), bool)
+    for k, pred in enumerate(memory_boards(train, test)):
+        ok[k] = np.array_equal(pred[test.live], test.after[k][test.live])
     return ok
 
 

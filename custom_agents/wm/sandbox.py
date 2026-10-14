@@ -88,13 +88,14 @@ def validate(src, required=RULE_FUNCS):
     return True, "ok"
 
 
-def compile_functions(src, required=RULE_FUNCS):
+def compile_functions(src, required=RULE_FUNCS, extra=None):
     """Validated source -> its namespace (functions and constants), executed
-    with restricted builtins and only numpy available."""
+    with restricted builtins and only numpy available. `extra`: more names the
+    code may use (Rulebook v2's slot types, wm/contract.py)."""
     ok, why = validate(src, required)
     if not ok:
         raise ValueError(why)
-    ns = {"np": np, "__builtins__": SAFE_BUILTINS}
+    ns = {"np": np, "__builtins__": SAFE_BUILTINS, **(extra or {})}
     exec(compile(ast.parse(src), "<llm-code>", "exec"), ns)
     return ns
 

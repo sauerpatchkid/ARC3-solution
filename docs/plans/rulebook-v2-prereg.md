@@ -354,3 +354,63 @@ intervention budget exhausted). v2 adds:
   attempts (blocks of 50 moves when a level has fewer than 20 attempts), with
   per-move rates, 2,000 resamples and a floor of 5 units. No CP1 answer had been
   generated; section 4 is now binding in full.
+- **13 Oct 2026, section 4 (readings settled while building CP1, before any
+  CP1 answer was generated).** No registered text was changed; these say how it
+  is read. Code: `tools/wm_tier0a_v2.py` and `custom_agents/wm/{contract,
+  lint,bind,book,rules2}.py`.
+  - *Decided by Matt.*
+    1. The gate is judged on ONE run. What it contains is fixed before it
+       starts: residual prompts are built and used; the simplification pass
+       and `api.t` are not built (plan section 4.11's cut lines). Anything added
+       later is reported as a follow-up and never re-judged.
+    2. An action group whose recorded moves never change the board on the
+       training level gets no LLM calls. No v2 rule for it can be admitted
+       (gain must be above 0), and the primary already reads a move no rule
+       covers as unchanged. (13 of the 50 groups.)
+    3. A rule that applies to no case of the fit split stays in T1, flagged
+       "binding untested", only if bind() gives its binding or it has no
+       PARAMS; otherwise it is left out ("binding failed"). T1 without such
+       rules is reported beside the gate's T1, not gating.
+    4. Residual prompts may use what is left of a group's 8 refinement calls
+       after its first trusted rule. The cap stays at 8.
+    5. (14 Oct) "Stopping at the first trusted rule" (4.2) means the first
+       trusted rule the lint does not mark level-bound (a level-bound rule
+       cannot enter T1). Until then, within the same 8 calls, the bandit keeps
+       going, and its prompt for a trusted level-bound rule asks for the same
+       rule with those facts in PARAMS (`STOP_NEEDS_CLEAN_LINT = True`).
+  - *As built* (Matt, 14 Oct: keep as built).
+    - Trust across levels: the admitted floors (20 moves, 95%, gain > 0, 20
+      cells) are counted over all levels seen together, the 5 ms limit on each;
+      100% claimed-exact and no conflicting cases on every level. A level where
+      the rule applies to nothing does not count against it.
+    - Binding choice among exact bindings: most applicable cases; then bind()'s
+      guess; then most slots equal to the previous level's values (region slots
+      excepted, a region number means nothing on another level); then search
+      order. "Binding ambiguous" means more than one exact binding that applies
+      to at least one case; bindings that apply to nothing are exact but last.
+      A rule is graded with its best applying binding when none is exact.
+    - Search: the 10 and 50 halving cases are the changing cases of the rule's
+      own kind of action first (its button, or any click), in a seeded shuffle.
+      A slot the code never names is not searched. Time budget 240 s per rule
+      and level; bindings left untried are counted and never called exact.
+    - Lint: colour literals 0-15 compared with or written into board values
+      (np.where and np.isin included); literals above 3 in an index or slice;
+      literal pairs with a value above 3. 63, 64 and anything compared with
+      act.action are exempt; bind() is not linted. On v1's Tier 0a candidates
+      it flags 89-100% per game, because v1's prompt taught literal colours.
+    - The book: the joining rule (adds unclaimed cells on >= 10 cases) applies
+      to a group's 2nd to 4th rules, counted against every rule already in the
+      book; a group's first rule always joins. Within a group, rules without
+      lint warnings are offered first, then by gain.
+    - Case grading: WRONG means a claimed cell (not one claimed two ways) is
+      wrong against the case's usual outcome; claiming that a cell stays the
+      same is wrong if it changed. Safety is the WRONG share of the score
+      split's distinct changing cases, as registered.
+    - Bandit: CP0's, with claimed-cell exactness as the arm's accuracy and
+      CP0's pool (>= 20 moves, gain > 0) in cells. A group with no such rule
+      refines any rule that ran; a group where nothing ran gets a fresh call
+      showing why.
+    - T2: one two-level call for each group whose best book rule did not reach
+      T1; the answer joins if trusted on both levels and lint-clean.
+    - The smoke test with the real model runs on lp85 (a seen game), not on
+      one of the gate's eight.

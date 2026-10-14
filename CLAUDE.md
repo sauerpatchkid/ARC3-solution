@@ -135,16 +135,17 @@ from `.venv-llm`; the only cached model):
     ahead as written; both exact rules got there by covering less, and rules
     still did not carry to the next level. v1's books on v2's ruler: 1 of 8
     beats both baselines (dc22), ft09 wrong on 58.8%.
-  - **NEXT: CP1, NOT STARTED as of 2026-10-13** (transferable rules, offline;
-    plan section 4, gate in pre-registration section 4). The calendar is about
-    five days behind (plan section 10.4): by the plan's own slip rule, if CP1 is
+  - **CP1 BUILT 2026-10-13, NOT YET RUN** (transferable rules, offline; plan
+    section 4, gate in pre-registration section 4). The calendar is about five
+    days behind (plan section 10.4): by the plan's own slip rule, if CP1 is
     not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus
     the LLM-free carry-over and CP1 continues beside it.
-  - **Pre-registration status.** Sections 1–5 are binding in full. 4.4 was
-    settled on 13 Oct: CP1's interval resamples ATTEMPTS (stretches between game
-    overs; blocks of 50 moves if a level has fewer than 20), per-move rates,
-    2,000 resamples, a floor of 5 units. One item is still OPEN and is Matt's:
-    6.4 (CP3's "no higher": per game or pooled), before 28 Oct.
+  - **Pre-registration status.** Sections 1–5 are binding in full; 4.4 (the
+    interval) was settled on 13 Oct. How CP1's text is read is in section 10
+    (13 Oct entry): five readings Matt decided (a group's search stops only at a
+    trusted rule the lint passes) and the as-built choices he kept (14 Oct).
+    Still OPEN and Matt's: 6.4 (CP3's "no higher": per game or pooled), before
+    28 Oct.
   - **Frontier models.** Everything is the local model, and most of the report
     is to be our own system on it (Matt, 13 Oct). The only frontier uses are
     optional: one helper-extraction pass in CP3 (plan 6.2), and a showcase in
@@ -152,34 +153,38 @@ from `.venv-llm`; the only cached model):
     7.2): the same pipeline with a frontier rule writer, reported as a short
     comparison. Never a gate, nothing flows back, dev and seen games only, cut
     first if time is short.
-  - **CP1 starting notes.**
-    - *Exists:* `check.py`'s worker accepts `predict()` returning `(board,
-      claimed)` and reports claimed-cell results; `wm/metrics.py`
-      (`claimed_grade` = v2 admitted / trusted on ONE level, `cell_coverage`,
-      `three_numbers`, `transfer_t0`); `LevelEvidence.split` (fit = first 300
-      moves, score = the rest); `tools/wm_refine.py` (the bandit CP1's
-      refinement policy reuses; `--from-cache` re-scores without a GPU);
-      `tools/wm_baseline.py` (v1's books on the score split: the "v1, for
-      comparison" row); `wm/tiers.py`; `wm/registry.py` + `tools/artifacts.py`
-      (`artifacts/registry.json`); `paired_compare --seal`.
-    - *To build:* the v2 rule contract (`PARAMS`, slot types, optional `bind()`,
-      `applies` / `predict` taking the binding); new `api` fields (`level`,
-      `colours`, `t`, `attempt`); the literal lint; the re-binding enumerator
-      and a batch call in the sandbox; trust across every level seen; the
-      composed book (up to 4 rules per group; a cell claimed with different
-      values is UNKNOWN), which replaces how `metrics.cell_coverage` combines
-      rules today; residual and two-level prompts; T1 and T2; the Tier 0a v2
-      driver.
+  - **CP1 code.**
+    - `wm/contract.py`: the v2 rule (`PARAMS` read statically, five slot types,
+      optional `bind()`; a v1 rule is `PARAMS = {}` claiming every cell).
+      `wm/lint.py`: the literal lint. `wm/bind.py`: re-binding by search (one
+      child per rule and level, successive halving, time budget) and running a
+      rule with a binding. `wm/book.py`: trust across levels and the composed
+      book (cell by cell; a cell claimed two ways is UNKNOWN). `wm/rules2.py`:
+      the v2 prompts (first round, refinement, residual, two-level); v1's text
+      in `wm/rules.py` is untouched. `evidence.py` now keeps per-move order
+      (`moves`: case, own outcome, action number, attempt, `t`); `metrics.py`
+      has per-move rates and the gate's interval (`gate_interval`).
+    - `tools/wm_tier0a_v2.py`: the run (`--evidence-only`, `--from-cache`,
+      `--no-residual`). Jobs: `experiments/rulebook/llm_run.sh start
+      tier0a2-smoke` (lp85, ~55 min) and `start tier0a2` (THE gate run, 8 dev
+      games, ~12–14 h: all 37 action groups share 4 workers; start it once).
+      Output: `results/rulebook/v2/`.
+    - Smoke test, 13–14 Oct (`results/rulebook/v2/tier0a_v2_smoke/`): the whole
+      pipeline ran with the real model, and a re-score from its answer cache
+      matches it exactly. The model does use `PARAMS`. Half the answers ran out
+      of room (v1 22%, CP0 34%); the code-only retry rescues most. 3 of 8
+      first-round answers imported something (not allowed, as in v1).
+    - `tools/wm_baseline.py` gives the gate's "v1, for comparison" row on the
+      same moves with the same interval (`results/rulebook/v2/v1_under_v2_cp1/`;
+      CP0's folder is registered and never rewritten): 1 of 8 (dc22).
+    - Measured on the recordings: per move, memory is much stronger than per
+      case (tu93 0.85, tr87 0.48, m0r0 0.45), because most moves repeat cases.
+      vc33's fit split has 2 changing cases; ft09's fit mask is empty.
+    - Not built (cut lines): the simplification pass, `api.t` move-by-move
+      grading (`Api` has `t`/`attempt` slots, always None).
     - *Keep v1 reproducible:* do not edit `tools/wm_offline.py` or the prompt
-      text in `wm/rules.py` (v1's answer cache is keyed on the prompts). v2's
-      driver and prompt additions are new files, v2 runs write under
-      `results/rulebook/v2/`, and each gets a job name in `llm_run.sh`.
-    - `api.t`, `attempt` and the gate's interval (pre-registration 4.4) all
-      need action numbers and per-move scoring; `read_level` does not read
-      action numbers yet and the evidence index keeps cases, not move order.
-      The recordings CP1 uses were made before 2026-10-06, so a game over shows
-      only as the action number stepping by 3. `tools/wm_baseline.py` should
-      report v1's row with the same interval once it exists.
+      text in `wm/rules.py` (v1's answer cache is keyed on the prompts). v2 runs
+      write under `results/rulebook/v2/`.
   - Offline LLM jobs run detached through
     `experiments/rulebook/llm_run.sh start|status|stop <job>` (~2 h for the
     near-miss job). While one runs, do not edit `custom_agents/wm/*.py` or

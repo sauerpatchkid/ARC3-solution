@@ -891,6 +891,7 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 ### 10.4 Where the calendar stands (13 Oct)
 
 - **Done:** CP0 (7 Oct). **Not started:** CP1, which the table above has built by 13 Oct with its overnight run on 13–14 Oct.
+- **Update, end of 13 Oct:** CP1 is built and tested without the GPU (CLAUDE.md lists the code); a one-game smoke test with the real model and the overnight gate run are next. How CP1's registered text is read is in pre-registration section 10.
 - By the first rule in 10.2, if CP1 is not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus the LLM-free carry-over, and CP1 continues offline beside it. CP1 is a 4–5 day build, so that rule is likely to apply.
 - The dates after that (CP2 dev gate 22 Oct, Confirm 1 on 23–27 Oct) have not been moved. Their rule is the second one in 10.2: no dev gate by 24 Oct means Confirm 1 is skipped and Confirm 2 decides the headline.
 - The report dates are fixed and unchanged: 30 Oct full draft, 2 Nov idea statement, 7 Dec final.

@@ -17,6 +17,17 @@ but are never shown in a prompt.
 The level-completing move is left out: its next screen is the next level's
 first screen, which no rule about mechanics can predict.
 
+MOVES (Rulebook v2, docs/plans/rulebook-v2-prereg.md section 4.4). The index
+above merges moves made at different times, so beside it `moves` keeps one entry
+per recorded move, in order: `key` (which key it fell on, -1 if the cap dropped
+that key), `out` (the hash of its OWN next screen, decorations blanked) and,
+when the recording has action numbers, `num` (the action number), `attempt`
+(which attempt of this level, from 0) and `t` (recorded moves since that attempt
+started). An attempt ends at a game over: the move flagged `game_over`, or in
+recordings made before 2026-10-06 (which have no flag and did not record that
+move) the action number stepping by more than 1. Evidence files saved before
+this was added load with `moves` = None.
+
 MASK. Per level, from that level's own moves: the component-level ticker scan
 (copied from legacy/llm_track/tickers.py), limited to the screen's outer 4-cell
 band as mb_gated_att's bar detector is, with the gaps inside each ticker row
@@ -85,12 +96,21 @@ class Region:
 
 
 class Api:
-    """The `api` argument: what a rule may know about the level."""
-    __slots__ = ("first", "background", "ticker", "layout")
+    """The `api` argument: what a rule may know about the level.
 
-    def __init__(self, first, ticker):
+    Rulebook v2 (docs/plans/rulebook-v2.md section 4.1) adds `level` (1 for the
+    first level, as the prompts count them), `colours` (the colours on the
+    level's first board) and, for a rule graded move by move, `t` (recorded
+    moves since the attempt started) and `attempt`; those two are None when a
+    rule is checked on cases, which merge moves made at different times."""
+    __slots__ = ("first", "background", "ticker", "layout", "level", "colours", "t", "attempt")
+
+    def __init__(self, first, ticker, level=None):
         self.first = _readonly(first)
         self.ticker = _readonly(ticker)
+        self.level = None if level is None else int(level) + 1
+        self.colours = tuple(int(c) for c in np.unique(first))
+        self.t = self.attempt = None
         self.background = int(np.bincount(np.asarray(first).ravel(), minlength=16).argmax())
         lay = []
         for c in np.unique(first):
@@ -180,11 +200,18 @@ def frozen_moves(changed):
 # --------------------------------------------------------------------------------
 # Reading a level out of a recorded run
 # --------------------------------------------------------------------------------
-def read_level(corpus, level):
+def screen_hash(board, live):
+    """The hash of a board with decoration cells blanked: what a move's `out`
+    and a checked rule's `phash` are, so the two can be compared."""
+    return xxhash.xxh64(np.where(live, board, 255).astype(np.uint8).tobytes()).intdigest()
+
+
+def read_moves(corpus, level):
     """All moves a run made at `level`, in order, without the level-completing
-    move: (frames, next_frames, actions). Empty arrays if the level was never
-    played."""
-    fs, ns, acts, levs = [], [], [], []
+    move: (frames, next_frames, actions, order). `order` is {num, attempt, t}
+    per move (see MOVES in the module doc), or None if the recording has no
+    action numbers. Empty arrays if the level was never played."""
+    fs, ns, acts, levs, nums, overs = [], [], [], [], [], []
     for p in sorted(glob.glob(os.path.join(corpus, "shard_*.npz"))):
         with np.load(p) as z:
             lv = z["levels"]
@@ -194,24 +221,45 @@ def read_level(corpus, level):
                 ns.append(z["next_frames"][sel])
                 acts.append(z["actions"][sel])
                 levs.append(lv[sel])
+                if "action_nums" in z.files:
+                    nums.append(z["action_nums"][sel])
+                if "game_over" in z.files:
+                    overs.append(z["game_over"][sel])
     if not fs:
         e = np.zeros((0, GRID, GRID), np.uint8)
-        return e, e, np.zeros(0, np.int32)
+        return e, e, np.zeros(0, np.int32), None
     f, n, a, lv = (np.concatenate(x) for x in (fs, ns, acts, levs))
     here = lv == level
     # the last move at this level before the next level's first move completed it
     idx = np.flatnonzero(here)
     if len(idx) and (lv == level + 1).any() and idx[-1] + 1 < len(lv) and lv[idx[-1] + 1] == level + 1:
         here[idx[-1]] = False
-    return f[here], n[here], a[here].astype(np.int32)
+    order = None
+    if len(nums) == len(fs):
+        num = np.concatenate(nums)[here].astype(np.int64)
+        if len(overs) == len(fs):                     # recorded since 2026-10-06: the flagged move ends its attempt
+            new = np.r_[False, np.concatenate(overs)[here][:-1] > 0]
+        else:                                         # before: the move itself is missing from the recording
+            new = np.r_[False, np.diff(num) > 1]
+        starts = np.flatnonzero(np.r_[True, new[1:]]) if len(num) else np.zeros(0, np.int64)
+        attempt = np.cumsum(new).astype(np.int32)
+        order = {"num": num, "attempt": attempt,
+                 "t": (np.arange(len(num)) - starts[attempt]).astype(np.int32)}
+    return f[here], n[here], a[here].astype(np.int32), order
+
+
+def read_level(corpus, level):
+    """read_moves without the order: (frames, next_frames, actions)."""
+    return read_moves(corpus, level)[:3]
 
 
 class LevelEvidence:
     """The check set for one level. Arrays are per KEY (see the module doc)."""
 
     def __init__(self, game, level, first, mask, info, before, after, actions, count, agree,
-                 n_variants, frozen):
+                 n_variants, frozen, moves=None):
         self.game, self.level, self.info = game, int(level), info
+        self.moves = moves                                   # per recorded move (module doc), or None
         self.first, self.mask = _readonly(first), _readonly(mask)
         self.live = ~self.mask
         self.before, self.after, self.actions = before, after, actions
@@ -227,9 +275,11 @@ class LevelEvidence:
 
     # -- building --------------------------------------------------------------
     @classmethod
-    def from_moves(cls, game, level, frames, next_frames, actions, max_keys=MAX_KEYS, seed=0, mask=None):
+    def from_moves(cls, game, level, frames, next_frames, actions, max_keys=MAX_KEYS, seed=0, mask=None,
+                   order=None):
         """Index a level's moves. `mask`: reuse a mask instead of estimating one
-        (tests; a later re-estimate would bump the mask version)."""
+        (tests; a later re-estimate would bump the mask version). `order`:
+        read_moves' per-move {num, attempt, t}, kept beside the index."""
         if mask is None:
             mask, info = ticker_mask(frames[:MASK_MOVES], next_frames[:MASK_MOVES])
         else:
@@ -237,14 +287,16 @@ class LevelEvidence:
         live = ~mask
         raw_changed = (frames != next_frames).reshape(len(frames), -1).any(axis=1)
         frozen = frozen_moves(raw_changed)
-        keys = {}                          # key -> [count, {outcome hash: [count, move index]}, all frozen]
+        keys = {}                          # key -> [count, {outcome hash: [count, move index]}, all frozen, number]
+        move_key, move_out = np.zeros(len(actions), np.int64), np.zeros(len(actions), np.uint64)
         for i in range(len(actions)):
             b = np.where(live, frames[i], 255).tobytes()
             k = (xxhash.xxh64(b).intdigest(), int(actions[i]))
             o = xxhash.xxh64(np.where(live, next_frames[i], 255).tobytes()).intdigest()
             rec = keys.get(k)
             if rec is None:
-                rec = keys[k] = [0, {}, True]
+                rec = keys[k] = [0, {}, True, len(keys)]
+            move_key[i], move_out[i] = rec[3], o
             rec[0] += 1
             v = rec[1].get(o)
             if v is None:
@@ -257,6 +309,9 @@ class LevelEvidence:
         if n_keys > max_keys:
             pick = np.sort(np.random.default_rng(seed).choice(n_keys, max_keys, replace=False))
             recs = [recs[j] for j in pick]
+            kept = np.full(n_keys, -1, np.int64)
+            kept[pick] = np.arange(max_keys)
+            move_key = kept[move_key]
         major = [max(r[1].values(), key=lambda v: (v[0], -v[1])) for r in recs]
         idx = np.array([m[1] for m in major], dtype=np.int64)
         info = dict(info, moves=int(len(actions)), keys=n_keys, keys_kept=len(recs),
@@ -270,12 +325,13 @@ class LevelEvidence:
                    count=np.array([r[0] for r in recs], np.int64),
                    agree=np.array([m[0] for m in major], np.int64),
                    n_variants=np.array([len(r[1]) for r in recs], np.int32),
-                   frozen=np.array([r[2] for r in recs], bool))
+                   frozen=np.array([r[2] for r in recs], bool),
+                   moves=dict(order or {}, key=move_key.astype(np.int32), out=move_out))
 
     @classmethod
     def from_corpus(cls, game, corpus, level, **kw):
-        f, n, a = read_level(corpus, level)
-        return cls.from_moves(game, level, f, n, a, **kw) if len(a) else None
+        f, n, a, order = read_moves(corpus, level)
+        return cls.from_moves(game, level, f, n, a, order=order, **kw) if len(a) else None
 
     @classmethod
     def split(cls, game, corpus, level, fit_moves=300, known_mask=None, **kw):
@@ -290,15 +346,18 @@ class LevelEvidence:
         joined with `known_mask` (the training level's mask, which a live agent
         carries over). `fit` is None if the level has no moves; `score` is None
         if it has `fit_moves` or fewer."""
-        f, n, a = read_level(corpus, level)
+        f, n, a, order = read_moves(corpus, level)
         if not len(a):
             return None, None
         level_mask, _ = ticker_mask(f[:MASK_MOVES], n[:MASK_MOVES])
         fit_mask, _ = ticker_mask(f[:fit_moves], n[:fit_moves])
         if known_mask is not None:
             fit_mask = fit_mask | np.asarray(known_mask, bool)
-        fit = cls.from_moves(game, level, f[:fit_moves], n[:fit_moves], a[:fit_moves], mask=fit_mask, **kw)
-        score = (cls.from_moves(game, level, f[fit_moves:], n[fit_moves:], a[fit_moves:], mask=level_mask, **kw)
+        part = lambda s: {k: v[s] for k, v in order.items()} if order else None   # attempts are the LEVEL's
+        fit = cls.from_moves(game, level, f[:fit_moves], n[:fit_moves], a[:fit_moves], mask=fit_mask,
+                             order=part(slice(None, fit_moves)), **kw)
+        score = (cls.from_moves(game, level, f[fit_moves:], n[fit_moves:], a[fit_moves:], mask=level_mask,
+                                order=part(slice(fit_moves, None)), **kw)
                  if len(a) > fit_moves else None)
         if score is not None:
             score.first = _readonly(f[0])     # the level's first board, not the split's
@@ -309,20 +368,21 @@ class LevelEvidence:
         np.savez_compressed(path, game=self.game, level=self.level, first=self.first, mask=self.mask,
                             info=np.array(repr(self.info)), before=self.before, after=self.after,
                             actions=self.actions, count=self.count, agree=self.agree,
-                            n_variants=self.n_variants, frozen=self.frozen)
+                            n_variants=self.n_variants, frozen=self.frozen,
+                            **{"move_" + k: v for k, v in (self.moves or {}).items()})
 
     @classmethod
     def load(cls, path):
         z = np.load(path)
         return cls(str(z["game"]), int(z["level"]), z["first"], z["mask"], {"loaded": True},
                    z["before"], z["after"], z["actions"], z["count"], z["agree"], z["n_variants"],
-                   z["frozen"])
+                   z["frozen"], moves={k[5:]: z[k] for k in z.files if k.startswith("move_")} or None)
 
     # -- what rules and the checker use ----------------------------------------
     @property
     def api(self):
         if self._api is None:
-            self._api = Api(self.first, self.mask)
+            self._api = Api(self.first, self.mask, self.level)
         return self._api
 
     def inputs(self, k):
