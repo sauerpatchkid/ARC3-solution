@@ -174,6 +174,12 @@ from `.venv-llm`; the only cached model):
       matches it exactly. The model does use `PARAMS`. Half the answers ran out
       of room (v1 22%, CP0 34%); the code-only retry rescues most. 3 of 8
       first-round answers imported something (not allowed, as in v1).
+    - 14 Oct: an outside plan update was reviewed (plan section 10.5). Nothing in
+      CP1 changed; two CP2 details were added (the guide also acts inside the
+      return map; C2-free carries only strict no-ops). Thinking-cap measurement
+      (`tools/wm_thinkcap.py`, job `thinkcap`): cutting answers at CP2's 12,288
+      tokens and finishing with the code-only retry lost no admitted rule on 208
+      recorded answers; cutting at 6,144 lost 5 of 8.
     - `tools/wm_baseline.py` gives the gate's "v1, for comparison" row on the
       same moves with the same interval (`results/rulebook/v2/v1_under_v2_cp1/`;
       CP0's folder is registered and never rewritten): 1 of 8 (dc22).

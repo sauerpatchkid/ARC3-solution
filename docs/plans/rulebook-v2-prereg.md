@@ -414,3 +414,10 @@ intervention budget exhausted). v2 adds:
       T1; the answer joins if trusted on both levels and lint-clean.
     - The smoke test with the real model runs on lp85 (a seen game), not on
       one of the gate's eight.
+- **14 Oct 2026, section 5 (before any CP2 code or run).** Two details of how
+  C2 and C2-free work were added to the plan (section 5.2 and 5.5, reviewed in
+  plan section 10.5); no registered text changed. C2's trusted no-ops also count
+  as tried actions inside the return map, so its walks stop heading for them.
+  C2-free carries a colour as a no-op only if every click on it on the previous
+  level changed nothing (at least 20 clicks), dropped at its first
+  contradiction - not mb_gated's 4-strike dead-click rule.

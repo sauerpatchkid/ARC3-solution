@@ -428,7 +428,8 @@ Goose still computes its own action distribution. A guide in `action.py` reweigh
 | Goal hint: a click on a component of a hint colour | multiply by (1 + γ) | γ = 1 |
 
 - **Probe caps:** the β and γ boosts switch off for the rest of a level once boosted actions make up 5% of its moves. At a level's start, at most 30 deliberate probe moves test the carried rules, one applicable case per rule. Goose still samples every move, as in v1's EXECUTE mode, so its random stream and training are unchanged; the guide replaces the sampled action only on these probe moves.
-- **Unchanged:** Goose's training, novelty label, return map, masks and walk-back.
+- **Inside the return map (added 14 Oct, §10.5).** mb_gated_att's map walks to screens with untried actions, and while it walks the guide above is bypassed. So the guide also acts there: a (screen, action) a trusted no-op covers counts as already tried when the map looks for untried actions and walk targets, so it never walks across a level to press a button or click a colour the book already knows does nothing. Built as a `ReturnMap` subclass (`return_map.py` itself is never edited), on only with `EVAL_WM=guide`. Optional, cut first: when a trusted rule claims every cell and predicts that an action leads to a screen the map has already seen, that action counts as tried too.
+- **Unchanged:** Goose's training, novelty label, masks and walk-back.
 - **Off isolation:** with the flag off, the guide is never built, and a short CPU run must match the pre-change commit move for move (v1 §3.10).
 - **Flags:** `EVAL_WM=guide`, `EVAL_WM_NOOP_ALPHA`, `EVAL_WM_PROBE_BETA`, `EVAL_WM_GOAL_GAMMA`, `EVAL_WM_PROBE_MOVES`, `EVAL_WM_FIT_MOVES`, plus v1's budget flags.
 
@@ -473,7 +474,7 @@ Pre-registered expectation: avoidable waste ≥ 10% on the games with carried cl
 |---|---|
 | A0 | mb_gated_att (reusing the confirm runs) |
 | C2 | full guidance |
-| C2-free | Goose's own dead-click filter, re-keyed by colour and carried across levels, plus goal hints; no LLM. This isolates what the LLM adds |
+| C2-free | Goose's own dead-click filter, re-keyed by colour and carried across levels, plus goal hints; no LLM. This isolates what the LLM adds. **Carried only on strict evidence (added 14 Oct, §10.5):** a colour is carried as a no-op only if every click on it on the previous level changed nothing, over at least 20 clicks, and it is dropped at its first contradiction. That is the known-no-op standard C2's rules meet, not mb_gated's 4-strike `deadclick` (which lost 2 levels in Upgrade Screen 2, hurting dc22 and g50t), so the two arms differ only in the LLM |
 
 **Gate (v1's G3 rule):**
 - C2 levels ≥ A0;
@@ -518,7 +519,7 @@ Report by tier. Per-game results on the A/B-offline and untouched tiers stay sea
 | Probes waste moves | the 5% cap and the 30-move start budget |
 | LLM latency stretches runs | budgets, the answer limit, one run at a time, taking turns on the card if needed |
 | GPU memory spills into system RAM on WSL and silently slows everything | size the server to free memory at start (as `tier0a.sh` already does); log throughput per run |
-| The lower answer limit raises overruns above v1's 22% | the code-only retry keeps the reasoning (v1's fix); CP3's helpers and CP5 aim to shorten answers; overruns are logged per run |
+| The lower answer limit raises overruns above v1's 22% | about half of all answers will be cut at 12,288 tokens, but the code-only retry keeps the reasoning (v1's fix) and, measured on 208 recorded answers, lost no admitted rule (§10.5); CP3's helpers and CP5 aim to shorten answers; overruns are logged per run |
 
 ### 5.9 Cut lines
 
@@ -897,6 +898,32 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 - The report dates are fixed and unchanged: 30 Oct full draft, 2 Nov idea statement, 7 Dec final.
 
 ---
+
+### 10.5 Review of the 14 Oct plan update
+
+An outside review (`docs/plans/plan update.docx`, 14 Oct) proposed changes. Read against the plan and the code before the CP1 gate run:
+
+| Proposal | Decision | Why |
+|---|---|---|
+| Move CP3's helper library and schema fitter into CP1 | no | It would fold CP3's test into CP1 on the day of the gate run, with no evidence yet. CP3's A/B measures exactly this; if CP1 fails on overruns or movement games, CP3 is the planned remedy |
+| `bind()` sees the fit split's moves | no | The enumerator already fits every binding to those moves; a `Region()` slot is an index into the level's layout (about 10–120 regions), not a bounding box |
+| Object-level diffs in prompts | already there | Prompts list rigid shape moves and changed areas with bounding boxes and colour flows (Stage A's format), not cell lists |
+| Micro-claims stop the search; partial rules cannot lift T1 | already handled | The registered floors (20 moves, 20 changed cells) plus residual prompts on the remaining calls (pre-registration §10, 13 Oct); a display-cell mask for T1 would change registered scoring |
+| Free PyTorch's cache to give vLLM more cache in CP2 | no | vLLM's cache size is fixed when the server starts (§5.4) |
+| ACTION7: normalise CP3's gate by recorded action groups | already so | `wm/metrics.py` counts changed cells and cases, never the action space |
+| The rule book acts inside the return map (CP2) | **yes** | The map's walks bypass the guide; §5.2 |
+| Strict carried no-ops in C2-free (CP2) | **yes** | The 4-strike dead-click rule lost levels; §5.5 |
+| Bounded thinking (CP2) | **no: keep 12,288 and the code-only retry** | Measured 14 Oct (below): stopping at 12,288 tokens loses nothing measurable; stopping at 6,144, as proposed, loses rules |
+| Settle pre-registration 6.4 as pooled | Matt's call | Pooled is already the written default |
+
+**The thinking-cap measurement** (`tools/wm_thinkcap.py`, `results/rulebook/v2/thinkcap/report.md`). 208 recorded first-round answers whose prompts rebuild exactly (Tier 0a's 200 on the 8 dev games, the CP1 smoke test's 8 on lp85). An answer longer than the cap was cut where its thinking reached the cap and finished by v1's code-only retry (thinking off); shorter answers kept their outcome; every rule was checked on the same evidence.
+
+| Cap | Answers cut | Code that runs: full / capped | Admitted | Exact (plan-eligible or trusted) | Tokens |
+|---:|---:|---|---|---|---:|
+| 12,288 (CP2's limit) | 110 of 208 (53%) | 183 / 177 | 8 / 8 | 3 / 3 | −21% |
+| 6,144 (the proposal) | 152 of 208 (73%) | 183 / 159 | 8 / 5 (5 lost, 2 gained) | 3 / 1 | −52% |
+
+So CP2's 12,288-token answers with the code-only retry cost nothing measurable here, while a 6,144 cap loses rules (among them the smoke test's only trusted rule and one of ft09's exact ones). The sample is small (8 admitted rules), so this rules out a large loss at 12,288, not a small one.
 
 ## 11. Evaluation summary
 
