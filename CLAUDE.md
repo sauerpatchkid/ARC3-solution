@@ -107,7 +107,7 @@ After the 25-game sweep (`results/sweeps/sweep_20260727_225828_summary.md`):
 - **ar25 / cd82 / lp85** — the other level-2 games; no semester-1 medians.
 - **tu93** — weak and seed-dependent; long-horizon runs only, paired with ft09.
 
-## Semester 2: where things stand (2026-10-13)
+## Semester 2: where things stand (2026-10-15)
 
 Goose side, done: Plan B (novelty label adopted, tried mask dropped), Option 1
 (return map), two upgrade screens and the 25-game confirm that adopted
@@ -135,11 +135,35 @@ from `.venv-llm`; the only cached model):
     ahead as written; both exact rules got there by covering less, and rules
     still did not carry to the next level. v1's books on v2's ruler: 1 of 8
     beats both baselines (dc22), ft09 wrong on 58.8%.
-  - **CP1 BUILT 2026-10-13, NOT YET RUN** (transferable rules, offline; plan
-    section 4, gate in pre-registration section 4). The calendar is about five
-    days behind (plan section 10.4): by the plan's own slip rule, if CP1 is
-    not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus
-    the LLM-free carry-over and CP1 continues beside it.
+  - **CP1 DONE 2026-10-15: gate FAIL** (`docs/plans/rulebook-v2-cp1-results.md`).
+    Primary 2 of 8 (dc22, ft09; needs 3), safety met on all 8 (T1 wrong 0.0%
+    everywhere; v1 was wrong on 58.8% of ft09). Re-binding fixed transfer where
+    rules existed (ft09 now beats both baselines), but tu93, tr87 and m0r0 got no
+    trusted rule at all, and g50t/cd82's rules explain only part of each change.
+    Results registered as `rulebook_v2_cp1_tier0a`.
+  - **NEXT: CP2, from 16 Oct** (rule-guided Goose, online; plan section 5,
+    gates in pre-registration section 5). Decided 15 Oct (Matt): CP2 uses v2's
+    pipeline, not the v1-form rules plan section 2.3 wrote for a failed CP1.
+  - **CP2 starting notes.**
+    - *Order:* (1) the offline counterfactual (pre-registration 5.1: avoidable
+      waste and masking risk on the confirm recordings; no GPU, no LLM); (2) the
+      build; (3) `tools/cpu_check.py` on `goose` and `mb_gated_att` with the
+      flag off (must match move for move); (4) the dev sweep, 8 games x seeds
+      0-1 x 100k, arms A0 (the 75 confirm runs, reused), C2, C2-free; gate
+      `paired_compare --rule dev --expect 16`.
+    - *To build:* a guide in `action.py` behind `EVAL_WM=guide` (new
+      `# [wm]` tag, off by default, removable like `[return-map]`); online
+      triggers (warm-up at 2,000 moves, level-up re-binding after the fit
+      window, 5 counterexamples, stall); the reweighting (no-op x0.1, probe
+      boosts, 5% cap, 30 probe moves); a `ReturnMap` SUBCLASS that counts a
+      trusted no-op's (screen, action) as tried (never edit `return_map.py`);
+      goal hints; C2-free's strict carried no-ops (every click on the colour,
+      >= 20, changed nothing). Budget per run: 16 requests, k = 2, 48
+      completions, 400,000 tokens, 12,288-token answers with the code-only
+      retry (measured fine, plan 10.5).
+    - *Reuse:* `wm/` as built for CP1 (`bind.search`, `book.compose`,
+      `book.trust`, `rules2`), the LLM server beside Goose (plan 5.4: one Goose
+      run at a time, close GPU-heavy Windows apps).
   - **Pre-registration status.** Sections 1–5 are binding in full; 4.4 (the
     interval) was settled on 13 Oct. How CP1's text is read is in section 10
     (13 Oct entry): five readings Matt decided (a group's search stops only at a
@@ -166,9 +190,9 @@ from `.venv-llm`; the only cached model):
       has per-move rates and the gate's interval (`gate_interval`).
     - `tools/wm_tier0a_v2.py`: the run (`--evidence-only`, `--from-cache`,
       `--no-residual`). Jobs: `experiments/rulebook/llm_run.sh start
-      tier0a2-smoke` (lp85, ~55 min) and `start tier0a2` (THE gate run, 8 dev
-      games, ~12–14 h: all 37 action groups share 4 workers; start it once).
-      Output: `results/rulebook/v2/`.
+      tier0a2-smoke` (lp85, ~55 min) and `start tier0a2` (the gate run, done:
+      9 h on 14–15 Oct; never start it again into the same folder - it is
+      registered). Output: `results/rulebook/v2/`.
     - Smoke test, 13–14 Oct (`results/rulebook/v2/tier0a_v2_smoke/`): the whole
       pipeline ran with the real model, and a re-score from its answer cache
       matches it exactly. The model does use `PARAMS`. Half the answers ran out

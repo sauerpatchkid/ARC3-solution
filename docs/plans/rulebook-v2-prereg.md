@@ -421,3 +421,10 @@ intervention budget exhausted). v2 adds:
   C2-free carries a colour as a no-op only if every click on it on the previous
   level changed nothing (at least 20 clicks), dropped at its first
   contradiction - not mb_gated's 4-strike dead-click rule.
+- **15 Oct 2026, section 5 (after CP1's gate run, before any CP2 code or
+  run).** CP1 failed its gate (2 of 8; safety met on all 8). The plan's section
+  2.3 said a failed CP1 means CP2 runs on v1-form rules. Matt decided CP2 uses
+  v2's pipeline instead (contract, re-binding, every-level trust, lint, composed
+  book), because at T1 it was wrong on 0% of changing cases on every dev game.
+  Section 5 names the arms, budgets, guidance defaults and gates, not the rule
+  form, so no registered text changed.

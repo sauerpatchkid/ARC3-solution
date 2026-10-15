@@ -399,6 +399,8 @@ Rough odds of passing: about 60%.
 
 **Goal.** The first standalone agent: Goose plus a rule book that carries across levels and steers what Goose tries. There is no planner yet. This rung covers recommendations 4 and 11.
 
+**Where the rules come from (decided 15 Oct, after CP1's FAIL).** §2.3 says a failed CP1 means CP2 runs on v1-form rules; that assumed v2's pipeline might not exist by then. It does, and at T1 it was wrong on 0% of changing cases on all 8 dev games (v1: 58.8% on ft09), so CP2 uses it (Matt, 15 Oct): the v2 rule contract and prompts, re-binding at each level-up after the fit window, every-level trust, the lint, and the composed book. Only rules that pass all of that guide Goose; on games where CP1 found no trusted rule (tu93, tr87, m0r0 among the dev games), C2 runs on carried no-ops and goal hints alone.
+
 ### 5.1 What runs when
 
 | Trigger | Fires when | What happens | LLM? |
@@ -893,6 +895,7 @@ That is about 30–40 person-days in roughly 8 weeks, which is why CP4 and CP5 a
 
 - **Done:** CP0 (7 Oct). **Not started:** CP1, which the table above has built by 13 Oct with its overnight run on 13–14 Oct.
 - **Update, end of 13 Oct:** CP1 is built and tested without the GPU (CLAUDE.md lists the code); a one-game smoke test with the real model and the overnight gate run are next. How CP1's registered text is read is in pre-registration section 10.
+- **Update, 15 Oct:** CP1's gate run finished (14 Oct 21:16 to 15 Oct 06:20): **FAIL**, primary 2 of 8 (dc22, ft09), safety met on all 8 (`docs/plans/rulebook-v2-cp1-results.md`). By §2.3 and §10.2, CP2 starts 16 Oct, using v2's pipeline rather than v1-form rules (Matt, 15 Oct; §5).
 - By the first rule in 10.2, if CP1 is not through its gate by 16 Oct, CP2 starts that day with v1-form rules plus the LLM-free carry-over, and CP1 continues offline beside it. CP1 is a 4–5 day build, so that rule is likely to apply.
 - The dates after that (CP2 dev gate 22 Oct, Confirm 1 on 23–27 Oct) have not been moved. Their rule is the second one in 10.2: no dev gate by 24 Oct means Confirm 1 is skipped and Confirm 2 decides the headline.
 - The report dates are fixed and unchanged: 30 Oct full draft, 2 Nov idea statement, 7 Dec final.
