@@ -123,6 +123,24 @@ def predict(board, act, api, p):
         assert rule.applies(board_, act, api, p) == bool(int(ev.actions[k]) == 2 and feats[k, col])
 
 
+def test_known_limit_a_mover_between_two_walls_sits_on_them():
+    # KNOWN LIMIT (S1 step 4, found 16 Oct building S3's guards): what an object
+    # sits on is the commonest colour around it, and a tie goes to the lower
+    # colour number. A 2x2 mover between two grey (4) walls on black (5) has as
+    # much wall as floor around it, so it "sits on" grey, grey stops counting as
+    # an obstacle, and the walls it touches are not `touch`. With walls of a
+    # higher number than the floor the tie goes to the floor.
+    b = board()
+    b[20:22, 10] = b[20:22, 13] = 4
+    b[20:22, 11:13] = 9
+    s = H.subject(b, 2, LIVE, BG, 9)
+    rel, under = H.relations(b, s, LIVE, BG)
+    assert under == 4 and not rel["left"]["touch"] and not rel["right"]["touch"]
+    b[20:22, 10] = b[20:22, 13] = 8
+    rel, under = H.relations(b, s, LIVE, BG)
+    assert under == BG and rel["left"]["touch"] and rel["right"]["touch"]
+
+
 def test_features_are_fast_on_a_busy_board():
     b = random_board(2)
     api = LevelEvidence.from_moves("x", 0, b[None], b[None], np.array([2], np.int32),

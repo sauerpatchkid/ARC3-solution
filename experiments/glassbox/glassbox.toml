@@ -44,6 +44,7 @@ repairs = 1
 guard_max_literals = 2
 guard_holdout = 0.30
 guard_min_wrong = 3
+guard_seed = 0                    # the hold-out's random.Random seed (G0: settled as 0, prereg section 3)
 guard_colour_features = "params"  # "params" | "off"
 auto_exception = true
 priorities = true
