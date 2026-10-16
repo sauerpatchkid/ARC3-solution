@@ -34,6 +34,11 @@ LLM-written code; only bind(), applies() and predict() run, in a sandbox child.
 
 A v1 rule (applies / predict with three arguments, no PARAMS) reads as
 PARAMS = {} with the one empty binding, and claims every cell.
+
+Glassbox (16 Oct): a rule compiled here may also call H1's names
+(gb/h1_vocab.py SANDBOX: today `features`, which S3's fitted guards call),
+imported on first use so that gb/core still loads without the Glassbox stages.
+A rule that does not name them runs exactly as before.
 """
 import ast
 import itertools
@@ -174,6 +179,13 @@ def plain(o):
 
 
 SLOT_TYPES = {"Colour": Colour, "Int": Int, "Offset": Offset, "Region": Region, "Choice": Choice}
+
+
+def vocab():
+    """The names a rule may call beside numpy and the slot types: H1's
+    (gb/h1_vocab.py), imported here on first use."""
+    from .. import h1_vocab
+    return h1_vocab.SANDBOX
 FUNCS = {1: {"applies": 3, "predict": 3}, 2: {"applies": 4, "predict": 4}}
 
 
@@ -301,7 +313,7 @@ class Rule:
         ok, why, self.version, self.params = check_form(src)
         if not ok:
             raise ValueError(why)
-        ns = compile_functions(src, FUNCS[self.version], extra=SLOT_TYPES)
+        ns = compile_functions(src, FUNCS[self.version], extra={**SLOT_TYPES, **vocab()})
         self.text = str(ns.get("RULE", ""))[:300]
         self._applies, self._predict = ns["applies"], ns["predict"]
         self._bind = ns.get("bind") if self.version == 2 and self.params else None

@@ -9,7 +9,8 @@ these; they do not change what these modules mean.
                (screen, action) cases, outcomes, the decoration mask, splits
   sandbox.py   static checks and a child process for LLM-written code
   check.py     run a rule over the evidence; grades; the "memory" baseline
-  contract.py  the v2 rule: PARAMS (read statically), slot types, optional bind()
+  contract.py  the v2 rule: PARAMS (read statically), slot types, optional bind();
+               since 16 Oct it also hands rules H1's names (gb/h1_vocab.py)
   lint.py      level facts written literally into a rule's code
   bind.py      re-binding PARAMS to a new level by search, no LLM
   book.py      trust across levels; the composed book, cell by cell

@@ -54,8 +54,7 @@ All eight steps of the plan, built 16 Oct (1-3 first, then 4-8):
      facts AHEAD of it, in the direction it moved: these explain blocked moves.
   5. FEATURE BITS: those relations as a fixed list of yes/no facts per case
      (`<dir>_touch`, `<dir>_ray<=4`, `<dir>_colour=9`, `subject_size<=4`, ...).
-     S3's guard fitter learns when a rule fails from these, aligning a
-     direction to the rule's own move.
+     S3's guard fitter (s3_guards.py) learns when a rule fails from these.
   6. ROLES, per level, from all its cases: the MOVER (a colour whose objects
      move under at least `mover_min_buttons` buttons, `mover_min_moves` moves;
      most moves first, a tie to the colour with the fewest objects on the
@@ -69,6 +68,9 @@ All eight steps of the plan, built 16 Oct (1-3 first, then 4-8):
      normalised entropy) are OPINE-World's "ontology error": S5 probes there.
   8. TEXT: what the LLM will read beside each move's pictures, at most
      `text_lines` lines. A FIRST DRAFT, pinned by a golden test once S2 uses it.
+
+The code of steps 1, 4 and 5 is in h1_vocab.py, shared with S3's guards and the
+rule sandbox (a guard works the same facts out again from the board alone).
 
 Reads  <run>/evidence/<game>_L<k>_<split>.npz
 Writes <run>/s1_see/<game>_L<k>_<split>.facts.npz    per case: counts by kind, closure, unit, explained,
@@ -88,7 +90,9 @@ import numpy as np
 
 from gb import artifacts as A
 from gb.core.evidence import PALETTE_NAMES, LevelEvidence
-from gridtools import GRID, border_band, label_components
+from gb.h1_vocab import (DIRS, Obj, feature_names, feature_row, inside, objects,  # noqa: F401 (Obj, for readers)
+                         relations, sits_on, subject as find_subject)
+from gridtools import GRID, border_band
 
 VERSION = 2                     # bump when what the output means changes (artifacts.py); 2 adds steps 4-8
 KINDS = ("moved", "recoloured", "grew", "shrank", "vanished", "appeared", "reshaped")
@@ -97,45 +101,10 @@ ERASE = ("moved", "grew", "shrank", "reshaped", "vanished")                     
 PAINT = ("moved", "recoloured", "grew", "shrank", "reshaped", "appeared")         # the after-object is drawn
 DEFAULTS = {"connectivity": 4, "large_cells": 1024, "compact_items": 8, "ray_max": 64, "text_lines": 12,
             "mover_min_buttons": 2, "mover_min_moves": 10, "matrix_size_buckets": [1, 4, 16, 64]}
-DIRS = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
 OUTCOMES = ("nothing", "moved", "recoloured", "vanished", "appeared", "other")
 
 
-# ---- 1. objects -------------------------------------------------------------------------------
-class Obj:
-    """One single-colour region: its colour, its cells (flat indices), box and shape."""
-    __slots__ = ("colour", "cells", "size", "box", "shape", "large")
-
-    def __init__(self, colour, cells, large_cells):
-        self.colour, self.cells = int(colour), cells
-        self.size = len(cells)
-        ys, xs = cells // GRID, cells % GRID
-        self.box = (int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max()))
-        self.shape = (self.box[1] - self.box[0], self.box[3] - self.box[2],
-                      ((ys - self.box[0]) * GRID + (xs - self.box[2])).tobytes())    # cells relative to the box
-        self.large = self.size > large_cells
-
-    def describe(self):
-        r0, r1, c0, c1 = self.box
-        rows = f"row {r0}" if r0 == r1 else f"rows {r0}-{r1}"
-        cols = f"col {c0}" if c0 == c1 else f"cols {c0}-{c1}"
-        return (f"colour {self.colour} {PALETTE_NAMES[self.colour]}, {r1 - r0 + 1}x{c1 - c0 + 1}"
-                + (f" ({self.size} cells)" if self.size != (r1 - r0 + 1) * (c1 - c0 + 1) else "")
-                + f", {rows}, {cols}" + (", large" if self.large else ""))
-
-
-def objects(board, live, background, large_cells=DEFAULTS["large_cells"]):
-    """The objects on one board."""
-    valid = live & (board != background)
-    lab = label_components(board, valid).ravel()
-    flat = board.ravel()
-    idx = np.flatnonzero(lab >= 0)
-    if not len(idx):
-        return []
-    order = np.argsort(lab[idx], kind="stable")
-    idx = idx[order]
-    _, starts = np.unique(lab[idx], return_index=True)
-    return [Obj(flat[cells[0]], cells, large_cells) for cells in np.split(idx, starts[1:])]
+# ---- 1. objects: h1_vocab.Obj, h1_vocab.objects -------------------------------------------------
 
 
 # ---- 2. correspondence -------------------------------------------------------------------------
@@ -292,115 +261,14 @@ def item_record(it):
     return rec
 
 
-# ---- 4. relations ---------------------------------------------------------------------------------
-def sits_on(board, obj, live, background):
-    """The colour an object sits on: the commonest colour of the live cells
-    around it (4-neighbours outside it), else the background."""
-    m = np.zeros(GRID * GRID, bool)
-    m[obj.cells] = True
-    m = m.reshape(GRID, GRID)
-    ring = np.zeros_like(m)
-    ring[1:] |= m[:-1]
-    ring[:-1] |= m[1:]
-    ring[:, 1:] |= m[:, :-1]
-    ring[:, :-1] |= m[:, 1:]
-    ring &= ~m & live
-    return int(np.bincount(board[ring], minlength=16).argmax()) if ring.any() else background
-
-
-def relations(board, obj, live, background, ray_max=64):
-    """What is next to an object, per direction: {dir: {dist, colour, touch, edge}}.
-    `dist`: cells from its edge to the first live cell that is neither part of
-    it nor the colour it sits on (or the background); None if there is none
-    before the screen edge or `ray_max`. `edge`: cells from its edge to the
-    screen edge (0 = at the edge)."""
-    under = sits_on(board, obj, live, background)
-    ys, xs = obj.cells // GRID, obj.cells % GRID
-    own = np.zeros((GRID, GRID), bool)
-    own[ys, xs] = True
-    blocking = live & ~own & (board != under) & (board != background)
-    out = {}
-    for d, (dy, dx) in DIRS.items():
-        best = None
-        lines = np.unique(ys) if dy == 0 else np.unique(xs)
-        for ln in lines:                                   # each row (or column) the object faces along
-            if dy == 0:
-                cols = xs[ys == ln]
-                x0 = cols.max() if dx > 0 else cols.min()
-                ray = blocking[ln, x0 + 1:] if dx > 0 else blocking[ln, :x0][::-1]
-                vals = board[ln, x0 + 1:] if dx > 0 else board[ln, :x0][::-1]
-            else:
-                rows = ys[xs == ln]
-                y0 = rows.max() if dy > 0 else rows.min()
-                ray = blocking[y0 + 1:, ln] if dy > 0 else blocking[:y0, ln][::-1]
-                vals = board[y0 + 1:, ln] if dy > 0 else board[:y0, ln][::-1]
-            ray = ray[:ray_max]
-            if ray.any():
-                i = int(np.argmax(ray))
-                if best is None or i + 1 < best[0]:
-                    best = (i + 1, int(vals[i]))
-        edge = {"up": int(ys.min()), "down": GRID - 1 - int(ys.max()),
-                "left": int(xs.min()), "right": GRID - 1 - int(xs.max())}[d]
-        out[d] = {"dist": best[0] if best else None, "colour": best[1] if best else None,
-                  "touch": bool(best and best[0] == 1), "edge": edge}
-    return out, under
-
-
-def inside(obj, objs):
-    """The smallest larger object whose box contains this object's box, or None."""
-    r0, r1, c0, c1 = obj.box
-    boxes = [o for o in objs if o is not obj and o.size > obj.size and o.box[0] <= r0 and o.box[1] >= r1
-             and o.box[2] <= c0 and o.box[3] >= c1]
-    return min(boxes, key=lambda o: o.size) if boxes else None
-
+# ---- 4. relations: h1_vocab.subject, sits_on, relations, inside ------------------------------------
 
 def direction_of(dy, dx):
     """The direction a move goes in, by its larger component."""
     return ("right" if dx > 0 else "left") if abs(dx) >= abs(dy) else ("down" if dy > 0 else "up")
 
 
-# ---- 5. feature bits -------------------------------------------------------------------------------
-SIZE_BITS = (1, 4, 16, 64)
-RAY_BITS = (2, 4, 8)
-
-
-def feature_names(colours):
-    """The fixed list of yes/no facts for a level whose screens use `colours`."""
-    names = [f"action{a}" for a in range(1, 8)]
-    names += ["subject", "subject_large", "subject_inside", "subject_on_background", "clicked_background"]
-    names += [f"subject_size<={k}" for k in SIZE_BITS] + [f"subject_colour={c}" for c in colours]
-    for d in DIRS:
-        names += [f"{d}_touch", f"{d}_edge", f"{d}_clear"] + [f"{d}_ray<={k}" for k in RAY_BITS]
-        names += [f"{d}_colour={c}" for c in colours]
-    return names
-
-
-def feature_row(names, action, subject, rels, inside_obj, under, background, clicked_bg):
-    """One case's yes/no facts, in the order of `names`."""
-    on = {f"action{action + 1 if action < 5 else 6}"}
-    if clicked_bg:
-        on.add("clicked_background")
-    if subject is not None:
-        on.add("subject")
-        on.update(f"subject_size<={k}" for k in SIZE_BITS if subject.size <= k)
-        on.add(f"subject_colour={subject.colour}")
-        if subject.large:
-            on.add("subject_large")
-        if inside_obj is not None:
-            on.add("subject_inside")
-        if under == background:
-            on.add("subject_on_background")
-        for d, r in rels.items():
-            if r["touch"]:
-                on.add(f"{d}_touch")
-            if r["edge"] == 0:
-                on.add(f"{d}_edge")
-            if r["dist"] is None:
-                on.add(f"{d}_clear")
-            else:
-                on.update(f"{d}_ray<={k}" for k in RAY_BITS if r["dist"] <= k)
-                on.add(f"{d}_colour={r['colour']}")
-    return np.array([n in on for n in names], bool)
+# ---- 5. feature bits: h1_vocab.feature_names, feature_row ------------------------------------------
 
 
 # ---- 6. roles -------------------------------------------------------------------------------------
@@ -569,16 +437,13 @@ def see_level(ev, settings=DEFAULTS):
     for k in range(n):
         board, a = ev.before[k], int(ev.actions[k])
         bo = objs(board)
-        subject, clicked_colour, clicked_bg = None, None, False
-        if a >= 5:
-            y, x = divmod(a - 5, GRID)
-            clicked_colour = int(board[y, x])
-            cell = y * GRID + x
-            subject = next((o for o in bo if o.cells[np.searchsorted(o.cells, cell) % o.size] == cell), None)
-            clicked_bg = subject is None
-        elif role["mover"] is not None:
-            movers = [o for o in bo if o.colour == role["mover"]]
-            subject = max(movers, key=lambda o: o.size) if movers else None
+        clicked_colour = int(board.flat[a - 5]) if a >= 5 else None
+        # the subject as the rule sandbox finds it (h1_vocab), which must be one of this board's objects
+        found = find_subject(board, a, ev.live, background, role["mover"], settings["large_cells"])
+        subject = None if found is None else next(o for o in bo if o.cells[0] == found.cells[0])
+        if found is not None and not np.array_equal(subject.cells, found.cells):
+            raise AssertionError(f"case {k}: h1_vocab.subject and S1's objects disagree")
+        clicked_bg = a >= 5 and subject is None
         rels, under, inside_obj = {}, background, None
         if subject is not None:
             key = (board.tobytes(), subject.cells.tobytes())
