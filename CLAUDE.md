@@ -130,9 +130,9 @@ before the run each judges).
   `tools/gb_offline.py --import-cp1` plus `tests/test_gb_regression.py` (gb/core
   must reproduce CP1's registered numbers); (3) S6 v0 on that import; (4) S1
   skeleton.
-- **OPEN, Matt's:** prereg 3a (G0's expectation names tu93, but CP1 admitted no
-  tu93 rule, so the guard fitter as scoped can't touch it) and 3b (the hold-out
-  seed), both before G0; plan §10 (a) and (b).
+- **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
+  tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
+  pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).
 - **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
   (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
   (ft09, 1,970 moves) and `mb_gated_att` (tu93, 1,960 moves). Agent files

@@ -936,7 +936,7 @@ The overview's four diagnostic numbers map onto these: perception coverage → S
 
 ### 6.3 Gates (all to be registered in `glassbox-prereg.md` before their runs)
 
-**G0 — guard rescue (a diagnostic, not a gate; no LLM; Tue 20 Oct).** On CP1's registered candidates, run S1 and S3's guard fitter on every admitted-but-not-trusted rule. Report the rules that become trusted, and the book's coverage and T1 before and after. *Expectation, written before running:* at least one of tu93 and m0r0 gains a trusted rule (m0r0 has 11 admitted rules, the best at 99.8%). The result steers M1: no rescues means the features are the problem (S1 gets the remaining time); many rescues means guards are central (exception prompts get it).
+**G0 — guard rescue (a diagnostic, not a gate; no LLM; Tue 20 Oct).** On CP1's registered candidates, run S1 and S3's guard fitter on every admitted-but-not-trusted rule. Report the rules that become trusted, and the book's coverage and T1 before and after. *Expectation, written before running:* m0r0 gains a trusted rule (it has 11 admitted rules, the best at 99.8%). (Revised 16 Oct: the first draft also named tu93, but CP1 admitted no tu93 rule, so G0 cannot reach it; the binding text is pre-registration section 3.) The result steers M1: no rescues means the features are the problem (S1 gets the remaining time); many rescues means guards are central (exception prompts get it).
 
 **G1 — the offline rule test (dev games; Thu 22 → Fri 23 Oct).**
 

@@ -15,7 +15,7 @@ before the run they affect.
 |---|---|---|
 | 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
-| 3 | G0: guard rescue (a diagnostic) | DRAFT (16 Oct), two items OPEN; must be registered before G0 runs (target Tue 20 Oct) |
+| 3 | G0: guard rescue (a diagnostic) | DRAFT (16 Oct); its two OPEN items settled by Matt on 16 Oct; must be registered before G0 runs (target Tue 20 Oct) |
 | 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
@@ -79,7 +79,9 @@ splits, for the 8 dev games:
    right), not exact on every applicable case. Settings: `glassbox.toml` `[check]`
    as committed at registration (`guard_max_literals = 2`, `guard_holdout = 0.30`,
    `guard_min_wrong = 3`, `auto_exception = true`); the config hash goes here
-   when this section is registered.
+   when this section is registered. The 70/30 hold-out split of a rule's cases
+   is drawn with `random.Random(0)` over the cases sorted by key, so G0 reruns
+   exactly.
 3. Every narrowed rule and automatic exception is re-graded on every case,
    exactly like any candidate, and re-tiered.
 
@@ -88,24 +90,19 @@ exactness before and after); the composed book's cell coverage and case coverage
 on the training level, before and after; T1 on the transfer level, before and
 after, with the registered interval; every guard found, in words.
 
-**Expectation, written before running.** At least one of tu93 and m0r0 gains a
-trusted rule (m0r0 has 11 admitted rules, the best at 99.8%).
+**Expectation, written before running.** m0r0 gains at least one trusted rule
+(it has 11 admitted rules, the best at 99.8% claimed-exact). tu93 is not
+expected to change: CP1 admitted no rule there (its best was 77%), so it is
+outside G0's scope.
 
 **What it decides.** Nothing is passed or failed. It steers week 1: no rescues
 means the features are the problem (S1 gets the remaining time); many rescues
 means guards are central (the exception prompts get it).
 
-**OPEN (Matt, before G0 runs):**
-
-- **3a. tu93 is outside the scope as written.** CP1 admitted no rule on tu93
-  (its best rule was 77% claimed-exact, below the 95% admission bar), so the
-  guard fitter, which runs only on admitted rules, cannot rescue anything there.
-  Either (i) keep the scope and change the expectation to "m0r0 gains a trusted
-  rule", or (ii) widen G0's scope to near-misses below the admission bar (for
-  example ≥ 70% claimed-exact and ≥ 20 moves), and say so here.
-- **3b. The hold-out split's seed.** Proposed: the 70/30 split of a rule's
-  cases is drawn with `random.Random(0)` over the cases sorted by key, so G0
-  reruns exactly.
+**Settled (Matt, 16 Oct, before any G0 code or run).** 3a: the scope stays
+"admitted-but-not-trusted" and tu93 is dropped from the expectation (the plan's
+draft named "tu93 or m0r0", but no tu93 rule meets the admission bar). 3b: the
+hold-out seed is 0, as written in step 2.
 
 ## 4. G1: the offline rule test
 
