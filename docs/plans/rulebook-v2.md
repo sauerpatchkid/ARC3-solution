@@ -2,6 +2,8 @@
 
 *Revised plan, written 6 Oct 2026. It replaces the build order in `docs/plans/llm-rulebook.md` after Tier 0a's G1 fail. The v1 record is the 6 Oct write-up `rulebook-full-writeup.md` (kept outside the repo; `docs/plans/rulebook-stageA.md` and `rulebook-tier0a.md` hold the same results). v1's results and verdicts stand unchanged. Every v2 gate is pre-registered before the run it judges.*
 
+> **Status, 16 Oct 2026.** Closed after CP1 (gate FAIL, 2 of 8; 0.0% wrong at T1 on all 8 dev games). CP2-CP5 not run; superseded by `docs/3-glassbox/glassbox-plan.md`. CP0 and CP1 results stand. Code frozen in `legacy/rulebook/` (git tag `rulebook-v2`).
+>
 > **Status, 13 Oct 2026.** CP0 is done (`rulebook-v2-cp0-results.md`): the near-miss refinement day made 2 of 7 groups exact, so CP1 goes ahead as written. CP1 has not started, and the calendar is about five days behind (section 10.4). The gates that bind are the ones in `rulebook-v2-prereg.md`, not the summaries here. Added 13 Oct: an optional frontier-model showcase in the last week of November (section 9A).
 
 ---

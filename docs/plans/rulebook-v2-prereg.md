@@ -428,3 +428,13 @@ intervention budget exhausted). v2 adds:
   book), because at T1 it was wrong on 0% of changing cases on every dev game.
   Section 5 names the arms, budgets, guidance defaults and gates, not the rule
   form, so no registered text changed.
+- **16 Oct 2026 - v2 closed; superseded by Glassbox.** CP0 (7 Oct) and CP1
+  (15 Oct; gate FAIL, primary 2 of 8, safety met on all 8) are final and will
+  never be re-scored. CP2-CP5 were not run. Sections 5-7 of this file are
+  withdrawn unrun: no result will be judged by them. The successor plan is
+  `docs/3-glassbox/glassbox-plan.md`, motivated by CP1's diagnosis
+  (rule-writing yield, not the form of the rules, now limits the result). Its
+  gates are registered in `docs/3-glassbox/glassbox-prereg.md` before any
+  Glassbox run. The tier lists (section 2) and the honesty rules (section 8)
+  carry over unchanged. v2's code is frozen in `legacy/rulebook/` (git tag
+  `rulebook-v2` is the code as run).
