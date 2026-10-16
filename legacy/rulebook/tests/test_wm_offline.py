@@ -11,11 +11,13 @@ import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # legacy/rulebook
+ROOT = os.path.dirname(os.path.dirname(TRACK))                        # the repo
+sys.path.insert(0, TRACK)                                             # the frozen wm package
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
+sys.path.insert(0, os.path.join(TRACK, "tools"))
+sys.path.insert(0, os.path.join(TRACK, "tests"))
 
 import wm_offline  # noqa: E402
 from test_wm_core import GOOD_CLICK, GOOD_MOVE, NOOP, OFF_BY_ONE, play  # noqa: E402

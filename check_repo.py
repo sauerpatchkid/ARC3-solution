@@ -8,8 +8,9 @@ Four checks, each of which has caught a real problem in this repo:
   1. ISOLATION — no module outside legacy/ may import anything under legacy/
      (including the archived semester-1 LLM track, legacy/llm_track). Every
      .py file outside legacy/ is scanned, not only the baseline list, so new
-     folders (custom_agents/wm, tools/, experiments/, tests/) are covered
-     the day they are added. Archived
+     folders (custom_agents/gb, tools/, experiments/, tests/) are covered
+     the day they are added. Rulebook v1/v2's `wm` package now lives only in
+     legacy/rulebook/, so importing `wm` from live code counts too. Archived
      code may import from the baseline (it reads the corpus and the
      canonicalizer); the arrow must never point the other way, because then an
      edit to archived code would silently alter a teammate's baseline run.
@@ -56,13 +57,13 @@ BASELINE_FILES = [
 PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 # First-party modules in this repo.
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "canon", "return_map",
-         "gridtools", "presets", "manifest",
+         "gridtools", "presets", "manifest", "tiers", "registry",
          "upgrades",  # [upgrades]
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
          "analyze_curves", "inspect_corpus", "legacy", "llm_track"}
 # Archived packages no baseline file may import.
-ARCHIVED = {"legacy", "llm_track", "coach", "coach_track"}
+ARCHIVED = {"legacy", "llm_track", "coach", "coach_track", "wm", "rulebook"}
 
 # Baseline tooling that must never run LLM code or use its environment.
 BASELINE_TOOLING = ["Makefile", "sweep.sh"]

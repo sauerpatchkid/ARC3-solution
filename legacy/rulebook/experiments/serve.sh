@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rulebook (docs/plans/llm-rulebook.md): serve the rule-writing LLM over HTTP,
-# OpenAI-compatible, for the OFFLINE rule test (tools/wm_offline.py).
+# OpenAI-compatible, for the OFFLINE rule test (legacy/rulebook/tools/wm_offline.py).
 #
 # Unlike the Coach server this one is multimodal (rule prompts carry pictures),
 # has a 32k context (prompt + up to 20,480 answer tokens, thinking on) and takes
@@ -9,11 +9,11 @@
 # agent's environment never imports vLLM. Nothing in the root Makefile or
 # sweep.sh calls this script.
 #
-#   experiments/rulebook/serve.sh            # start (foreground); Ctrl-C to stop
-#   RULEBOOK_MODEL=<hf id> experiments/rulebook/serve.sh
-#   RULEBOOK_GPU_MEM=0.87 experiments/rulebook/serve.sh   # when other apps hold GPU memory
+#   legacy/rulebook/experiments/serve.sh            # start (foreground); Ctrl-C to stop
+#   RULEBOOK_MODEL=<hf id> legacy/rulebook/experiments/serve.sh
+#   RULEBOOK_GPU_MEM=0.87 legacy/rulebook/experiments/serve.sh   # when other apps hold GPU memory
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # the repo
 VENV="$ROOT/.venv-llm"
 MODEL="${RULEBOOK_MODEL:-cyankiwi/Qwen3.8-27B-AWQ-INT4}"
 PORT="${RULEBOOK_PORT:-8018}"

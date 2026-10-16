@@ -1,11 +1,11 @@
-"""registry.py - the list of frozen artifacts (docs/plans/rulebook-v2.md sections
-2.4 and 3.3): `artifacts/registry.json`, tracked in git.
+"""registry.py - the list of frozen artifacts: `artifacts/registry.json`, tracked
+in git. (Not the agent registry, which is REGISTRY in custom_agents/__init__.py.)
 
 An entry says: this set of files, with these hashes, was frozen on this date and
 was built from these games. Two kinds of thing go in:
-  * cross-game artifacts (helper library, schema catalog, playbook, Goose prior,
-    a fine-tuned writer) - frozen and registered BEFORE any held-out use;
-  * frozen result sets that later work depends on (v1's rule candidates).
+  * cross-game artifacts (Glassbox's primitive vocabulary and rule templates) -
+    frozen and registered BEFORE any held-out use;
+  * frozen result sets that later work depends on (v1's and v2's results).
 
     uv run python tools/artifacts.py add v1_results results/rulebook/tier0a ... --games dev,seen
     uv run python tools/artifacts.py verify          # every file still has its hash
@@ -13,13 +13,16 @@ was built from these games. Two kinds of thing go in:
 An entry is never edited: a changed artifact is a new entry with a new name.
 The files themselves may live in results/ (not in git); the hashes are what make
 a later change visible.
+
+Moved here from custom_agents/wm/registry.py on 16 Oct 2026 (the frozen v2 copy
+is legacy/rulebook/wm/registry.py).
 """
 import hashlib
 import json
 import os
 from datetime import date
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.abspath(__file__))  # the repo
 PATH = os.path.join(ROOT, "artifacts", "registry.json")
 
 

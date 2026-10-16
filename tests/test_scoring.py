@@ -142,8 +142,7 @@ def test_the_three_verdict_rules_differ_only_on_ties():
 
 def test_sealed_confirm_hides_held_out_games_but_not_the_verdict(tmp_path, monkeypatch, capsys):
     import paired_compare as pc
-    sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-    from wm import registry
+    import registry
     rows_b = [("ft09", "0", 1), ("ft09", "1", 1), ("bp35", "0", 2), ("bp35", "1", 2), ("ar25", "0", 0), ("ar25", "1", 1)]
     rows_n = [("ft09", "0", 2), ("ft09", "1", 1), ("bp35", "0", 1), ("bp35", "1", 1), ("ar25", "0", 1), ("ar25", "1", 2)]
     base, new = _manifest(tmp_path, "b", rows_b), _manifest(tmp_path, "n", rows_n)

@@ -3,18 +3,18 @@
 # the 8 dev games, DETACHED so it survives this window. Starts the LLM server if
 # it is not already up, runs tools/wm_offline.py, then stops the server it started.
 #
-#   experiments/rulebook/tier0a.sh          start
-#   experiments/rulebook/tier0a.sh status   progress so far
-#   experiments/rulebook/tier0a.sh stop     stop the run and the server
+#   legacy/rulebook/experiments/tier0a.sh          start
+#   legacy/rulebook/experiments/tier0a.sh status   progress so far
+#   legacy/rulebook/experiments/tier0a.sh stop     stop the run and the server
 #
 # Answers are cached in results/rulebook/tier0a/llm_cache.jsonl, so a stopped run
 # resumes where it left off. Keep the PC on AC power (it sleeps on battery) and
 # GPU-heavy Windows apps closed: the server takes 90% of the card.
 set -uo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."   # the repo (this folder moved to legacy/rulebook/experiments on 16 Oct 2026)
 OUT=results/rulebook/tier0a
 LOG=$OUT/run.log
-RUN='tools/wm_offline\.py'
+RUN='legacy/rulebook/tools/wm_offline\.py'
 SRV='[b]in/vllm serve'
 
 case "${1:-start}" in
@@ -34,11 +34,11 @@ pgrep -f "$RUN" >/dev/null && { echo "already running"; exit 1; }
 # Rulebook v1 is finished and its results are FROZEN (2026-10-07): registered in
 # artifacts/registry.json as rulebook_v1_results, read-only on disk, with a copy
 # in results/rulebook_v1_frozen_2026-10-07.tar.gz. Starting this again would
-# write over them. v2 runs go through experiments/rulebook/llm_run.sh and write
+# write over them. v2 runs go through legacy/rulebook/experiments/llm_run.sh and write
 # under results/rulebook/v2/.
 if [ -f "$OUT/report.md" ]; then
   echo "Tier 0a has been run and its results are frozen ($OUT/report.md). Not starting."
-  echo "v2 runs: experiments/rulebook/llm_run.sh   |   v1 code: git tag rulebook-v1"
+  echo "v2 runs: legacy/rulebook/experiments/llm_run.sh   |   v1 code: git tag rulebook-v1"
   exit 1
 fi
 mkdir -p "$OUT"
@@ -57,14 +57,14 @@ export RULEBOOK_GPU_MEM=$GPU_MEM
 setsid nohup bash -c '
   started=0
   if ! curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null; then
-    experiments/rulebook/serve.sh > results/rulebook/serve.log 2>&1 &
+    legacy/rulebook/experiments/serve.sh > results/rulebook/serve.log 2>&1 &
     started=1
     for i in $(seq 1 120); do curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null && break; sleep 5; done
   fi
-  uv run python tools/wm_offline.py --out '"$OUT"'
+  uv run python legacy/rulebook/tools/wm_offline.py --out '"$OUT"'
   echo "exit=$?"
   if [ "$started" = 1 ]; then P=$(pgrep -f "[b]in/vllm serve"); [ -n "$P" ] && kill $P; fi
 ' > "$LOG" 2>&1 < /dev/null &
 sleep 2
 echo "started -> $LOG"
-echo "watch it:  experiments/rulebook/tier0a.sh status"
+echo "watch it:  legacy/rulebook/experiments/tier0a.sh status"

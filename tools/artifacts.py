@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""artifacts.py - freeze and check registered artifacts (custom_agents/wm/registry.py).
+"""artifacts.py - freeze and check registered artifacts (registry.py, artifacts/registry.json).
 
     uv run python tools/artifacts.py list
     uv run python tools/artifacts.py add <name> <file or folder>... --games tu93,ft09 [--note "..."] [--kind results]
@@ -10,8 +10,9 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-from wm import registry, tiers  # noqa: E402
+sys.path.insert(0, ROOT)
+import registry  # noqa: E402
+import tiers  # noqa: E402
 
 
 def games(text):

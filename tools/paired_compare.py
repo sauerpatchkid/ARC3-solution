@@ -132,8 +132,7 @@ def seal(path, rows, meta):
 def open_sealed(path, reason):
     import base64
     import zlib
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "custom_agents"))
-    from wm import registry
+    import registry
     blob = open(path).read().strip().split("\n")[-1]
     data = json.loads(zlib.decompress(base64.b64decode(blob)))
     registry.log_event("sealed results opened", f"{path}: {reason}")
@@ -177,8 +176,7 @@ def main():
         ap.error("the following arguments are required: --base, --new")
     sealed_tier, sealed_rows, tier_sum = {}, [], {}
     if a.seal:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "custom_agents"))
-        from wm import tiers
+        import tiers
         sealed_tier = {g: t for t in ("ab_offline", "untouched") for g in tiers.TIERS[t]}
     problems = []
     base, new = load(a.base, problems), load(a.new, problems)

@@ -14,11 +14,13 @@ import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # legacy/rulebook
+ROOT = os.path.dirname(os.path.dirname(TRACK))                        # the repo
+sys.path.insert(0, TRACK)                                             # the frozen wm package
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
+sys.path.insert(0, os.path.join(TRACK, "tools"))
+sys.path.insert(0, os.path.join(TRACK, "tests"))
 
 import wm_tier0a_v2 as T  # noqa: E402
 from test_wm_cp1 import LEVEL1, LEVEL2, LIGHT, SLIDE, WRONG_WAY, play2  # noqa: E402

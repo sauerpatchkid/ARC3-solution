@@ -33,7 +33,9 @@ import json
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # legacy/rulebook
+ROOT = os.path.dirname(os.path.dirname(TRACK))                        # the repo
+sys.path.insert(0, TRACK)                                             # the frozen wm package
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 from wm import registry, tiers  # noqa: E402
 from wm.check import book_status, check_rule, coverage  # noqa: E402

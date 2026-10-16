@@ -3,14 +3,14 @@
 # (docs/plans/rulebook-stageA.md). The code is legacy/llm_track/rule_writer.py,
 # unchanged, run as its own process in .venv-llm; nothing imports it.
 #
-#   experiments/rulebook/stageA.sh          start it DETACHED (survives this window)
-#   experiments/rulebook/stageA.sh status   how far along it is
-#   experiments/rulebook/stageA.sh stop     stop it and free the GPU
+#   legacy/rulebook/experiments/stageA.sh          start it DETACHED (survives this window)
+#   legacy/rulebook/experiments/stageA.sh status   how far along it is
+#   legacy/rulebook/experiments/stageA.sh stop     stop it and free the GPU
 #
 # It cannot survive the PC sleeping or `wsl --shutdown` (that is what killed the
 # 2026-09-11 attempt): keep the machine on AC power, where it never sleeps.
 set -uo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."   # the repo (this folder moved to legacy/rulebook/experiments on 16 Oct 2026)
 MODEL="${STAGEA_MODEL:-cyankiwi/Qwen3.8-27B-AWQ-INT4}"
 OUT_ROOT=results/rulebook
 OUT=$OUT_ROOT/stageA
@@ -58,4 +58,4 @@ setsid nohup env HF_HUB_OFFLINE=1 timeout 108000 \
   > "$LOG" 2>&1 < /dev/null &
 sleep 2
 echo "started (pid $(pgrep -f "$PATTERN" | head -1)) with $MODEL -> $OUT"
-echo "watch it:  experiments/rulebook/stageA.sh status"
+echo "watch it:  legacy/rulebook/experiments/stageA.sh status"

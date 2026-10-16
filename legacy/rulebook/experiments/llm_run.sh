@@ -4,30 +4,30 @@
 # free), runs the job, then stops the server it started. Answers are cached in
 # the job's output folder, so a stopped job resumes where it left off.
 #
-#   experiments/rulebook/llm_run.sh start  <job>
-#   experiments/rulebook/llm_run.sh status <job>
-#   experiments/rulebook/llm_run.sh stop   <job>
+#   legacy/rulebook/experiments/llm_run.sh start  <job>
+#   legacy/rulebook/experiments/llm_run.sh status <job>
+#   legacy/rulebook/experiments/llm_run.sh stop   <job>
 #
 # Jobs (each writes under results/rulebook/v2/ - never into v1's frozen folders):
-#   nearmiss        CP0: near-miss refinement with a bandit (tools/wm_refine.py, ~1.5-2 h)
-#   tier0a2         CP1: Tier 0a v2, the 8 dev games (tools/wm_tier0a_v2.py, ~12-14 h). THE GATE RUN:
+#   nearmiss        CP0: near-miss refinement with a bandit (legacy/rulebook/tools/wm_refine.py, ~1.5-2 h)
+#   tier0a2         CP1: Tier 0a v2, the 8 dev games (legacy/rulebook/tools/wm_tier0a_v2.py, ~12-14 h). THE GATE RUN:
 #                   pre-registered in docs/plans/rulebook-v2-prereg.md section 4; start it once.
 #   tier0a2-smoke   CP1: the same tool on lp85 alone, a "seen" game that is not one of the gate's
 #                   eight - does the whole pipeline run with the real model? (~55 min)
-#   thinkcap        for CP2: what is lost if thinking stops at 12,288 or 6,144 tokens (tools/wm_thinkcap.py,
+#   thinkcap        for CP2: what is lost if thinking stops at 12,288 or 6,144 tokens (legacy/rulebook/tools/wm_thinkcap.py,
 #                   ~1 h; only code-only retries on recorded answers)
 #
 # Keep the PC on AC power (it sleeps on battery) and GPU-heavy Windows apps
 # closed: the server takes up to 90% of the card. v1's launchers (tier0a.sh,
 # stageA.sh) are kept for the record and refuse to overwrite their results.
 set -uo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."   # the repo (this folder moved to legacy/rulebook/experiments on 16 Oct 2026)
 ARGS=""
 case "${2:-}" in
-  nearmiss) TOOL=tools/wm_refine.py; OUT=results/rulebook/v2/nearmiss ;;
-  tier0a2) TOOL=tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2 ;;
-  tier0a2-smoke) TOOL=tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2_smoke; ARGS="--games lp85" ;;
-  thinkcap) TOOL=tools/wm_thinkcap.py; OUT=results/rulebook/v2/thinkcap ;;
+  nearmiss) TOOL=legacy/rulebook/tools/wm_refine.py; OUT=results/rulebook/v2/nearmiss ;;
+  tier0a2) TOOL=legacy/rulebook/tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2 ;;
+  tier0a2-smoke) TOOL=legacy/rulebook/tools/wm_tier0a_v2.py; OUT=results/rulebook/v2/tier0a_v2_smoke; ARGS="--games lp85" ;;
+  thinkcap) TOOL=legacy/rulebook/tools/wm_thinkcap.py; OUT=results/rulebook/v2/thinkcap ;;
   *) echo "usage: $0 start|status|stop <job>   (jobs: nearmiss, tier0a2, tier0a2-smoke, thinkcap)"; exit 1 ;;
 esac
 LOG=$OUT/run.log
@@ -69,7 +69,7 @@ fi
 setsid nohup bash -c '
   started=0
   if ! curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null; then
-    experiments/rulebook/serve.sh > results/rulebook/serve.log 2>&1 &
+    legacy/rulebook/experiments/serve.sh > results/rulebook/serve.log 2>&1 &
     started=1
     for i in $(seq 1 120); do curl -s -m 2 http://127.0.0.1:8018/v1/models >/dev/null && break; sleep 5; done
   fi

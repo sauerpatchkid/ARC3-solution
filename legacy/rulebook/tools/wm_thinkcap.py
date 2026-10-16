@@ -32,10 +32,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # legacy/rulebook
+ROOT = os.path.dirname(os.path.dirname(TRACK))                        # the repo
+sys.path.insert(0, TRACK)                                             # the frozen wm package
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, os.path.join(TRACK, "tools"))
 from wm import rules as R  # noqa: E402
 from wm import rules2 as R2  # noqa: E402
 from wm import tiers  # noqa: E402
