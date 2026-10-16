@@ -1,6 +1,6 @@
 # Glassbox: a modular, inspectable world-model pipeline for Goose
 
-*Plan written 15 Oct 2026 for CMPE 295B (StochasticGoose track). It **replaces Rulebook v2** (`docs/plans/rulebook-v2.md`) after CP1's gate failed on 15 Oct. v1's and v2's results and verdicts stand unchanged; they are reported as the history that motivates this plan. Every Glassbox gate is pre-registered in a new file, `docs/plans/glassbox-prereg.md`, before the run it judges. Intended home in the repo: `docs/plans/glassbox-plan.md`.*
+*Plan written 15 Oct 2026 for CMPE 295B (StochasticGoose track). It **replaces Rulebook v2** (`docs/2-llm-history/rulebook-v2.md`) after CP1's gate failed on 15 Oct. v1's and v2's results and verdicts stand unchanged; they are reported as the history that motivates this plan. Every Glassbox gate is pre-registered in a new file, `docs/3-glassbox/glassbox-prereg.md`, before the run it judges. Lives at `docs/3-glassbox/glassbox-plan.md`; where it sits in the project's story: `docs/README.md`. Revised 16 Oct after the repo refactor: file paths, numbered stage files, a one-line "problem it fixes" on every module card, and the two-tier calendar (§7).*
 
 ---
 
@@ -10,6 +10,7 @@
 |---|---|
 | What is different between the new overview and our current plan | **Part 1, §1** |
 | The new plan on one page | **§2** |
+| The problem each stage fixes, in one line | §2.3, the first line of every module card in §5, and `custom_agents/gb/README.md` |
 | Why each design choice was made, with evidence | §3 (principles), and the "Why" row of every module card |
 | How the pieces stay separate so one can be tuned without touching the others | §4 (the artifact contract) |
 | Each module in detail (what, files in/out, how, knobs, test alone, what it shows, pros/cons, risks, cut line) | §5 |
@@ -17,6 +18,7 @@
 | Dates | §7 (calendar, slip rules, tomorrow's checklist) |
 | Compute, risks, open decisions, report outline | §8–§11 |
 | Sources | §13 |
+| Where this plan sits after the Goose upgrades and the earlier LLM attempts | `docs/README.md` |
 
 **Names used throughout.**
 
@@ -24,7 +26,7 @@
 - **Trust tiers:** *hypothesis*, *trusted*, *axiom* (§5.3).
 - **Arms:** A0 = `mb_gated_att` (112 levels on 25 games × 3 seeds × 100k actions); GB = Glassbox; GB-free = Glassbox with the LLM switched off.
 - **Gates:** G0 (a diagnostic, not a gate), G1–G4 (§6.3).
-- A **case** is a distinct (screen with decorations blanked, action), exactly as in `custom_agents/wm/evidence.py`. A **move** is one recorded transition.
+- A **case** is a distinct (screen with decorations blanked, action), exactly as in `custom_agents/gb/core/evidence.py`. A **move** is one recorded transition.
 
 ---
 
@@ -34,7 +36,7 @@
 
 ### 1.1 The short answer
 
-The overview is mostly a re-description of Rulebook v2 plus about six genuinely new ideas. Roughly half of what it lists as options already exists in `custom_agents/wm/` (composable claimed-cell rules, PARAMS re-binding, counterexample refinement, change-based grading, event triggers), and several things it says the project has "proven" or "implemented" are not in the repo.
+The overview is mostly a re-description of Rulebook v2 plus about six genuinely new ideas. Roughly half of what it lists as options already exists in Rulebook v2's code (now `legacy/rulebook/wm/`, copied to `custom_agents/gb/core/`) (composable claimed-cell rules, PARAMS re-binding, counterexample refinement, change-based grading, event triggers), and several things it says the project has "proven" or "implemented" are not in the repo.
 
 What is genuinely new, and worth adopting:
 
@@ -56,10 +58,10 @@ Legend for the middle column: ✅ built and run; 📋 planned in v2 but not buil
 | Area | The new overview proposes | What we have now | The difference that matters |
 |---|---|---|---|
 | **Objective** | Optimise RHAE, which "heavily penalizes brute-force trial and error" | Levels completed at 100k actions against A0 (112 levels on 25 × 3); RHAE is computed but secondary (`analyze_curves.py`) | Official scoring gives a level min(1.15, h/a)² and budgets AI runs at 5× the human median per level [R1][R2]. At 100k actions every arm we run scores ~0 RHAE, so **levels stay primary**. It also removes the overview's main objection to probing ("experiments cost RHAE"): 30 probe moves are noise in 100,000. |
-| **Grid → text** (its Problem 1) | 1A run-length / coordinate lists; 1B object diffs + relational tags; 1C motion-grouped sprites + a VLM | ✅ before/after **images** (Qwen3.8-27B reads them; up to 10 per prompt); ✅ every changed area as text with bounding box and colour flows; ✅ rigid shape-move detection and a description of the clicked region (`wm/rules.py`: `move_text`, `detect_moves`); ✅ `api.layout` (single-colour regions). ✖ relations; ✖ object correspondence beyond rigid moves; ✖ multi-colour objects | We are already past 1A and between 1B and 1C. What's missing is **relations** (touching, blocked-ahead, aligned, distance-to-nearest) and a check of whether the object description explains the *whole* change. |
-| **Rule synthesis** (Problem 2) | 2A two-turn split + counterexample retry; 2B micro-rules per mechanic + a coordinator; 2C invent hidden-state variables | ✅ per action group, up to 4 composable rules that each claim cells (`wm/book.py`; a cell claimed two ways is UNKNOWN); ✅ REx-style bandit refinement showing up to 6 failing moves (`tools/wm_refine.py`); ✅ residual and two-level prompts (`wm/rules2.py`); ✅ a code-only retry after an overrun; 📋 `api.t` (planned, cut); conflicts are excluded from trust | **2B already exists**, cut differently: by action group and claimed cells, with no priority between rules. **2A was measured and declined** on 14 Oct (§1.3). 2C isn't built. |
-| **Transfer** (Problem 3) | 3A PARAMS + "Schema Fitters"; 3B a core-knowledge DSL; 3C wake-sleep library learning across games | ✅ PARAMS contract, literal lint, re-binding by successive halving (`wm/contract.py`, `wm/lint.py`, `wm/bind.py`); 📋 CP3: helper library (≤ 30 helpers), 12 mechanic schemas, playbook, Goose prior; 📋 CP5: a fine-tuned rule writer | 3A exists as **re-binding**, not schema fitting. 3B was CP3's and was deliberately *not* moved into CP1 on 14 Oct "with no evidence yet"; **CP1's result is now that evidence**. 3C ≈ CP3 + CP5. |
-| **Verification** (Problem 4) | 4A change-mask gating; 4B tiers at 1–4 / 5+ / 15+ clean passes; 4C active falsification | ✅ claimed-cell exactness, cell coverage, case coverage, gain, ≥ 20 moves, ≥ 20 changed cells, conflicts excluded; ✅ "nothing" and "memory" baselines with attempt-resampled 95% intervals (`wm/metrics.py`); 📋 CP2: soft suppression ×0.1 (never zero), suspend on the first contradiction, the map counts trusted no-ops as tried, disagreement probes (≤ 5% of moves, ≤ 30 probe moves) | We are **already stricter than 4A**. The overview's thresholds are **much looser than ours**: after 5 clean passes the error rate can still be as high as 45% at 95% confidence (§5.3); our "trusted" needs ≥ 20 moves and 100% on every level seen. |
+| **Grid → text** (its Problem 1) | 1A run-length / coordinate lists; 1B object diffs + relational tags; 1C motion-grouped sprites + a VLM | ✅ before/after **images** (Qwen3.8-27B reads them; up to 10 per prompt); ✅ every changed area as text with bounding box and colour flows; ✅ rigid shape-move detection and a description of the clicked region (`legacy/rulebook/wm/rules.py`: `move_text`, `detect_moves`); ✅ `api.layout` (single-colour regions). ✖ relations; ✖ object correspondence beyond rigid moves; ✖ multi-colour objects | We are already past 1A and between 1B and 1C. What's missing is **relations** (touching, blocked-ahead, aligned, distance-to-nearest) and a check of whether the object description explains the *whole* change. |
+| **Rule synthesis** (Problem 2) | 2A two-turn split + counterexample retry; 2B micro-rules per mechanic + a coordinator; 2C invent hidden-state variables | ✅ per action group, up to 4 composable rules that each claim cells (`gb/core/book.py`; a cell claimed two ways is UNKNOWN); ✅ REx-style bandit refinement showing up to 6 failing moves (`legacy/rulebook/tools/wm_refine.py`); ✅ residual and two-level prompts (`legacy/rulebook/wm/rules2.py`); ✅ a code-only retry after an overrun; 📋 `api.t` (planned, cut); conflicts are excluded from trust | **2B already exists**, cut differently: by action group and claimed cells, with no priority between rules. **2A was measured and declined** on 14 Oct (§1.3). 2C isn't built. |
+| **Transfer** (Problem 3) | 3A PARAMS + "Schema Fitters"; 3B a core-knowledge DSL; 3C wake-sleep library learning across games | ✅ PARAMS contract, literal lint, re-binding by successive halving (`gb/core/contract.py`, `gb/core/lint.py`, `gb/core/bind.py`); 📋 CP3: helper library (≤ 30 helpers), 12 mechanic schemas, playbook, Goose prior; 📋 CP5: a fine-tuned rule writer | 3A exists as **re-binding**, not schema fitting. 3B was CP3's and was deliberately *not* moved into CP1 on 14 Oct "with no evidence yet"; **CP1's result is now that evidence**. 3C ≈ CP3 + CP5. |
+| **Verification** (Problem 4) | 4A change-mask gating; 4B tiers at 1–4 / 5+ / 15+ clean passes; 4C active falsification | ✅ claimed-cell exactness, cell coverage, case coverage, gain, ≥ 20 moves, ≥ 20 changed cells, conflicts excluded; ✅ "nothing" and "memory" baselines with attempt-resampled 95% intervals (`gb/core/metrics.py`); 📋 CP2: soft suppression ×0.1 (never zero), suspend on the first contradiction, the map counts trusted no-ops as tried, disagreement probes (≤ 5% of moves, ≤ 30 probe moves) | We are **already stricter than 4A**. The overview's thresholds are **much looser than ours**: after 5 clean passes the error rate can still be as high as 45% at 95% confidence (§5.3); our "trusted" needs ≥ 20 moves and 100% on every level seen. |
 | **Goals** (Problem 5) | 5A novelty score in a lookahead; 5B an LLM-written goal heuristic; 5C hierarchical sub-goal planning | ✅ Goose's novelty label and the map's frontier routing (no simulation); 📋 CP2: LLM-free goal hints; 📋 CP4: completion test, `progress()`, planner, executor | **No lookahead exists anywhere in the repo.** A lookahead needs whole-screen predictions, and CP1 shows those are rare (g50t's and cd82's rules each claim only part of a change). |
 | **Compute** (Problem 6) | 6A synchronous, surprise-triggered calls capped at ~4 s; 6B async System 1 / System 2; 6C a 7B + 27B cascade | 📋 CP2: warm-up, level-up, counterexample and stall triggers; per run 16 requests / 48 completions / 400k tokens; 12,288-token answers; synchronous; one Goose run beside the server; vLLM sleep mode as a fallback | **6A is already CP2's design** (planned, not built). "4 seconds" is off by about 30×: a typical answer is ~10,000 tokens at 80–150 tokens/s. |
 | **Diagnostics** | one `run_diagnostics.md` per episode with 4 numbers | ✅ per-run `report.md`, per-game JSON holding every candidate, answer caches, `metrics.json`, curves, `paired_compare` verdicts. ✖ a per-stage funnel; ✖ a per-move viewer | **A real gap.** Our numbers are rigorous but spread over many files, and nothing shows one move's prediction next to what really happened. |
@@ -70,10 +72,10 @@ Legend for the middle column: ✅ built and run; 📋 planned in v2 but not buil
 
 | The overview says | What is actually true | Where to check |
 |---|---|---|
-| "As implemented in our project's Schema Fitters" | Re-binding (`wm/bind.py`) fits a rule's PARAMS by search. Mechanic schemas were CP3 and were never built. | `rulebook-v2.md` §6.3; `custom_agents/wm/` |
+| "As implemented in our project's Schema Fitters" | Re-binding (`gb/core/bind.py`) fits a rule's PARAMS by search. Mechanic schemas were CP3 and were never built. | `rulebook-v2.md` §6.3; `legacy/rulebook/wm/` |
 | "Keep our project's proven Two-Turn Split (which completely solved token truncation)" | The split was *proposed* by the 14 Oct review and *declined* after measurement: cutting thinking at 6,144 tokens lost 5 of 8 admitted rules on 208 recorded answers; 12,288 tokens plus the code-only retry lost none. CP1 still had 193 of 439 answers (44%) run out of room; the retry rescues most of them. | `rulebook-v2.md` §10.5; `rulebook-v2-cp1-results.md` §5 |
 | "Virtual Lookahead (return_map.py)" | `return_map.py` remembers seen screens and walks the shortest known route back to untried actions. It never simulates a move. | `custom_agents/return_map.py` |
-| "As discovered in our wm/metrics.py work … a rule that predicts 'nothing ever moves' is still 99.8% pixel-accurate" | No metric in the repo scores pixel accuracy. v1 graded whole-board exactness per case; v2 grades claimed cells; both are compared against an explicit "nothing changes" baseline. The trap it describes was never in our code. | `wm/metrics.py`, `wm/check.py` |
+| "As discovered in our wm/metrics.py work … a rule that predicts 'nothing ever moves' is still 99.8% pixel-accurate" | No metric in the repo scores pixel accuracy. v1 graded whole-board exactness per case; v2 grades claimed cells; both are compared against an explicit "nothing changes" baseline. The trap it describes was never in our code. | `gb/core/metrics.py`, `gb/core/check.py` |
 | "Counterexample debugging fixes 50%+ of simple … errors" | No source is given. Our own measurement: near-miss refinement made 2 of 7 groups exact within 12 calls each, and both got there by covering less. | `rulebook-v2-cp0-results.md` |
 | Option 1C's source, "Active Abstraction with Programmatic World Models for ARC-AGI-3 (2026)": a hierarchical parser with common-fate motion grouping and a small VLM | That paper is **Tycho**. It deliberately imposes no fixed object decomposition (the model-writing agent chooses its own state: grid, objects, counters, modes), and it describes no motion-grouping parser and no separate VLM. Its findings that matter here are different (§3). | Tycho [R4] |
 | "Autumn: Causal Discovery Through Program Synthesis (Das, Solar-Lezama, Tenenbaum), POPL 2023" | The POPL 2023 paper is *Combining Functional and Automata Synthesis to Discover Causal Reactive Programs*, by Das, Tenenbaum, Solar-Lezama and Tavares. | [R11] |
@@ -82,7 +84,7 @@ Legend for the middle column: ✅ built and run; 📋 planned in v2 but not buil
 | "No LLM call can ever exceed … 4 seconds" | CP1 ran 551 requests in 9 h 4 min with up to 4 groups in parallel. Online answers will take roughly 1–2 minutes each. | `rulebook-v2-cp1-results.md` §5; `rulebook-v2.md` §5.4 |
 | "Almost every ARC-AGI-3 game is built from the same ~15 geometric building blocks" | Unsupported. The ARC-AGI-3 report says environments use core-knowledge priors (objectness, basic geometry and topology, basic physics, agentness) and that later levels compose concepts introduced earlier. | [R1] |
 | "A local model (Qwen 27B)" | Qwen3.8-27B, AWQ INT4 (`cyankiwi/Qwen3.8-27B-AWQ-INT4`), served by vLLM from `.venv-llm`. | `CLAUDE.md` |
-| "Flattened text rows break vertical relationships" | True in general (Xu et al. saw GPT's accuracy fall on vertical objects in text grids [R14]), but our prompts don't send flattened grids. They send images plus change descriptions. | `wm/rules.py` |
+| "Flattened text rows break vertical relationships" | True in general (Xu et al. saw GPT's accuracy fall on vertical objects in text grids [R14]), but our prompts don't send flattened grids. They send images plus change descriptions. | `legacy/rulebook/wm/rules.py` |
 
 ### 1.4 What the overview adds that v2 doesn't have
 
@@ -94,12 +96,12 @@ Legend for the middle column: ✅ built and run; 📋 planned in v2 but not buil
 | 4 | Trust tied to what a rule may do (reorder → soft prune → hard prune) | two tiers (admitted, trusted) and one soft multiplier | three tiers with statistical thresholds (§5.3) |
 | 5 | A lookahead scored by novelty, w1·(object changed) + w2·(new position) − w3·(already visited) | no search until CP4 | IMAGINE in S5, built on the return map (§5.5) |
 | 6 | Per-stage diagnostics (perception coverage, compile rate, rule survival, action savings) | gate tables only | S6 SHOW: funnel, stage panels, case viewer (§5.6) |
-| 7 | "Every stage is an inspectable artifact testable offline in under a second" | one 711-line driver (`tools/wm_tier0a_v2.py`) runs everything | the artifact contract (§4) |
+| 7 | "Every stage is an inspectable artifact testable offline in under a second" | one 711-line driver (`legacy/rulebook/tools/wm_tier0a_v2.py`) runs everything | the artifact contract (§4) |
 
 ### 1.5 What v2 has that the overview doesn't (and Glassbox keeps)
 
 - **Pre-registration**, held-out tiers, the artifact registry and sealed results (v2 §2.4). Glassbox writes a new pre-registration but keeps the rules.
-- **The tier draw.** The A/B-offline and untouched tiers have never been run by any v2 checkpoint, so they are still clean. Glassbox keeps them exactly (`custom_agents/wm/tiers.py`).
+- **The tier draw.** The A/B-offline and untouched tiers have never been run by any v2 checkpoint, so they are still clean. Glassbox keeps them exactly (`tiers.py`).
 - **Two baselines for every offline number** ("nothing changes", "memory"), with intervals that resample attempts.
 - **The trust bar** that produced 0.0% wrong at T1 on all 8 dev games.
 - **The LLM-free ablation**, so "does the LLM help?" gets a direct answer.
@@ -184,29 +186,31 @@ Solid arrows carry data; dotted arrows are helpers and the read-only diagnostic 
 
 ### 2.5 What is reused and what is new
 
-| Piece | Where it lives | In Glassbox |
+On 16 Oct Rulebook v1/v2's code was frozen in `legacy/rulebook/` (git tag `rulebook-v2` is the code as run), and the modules Glassbox reuses were **copied** to `custom_agents/gb/core/`. `legacy/` is a leaf, so nothing imports it.
+
+| Piece | Where it lives now | In Glassbox |
 |---|---|---|
-| Evidence index, masks, splits | `custom_agents/wm/evidence.py` | reused as is: S1's input |
-| Sandbox | `wm/sandbox.py` | reused; H1's primitives are injected through `compile_functions(..., extra=...)`, the hook v2 already uses for slot types |
-| Rule contract, slot types | `wm/contract.py` | reused; two optional fields added in Glassbox's own wrapper (`KIND`, `PRIORITY`) |
-| Literal lint | `wm/lint.py` | reused as is |
-| Re-binding search | `wm/bind.py` | reused as is: S4 and H3 |
-| Composition worker | `wm/book.py` | wrapped; priority composition is a new worker in `gb/check.py` that falls back to `book.compose` when no rule has a priority |
-| LLM client and cache | `wm/llm.py` | reused as is |
-| Metrics, intervals, baselines | `wm/metrics.py`, `wm/check.py` | reused as is |
-| v1/v2 prompts and pictures | `wm/rules.py`, `wm/rules2.py` | read-only; Glassbox's prompts are a new file that imports their picture and text helpers |
-| Bandit refinement | `tools/wm_refine.py` | its policy reused in `gb/write.py` |
-| Tiers, registry | `wm/tiers.py`, `wm/registry.py`, `tools/artifacts.py`, `artifacts/registry.json` | reused as is |
+| Evidence index, masks, splits | `gb/core/evidence.py` | copied unchanged: S1's input |
+| Sandbox | `gb/core/sandbox.py` | copied; H1's primitives are injected through `compile_functions(..., extra=...)`, the hook v2 already uses for slot types |
+| Rule contract, slot types | `gb/core/contract.py` | copied; two optional fields added in Glassbox's own wrapper (`KIND`, `PRIORITY`) |
+| Literal lint | `gb/core/lint.py` | copied unchanged |
+| Re-binding search | `gb/core/bind.py` | copied unchanged: S4 and H3 |
+| Composition worker | `gb/core/book.py` | wrapped; priority composition is a new worker in `gb/s3_check.py` that falls back to `book.compose` when no rule has a priority |
+| LLM client and cache | `gb/core/llm.py` | copied unchanged |
+| Metrics, intervals, baselines | `gb/core/metrics.py`, `gb/core/check.py` | copied unchanged |
+| v1/v2 prompts and pictures | `legacy/rulebook/wm/rules.py`, `rules2.py` | frozen; S2 copies the picture and text helpers it needs into `gb/s2_write.py` |
+| Bandit refinement | `legacy/rulebook/tools/wm_refine.py` | its policy copied into `gb/s2_write.py` |
+| Tiers, registry | `tiers.py`, `registry.py` (repo root), `tools/artifacts.py`, `artifacts/registry.json` | reused as is (the tier lists are unchanged) |
 | Verdicts, isolation | `tools/paired_compare.py`, `tools/cpu_check.py` | reused as is |
-| Server and launchers | `experiments/rulebook/serve.sh`, `llm_run.sh` | reused; new job names |
+| Server | `experiments/llm/serve.sh` (+ `make_env.sh`) | reused; Glassbox's job launcher copies the pattern of `legacy/rulebook/experiments/llm_run.sh` |
 | Return map | `custom_agents/return_map.py` | subclassed (`GbMap`), never edited |
 | Grid helpers | `custom_agents/gridtools.py` | reused; S1 builds on `label_components` and `connected_components` |
 | A0 reference | `results/confirm_upgrade/20260927_221915/` (75 runs) | reused as A0 and as the recordings for G1, G3 and the offline counterfactual |
-| **New** | `custom_agents/gb/`: `artifacts.py`, `see.py`, `vocab.py`, `write.py`, `guards.py`, `check.py`, `carry.py`, `act.py`, `schedule.py`, `templates.py` | the stages and helpers |
-| **New** | `tools/gb_offline.py` (offline driver, `--stage`, `--from-cache`), `tools/gb_report.py` + `tools/gb_view/` (S6) | drivers |
-| **New** | `experiments/glassbox/` (`glassbox.toml`, `gb.mk`, launchers), `tests/test_gb_*.py`, `docs/plans/glassbox-prereg.md` | config, tests, registration |
+| **New** | `custom_agents/gb/`: `artifacts.py`, `s1_see.py`, `s2_write.py`, `s3_check.py`, `s3_guards.py`, `s4_carry.py`, `s5_act.py`, `s6_show.py`, `h1_vocab.py`, `h2_schedule.py`, `h3_templates.py` (one file per stage, numbered in the order data flows) | the stages and helpers |
+| **New** | `tools/gb_offline.py`: one driver (`--stage see`, `write`, `check`, `carry` or `show`; `--from-cache`; `--import-cp1`) | driver |
+| **New** | `experiments/glassbox/` (`glassbox.toml`, `gb.mk`, launchers), `tests/test_gb_*.py`, `docs/3-glassbox/glassbox-prereg.md` | config, tests, registration |
 
-**Two rules that keep v1 and v2 reproducible.** (1) Never edit the prompt text in `wm/rules.py` or `wm/rules2.py`, or `tools/wm_offline.py` and `tools/wm_tier0a_v2.py`: their answer caches are keyed on those prompts. (2) Any change anywhere else in `wm/` must leave CP1's numbers unchanged when CP1 is re-scored from its cache. That is a test (`tests/test_gb_regression.py`), run before every commit that touches `wm/`.
+**Two rules that keep v1, v2 and the comparison with CP1 honest.** (1) `legacy/rulebook/` is frozen: its prompts and tools are never edited (their answer caches are keyed on the prompts). (2) `gb/core/` may change only in ways that leave CP1's registered numbers unchanged when CP1 is re-scored with it. That check (`tests/test_gb_regression.py`, built with `--import-cp1`) runs before every commit that touches `gb/core/`. Anything that should change a result goes in a stage file, behind a knob in `glassbox.toml`.
 
 ### 2.6 The milestones at a glance
 
@@ -219,6 +223,8 @@ Solid arrows carry data; dotted arrows are helpers and the read-only diagnostic 
 | **M3** Extensions | Mon 2 – Fri 13 Nov | **G3** (template held-out A/B); IMAGINE built if G1/G2 justify it; dev sweep 2 | cross-game templates and imagined moves, each measured on its own |
 | **M4** Freeze and confirm | Sat 14 – Fri 20 Nov | **G4** (25 games × 3 seeds × 100k) | the final agent, adopted or not, with its funnel |
 | **M5** Ablations, write-up | Sat 21 Nov – Mon 7 Dec | final report | per-stage ablations; optional frontier showcase |
+
+**Two targets over the milestones (Matt, 16 Oct):** every stage and helper tested at least once on real data by about **Sun 1 Nov** (soft), and every gate run by **Fri 27 Nov** (hard). §7 says what "tested" means for each part.
 
 ---
 
@@ -253,14 +259,14 @@ This is the mechanism behind "tweak one part without adjusting the others". Ever
 results/glassbox/<run>/
   manifest.json      git commit, config hash, stage versions, input hashes, timestamps
   config.toml        frozen copy of experiments/glassbox/glassbox.toml as used
-  evidence/          <game>_L<k>_{train,fit,score}.npz       wm.evidence.LevelEvidence.save (S1's input)
+  evidence/          <game>_L<k>_{train,fit,score}.npz       gb.core.evidence.LevelEvidence.save (S1's input)
   s1_see/            <game>_L<k>_<split>.facts.npz           per case: objects, diff class, closure, feature bits
                      <game>_L<k>_<split>.facts.jsonl         per case: the facts text (what S2 shows, what S6 displays)
                      <game>_L<k>.roles.json                  role hints: mover, static, click-changers, counter cells
                      <game>_L<k>.matrix.json                 exploration matrix: (object type, action family) -> outcome counts
   s2_write/          <game>/answers.jsonl                    every LLM answer: prompt hash, text, finish, tokens, seconds
                      <game>/candidates.jsonl                 parsed rules: id, group, KIND, PRIORITY, code, lint, parse status
-                     llm_cache.jsonl                         wm.llm's answer cache (exact offline reruns)
+                     llm_cache.jsonl                         gb.core.llm's answer cache (exact offline reruns)
   s3_check/          <game>/rules.jsonl                      per rule: tier, per-level grades, bindings, guard, provenance
                      <game>_L<k>.book.json                   the composed book: members, priorities, exceptions
                      <game>_L<k>.status.npz                  per case: EXACT / PARTIAL / WRONG / UNKNOWN, cells right / wrong
@@ -291,11 +297,12 @@ make gb-write   RUN=<name> GAMES=lp85               # S2 against the server
 make gb-check   RUN=<name> GAMES=m0r0               # S3 from cached candidates, CPU
 make gb-carry   RUN=<name> GAMES=ft09               # S4, CPU
 make gb-offline RUN=<name> TIER=dev                 # S1 -> S4 for a whole tier
+make gb-replay  RUN=<an A0 run>                    # S5 against a recorded run (no game, no GPU)
 make gb-report  RUN=<name> [COMPARE=<other run>]    # S6
 make gb-case    RUN=<name> CASE=<id>                # re-run one case through S1-S4, printing every intermediate
 ```
 
-All of them wrap `tools/gb_offline.py --stage <s>` and `tools/gb_report.py`.
+All of them wrap `tools/gb_offline.py --stage <s>`; each stage's code is its own file in `custom_agents/gb/`. Each target is added to `experiments/glassbox/gb.mk` when its stage is built.
 
 ### 4.4 One config file
 
@@ -315,9 +322,11 @@ All of them wrap `tools/gb_offline.py --stage <s>` and `tools/gb_report.py`.
 
 ## 5. The modules
 
-Every module card has the same rows: **What it does · Files · How it works · Knobs · Test it alone · What it shows · Why · Pros and cons · Risks · Cut line · Effort.**
+Every module card has the same rows: **The problem it fixes · What it does · Files · How it works · Knobs · Test it alone · What it shows · Why · Pros and cons · Risks · Cut line · Effort.**
 
 ### 5.1 S1 SEE — objects, relations and object-level diffs (no LLM)
+
+**The problem it fixes.** The LLM has to work out from pictures what moved and what blocked it, and when a rule fails we can't tell whether the model couldn't *see* the mechanism or couldn't *write* it. *(Code: `gb/s1_see.py`.)*
 
 **What it does.** Turns each case (before board, action, after board, decoration mask) into: the objects on the board, what happened to each one, the relations around the objects that matter for this move, and whether that object-level description reproduces the after board exactly.
 
@@ -326,7 +335,7 @@ Every module card has the same rows: **What it does · Files · How it works · 
 **How it works.**
 
 1. **Objects.** 4-connected single-colour components of live, non-background cells (`gridtools.label_components`). Regions over 1,024 cells are kept and flagged `large`: they are walls and floors, and they matter as blockers. Each object has an id, colour, cells, bounding box, size, a shape hash (its cells relative to its box) and a centroid.
-2. **Correspondence.** For each changed area (8-connected component of the change mask, the same areas `wm/rules.py` boxes in its pictures), the objects touching it before and after are matched: same colour and shape somewhere else → *moved (dy, dx)*; same cells, new colour → *recoloured (c → c′)*; same colour, overlapping but different cells → *reshaped*; unmatched before → *vanished*; unmatched after → *appeared*. Ties go to the smallest displacement.
+2. **Correspondence.** For each changed area (8-connected component of the change mask, the same areas `legacy/rulebook/wm/rules.py` boxes in its pictures), the objects touching it before and after are matched: same colour and shape somewhere else → *moved (dy, dx)*; same cells, new colour → *recoloured (c → c′)*; same colour, overlapping but different cells → *reshaped*; unmatched before → *vanished*; unmatched after → *appeared*. Ties go to the smallest displacement.
 3. **Closure.** Apply the diff to the before board (move, recolour, erase to background, paint) and compare with the after board on live cells. *Exact closure* means the object description fully explains the move; otherwise S1 records the share of changed cells it explains. **This is the "perception coverage" number**: if it's low on a game, perception is the bottleneck there, not the LLM.
 4. **Relations**, only for the objects involved in the change plus the clicked object, to keep the text short. Per direction (up, down, left, right): touching or not, the colour touched, ray distance to the first non-background cell and its colour, at the screen border or not. Also: aligned (same row or column band) with objects of the same colour, and inside (bounding box within a larger object's, such as a container). For a move with a displacement, the same relations are also given **ahead**, in the direction of the displacement: these are the features that explain blocked moves.
 5. **Feature bits.** The relations become a fixed boolean vector per case (roughly 100–300 bits: `touching_ahead`, `ray_ahead<=step`, `border_ahead`, `ahead_colour==c` for each colour on the level, `clicked_colour==c`, `clicked_size<=k`, `inside_large`, …). S3's guard fitter works on these.
@@ -383,6 +392,8 @@ click at (row 30, col 40) on object B (colour 12 orange, 3x3): B recoloured 12 -
 
 ### 5.2 S2 WRITE — the LLM writes micro-rules
 
+**The problem it fixes.** In CP1 one rule often tried to explain several mechanisms at once (a move, a blocked move, a bar), and 44% of answers ran out of room before finishing their code. *(Code: `gb/s2_write.py`.)*
+
 **What it does.** Asks the local 27B for candidate rules, one action group at a time, under a slightly extended v2 contract and with H1's primitives available.
 
 **Files.** In: evidence, S1 facts, the H1 card, and (for refinement and exception prompts) S3's `rules.jsonl`. Out: `answers.jsonl`, `candidates.jsonl`, `llm_cache.jsonl`.
@@ -435,9 +446,9 @@ Online, H2 decides when to call and how much (§5.8).
 | `facts` / `vocab` / `exceptions` | on / on / on | the three new inputs; each can be switched off for an ablation |
 | `answer_tokens` | 20,480 offline, 12,288 online | the answer cap |
 | `thinking` | on | Qwen's thinking mode |
-| sampling | Qwen's defaults, as in `wm/rules.py` | temperature, top_p, top_k |
+| sampling | Qwen's defaults, as in `legacy/rulebook/wm/rules.py` | temperature, top_p, top_k |
 
-**Test it alone.** `make gb-write DRY=1` renders every prompt to text and PNG files and prints token estimates, with no server. Mock-LLM tests go through `wm.llm.ChatClient(mock=...)`. A golden hash per prompt type makes every prompt change deliberate. `--from-cache` replays a whole run without the GPU.
+**Test it alone.** `make gb-write DRY=1` renders every prompt to text and PNG files and prints token estimates, with no server. Mock-LLM tests go through `gb.core.llm.ChatClient(mock=...)`. A golden hash per prompt type makes every prompt change deliberate. `--from-cache` replays a whole run without the GPU.
 
 **What it shows.** Answers; the share that ran, ran out of room, or failed the contract; tokens and seconds per answer; candidates by `KIND`; primitives used per candidate (counted from its syntax tree). In the viewer, a candidate's code sits beside the cases it was graded on.
 
@@ -462,9 +473,11 @@ Online, H2 decides when to call and how much (§5.8).
 
 **Cut line.** Keep: first round with facts and H1; residual prompts; the bandit. Drop first: exception prompts (the guard fitter's automatic exceptions remain), then two-level prompts.
 
-**Effort.** 1 day; the prompt builders reuse `wm/rules.py` and `wm/rules2.py` helpers.
+**Effort.** 1 day; the prompt builders copy their picture and text helpers from `legacy/rulebook/wm/rules.py` and `rules2.py`.
 
 ### 5.3 S3 CHECK — replay, guards, priorities and trust tiers (no LLM)
+
+**The problem it fixes.** Near-miss rules (90–99.8% right) only became exact by covering less, and one trust bar decided everything a rule was allowed to do. *(Code: `gb/s3_check.py`, `gb/s3_guards.py`.)*
 
 **What it does.** Grades every candidate on every recorded case, tries to turn near-misses into exact rules by fitting a guard, composes each group's rules into a book with priorities, and gives every rule a tier that fixes what it is allowed to do.
 
@@ -472,7 +485,7 @@ Online, H2 decides when to call and how much (§5.8).
 
 **How it works.**
 
-1. **Grade (reused).** Each candidate runs in a spawned child process with restricted builtins and H1's primitives injected (`wm.sandbox.compile_functions(..., extra=VOCAB)`). Its PARAMS are fitted by `wm/bind.search` (every combination up to 4,096, successive halving on 10, then 50, then all cases, under a time budget). Per case: does it apply, are its claimed cells exact, how many changed cells it gets right and how many changes it invents. Per rule: claimed exactness, gain, and v2's admission bar (≥ 20 moves, ≥ 95% claimed-exact, gain > 0, ≥ 20 changed cells right, ≤ 5 ms per move).
+1. **Grade (reused).** Each candidate runs in a spawned child process with restricted builtins and H1's primitives injected (`gb.core.sandbox.compile_functions(..., extra=VOCAB)`). Its PARAMS are fitted by `gb/core/bind.search` (every combination up to 4,096, successive halving on 10, then 50, then all cases, under a time budget). Per case: does it apply, are its claimed cells exact, how many changed cells it gets right and how many changes it invents. Per rule: claimed exactness, gain, and v2's admission bar (≥ 20 moves, ≥ 95% claimed-exact, gain > 0, ≥ 20 changed cells right, ≤ 5 ms per move).
 2. **Guard fitter (new).** For an admitted rule that isn't exact:
    1. split the cases it applies to into right (R) and wrong (W);
    2. take S1's feature bits for those cases, with the *ahead* features aligned to the rule's own predicted displacement;
@@ -482,7 +495,7 @@ Online, H2 decides when to call and how much (§5.8).
    6. both go back through step 1 like any candidate. A fitted guard is only a hypothesis until replay says otherwise.
 
    *Example:* a movement rule right on 96% of its moves, wrong exactly where something sits in front of the mover. The fitter finds `touching_ahead` and produces "ACTION1 moves the mover up unless it's touching something above" plus "if it is, nothing moves". Neither needs an LLM call.
-3. **Compose with priorities (new).** Up to 4 rules per action group (v2's cap), offered best first. On each case: a cell claimed by one rule, or by several that agree, takes that value; where a higher-priority rule applies, its claims win over lower-priority rules on the cells it claims; equal-priority disagreement is UNKNOWN and both rules are flagged, as in v2. Each case is EXACT, PARTIAL, WRONG or UNKNOWN as in `wm/book.py`. With no priorities in the book this is exactly `book.compose`, which is a regression test.
+3. **Compose with priorities (new).** Up to 4 rules per action group (v2's cap), offered best first. On each case: a cell claimed by one rule, or by several that agree, takes that value; where a higher-priority rule applies, its claims win over lower-priority rules on the cells it claims; equal-priority disagreement is UNKNOWN and both rules are flagged, as in v2. Each case is EXACT, PARTIAL, WRONG or UNKNOWN as in `gb/core/book.py`. With no priorities in the book this is exactly `book.compose`, which is a regression test.
 4. **Trust tiers (new).** Each tier has fixed uses. The thresholds count *distinct* applicable cases, because repeating the same screen and action adds no information; the "95% bound" is the largest per-case error rate consistent with zero failures, 1 − 0.05^(1/n) [R28].
 
    | Tier | Bar | 95% bound on the error rate | Allowed to | Not allowed to |
@@ -538,6 +551,8 @@ Online, H2 decides when to call and how much (§5.8).
 
 ### 5.4 S4 CARRY — re-binding on each new level (no LLM)
 
+**The problem it fixes.** Rules have to be re-fitted on every new level (v2 solved this: 0.0% wrong at T1), but early in a new level there can be too little evidence to re-fit on (vc33). *(Code: `gb/s4_carry.py`.)*
+
 **What it does.** On a new level, re-fits every carried rule's PARAMS without the LLM, keeps only the rules that stay exact, and carries strict no-ops by colour.
 
 **Files.** In: the previous level's book and rules; the new level's evidence (offline: the fit split; online: the moves so far); S1's role hints. Out: `<game>_L<k+1>.carry.json` (bindings, flags, and offline T0, T1, T2).
@@ -545,11 +560,11 @@ Online, H2 decides when to call and how much (§5.8).
 **How it works.**
 
 1. **Wait for evidence.** Offline (G1) uses CP1's fit split, the transfer level's first 300 moves, so the two runs are comparable. Online, a rule waits until its action family has ≥ 10 distinct changing cases on the new level, or 1,000 moves, whichever comes first: this is the vc33 fix. Until then it is suspended on the new level (no suppression), except for strict carried no-ops.
-2. **Re-bind (reused, `wm/bind.search`).** `bind()`'s guess first (which may now read `api.roles`), then the previous level's binding, then everything else; successive halving; only exact bindings survive. Several exact bindings are competing hypotheses, which S5 probes.
+2. **Re-bind (reused, `gb/core/bind.search`).** `bind()`'s guess first (which may now read `api.roles`), then the previous level's binding, then everything else; successive halving; only exact bindings survive. Several exact bindings are competing hypotheses, which S5 probes.
 3. **Trust across levels (reused, `book.trust`).** A rule stays trusted only if it is exact on every level seen, each with its own binding. Trusted on two levels makes it an axiom.
 4. **Strict carried no-ops (LLM-free, v2's C2-free rule).** A clicked colour carries as a no-op only if every click on it on the previous level changed nothing, over at least 20 clicks. It's dropped at its first contradiction. Where colours change between levels, the carry goes through role hints.
 5. **Repair.** If a trusted or axiom rule finds no exact binding, H2 may spend one two-level call (S2).
-6. **Offline scoring (reused).** T0 (untouched), T1 (re-bound), T2 (after one repair), per move on the score split, beside "nothing" and "memory", with the registered interval (`wm/metrics.gate_interval`).
+6. **Offline scoring (reused).** T0 (untouched), T1 (re-bound), T2 (after one repair), per move on the score split, beside "nothing" and "memory", with the registered interval (`gb/core/metrics.gate_interval`).
 
 **Knobs.**
 
@@ -587,6 +602,8 @@ Online, H2 decides when to call and how much (§5.8).
 **Effort.** 0.5 day.
 
 ### 5.5 S5 ACT — how the rule book steers Goose (online)
+
+**The problem it fixes.** No rule has ever been used online: Goose still spends moves on actions the rules know do nothing, and never aims at what the rules can't yet explain. *(Code: `gb/s5_act.py`.)*
 
 **What it does.** Turns the current book into four bounded, logged changes to what Goose does: **prune**, **probe**, **imagine** and **goals**. Goose still samples every move and still trains exactly as before; the guide reweights Goose's distribution, and replaces the sampled move only on counted, capped probe and walk steps.
 
@@ -663,6 +680,8 @@ Online, H2 decides when to call and how much (§5.8).
 
 ### 5.6 S6 SHOW — the report page and the case viewer
 
+**The problem it fixes.** Our numbers are spread over many files, and nothing shows one move's prediction next to what really happened, so it is hard to see where and why a game breaks. *(Code: `gb/s6_show.py`.)*
+
 **What it does.** Builds one self-contained HTML page per run, plus PNG figures for the written report. It only reads artifacts.
 
 **Files.** In: the whole run folder. Out: `s6_show/index.html`, `figures/*.png`, `cases/*.json`.
@@ -690,7 +709,7 @@ Online, H2 decides when to call and how much (§5.8).
    Keyboard ← → pages through cases. Flags: WRONG, NEAR (at most 3 claimed cells wrong), UNCLAIMED, CONFLICT, GUARD-FIXED, DEMOTED, PRUNED-BUT-CHANGED, IMAGINED-MISMATCH, PROBE, LEVEL-UP.
 8. **Compare mode.** `make gb-report RUN=a COMPARE=b` puts two runs' funnels and panels side by side with their differences: G1 against CP1, GB against GB-free, or any ablation.
 
-**How it's built.** Boards are drawn on a canvas from the 64×64 arrays, in the game's own palette (`PALETTE_HEX` in `wm/rules.py`), so the viewer looks like the game. No network and no external libraries (inline JavaScript and SVG), so the page opens offline straight from the run folder. With 8 games × up to 50 cases per flag, a page stays under about 20 MB. The PNGs come from matplotlib with the same numbers, following the colour rules already used by `docs/reports/make_options_chart.py` (colour-blind-checked, every bar labelled with its value). Marks in the DIFF panel differ by shape as well as colour.
+**How it's built.** Boards are drawn on a canvas from the 64×64 arrays, in the game's own palette (`PALETTE_HEX`, copied from `legacy/rulebook/wm/rules.py`), so the viewer looks like the game. No network and no external libraries (inline JavaScript and SVG), so the page opens offline straight from the run folder. With 8 games × up to 50 cases per flag, a page stays under about 20 MB. The PNGs come from matplotlib with the same numbers, following the colour rules already used by `docs/reports/make_options_chart.py` (colour-blind-checked, every bar labelled with its value). Marks in the DIFF panel differ by shape as well as colour.
 
 **Statistics on the page** (rliable's advice for few runs [R23]): every run is shown; intervals use the registered resampling; the probability of improvement over game-seed pairs is reported beside paired wins and losses; a median never appears alone.
 
@@ -723,6 +742,8 @@ Online, H2 decides when to call and how much (§5.8).
 **Effort.** 1.5 days for v0 (M0), 1 day for v1 with online views (M2).
 
 ### 5.7 H1 VOCAB — the tested primitive library (hand-written, frozen)
+
+**The problem it fixes.** Every rule is raw numpy written from scratch, with the same boundary bugs again and again, and long code that runs the model out of room. *(Code: `gb/h1_vocab.py`.)*
 
 **What it does.** Gives rules a small vocabulary of tested grid operations, injected into the sandbox namespace beside `np`. It is also the single implementation of S1's relation features, so the facts the LLM reads and the guards S3 fits are computed by the same code the rules call.
 
@@ -778,6 +799,8 @@ Online, H2 decides when to call and how much (§5.8).
 
 ### 5.8 H2 SCHEDULER — when the LLM runs, and how much it may spend (online)
 
+**The problem it fixes.** An LLM answer takes 1–2 minutes; calls must come at useful moments, within a fixed budget, without breaking move-for-move reproducibility. *(Code: `gb/h2_schedule.py`.)*
+
 **What it does.** Decides when the online agent calls the LLM, for what, and within what budget, while keeping runs reproducible.
 
 **Triggers.**
@@ -821,13 +844,15 @@ Online, H2 decides when to call and how much (§5.8).
 | Risk | Mitigation |
 |---|---|
 | The KV cache is too small beside Goose | k = 2, the 12,288 cap, sleep mode |
-| A call hangs | `wm.llm` timeouts and retries; after one retry, skip |
+| A call hangs | `gb.core.llm` timeouts and retries; after one retry, skip |
 
 **Cut line.** Keep warm-up, surprise and level-up. Drop first: stall residuals, then re-bind repair calls.
 
 **Effort.** 1.5 days.
 
 ### 5.9 H3 TEMPLATES — rules learned on dev games, carried to new games (the learned add-on)
+
+**The problem it fixes.** Every new game starts from zero rules, even when a dev game had the same mechanism. *(Code: `gb/h3_templates.py`.)*
 
 **What it does.** Carries rules learned on the dev games to new games as **templates**: before the LLM is asked about an action group on a new game, every template of the same kind is tried by the same re-binding search that carries rules between levels. A template is adopted only if it becomes trusted on the new game.
 
@@ -967,7 +992,7 @@ Rough odds of passing (for planning only): about 55%.
 
 ### 6.4 Honesty rules
 
-**Kept from v2:** pre-registration before each run; nothing in a registered section is edited after its run starts (corrections go in the file's last section, dated, with a reason); anything tuned on dev games is labelled as such; the off path is checked with `tools/cpu_check.py`; the world model has its own random stream; answer caches make offline reruns exact and are never shared between scored runs; `paired_compare --expect` blocks verdicts when runs are missing; the tier lists (`wm/tiers.py`) are unchanged and the untouched tier is only ever run inside the confirm; cross-game artifacts (H1, H3) come only from dev and seen games and are frozen and hashed before any held-out use; no learning between scored runs; the frontier showcase's limits (v2 pre-registration §7.2) are unchanged.
+**Kept from v2:** pre-registration before each run; nothing in a registered section is edited after its run starts (corrections go in the file's last section, dated, with a reason); anything tuned on dev games is labelled as such; the off path is checked with `tools/cpu_check.py`; the world model has its own random stream; answer caches make offline reruns exact and are never shared between scored runs; `paired_compare --expect` blocks verdicts when runs are missing; the tier lists (`tiers.py`) are unchanged and the untouched tier is only ever run inside the confirm; cross-game artifacts (H1, H3) come only from dev and seen games and are frozen and hashed before any held-out use; no learning between scored runs; the frontier showcase's limits (v2 pre-registration §7.2) are unchanged.
 
 **New:** v2 is closed formally (Appendix A): CP0 and CP1 are final; CP2–CP5 were not run and are superseded; the replacement is motivated by CP1's diagnosis; every Glassbox gate is registered before any Glassbox run it judges.
 
@@ -986,77 +1011,74 @@ Unchanged in spirit from v2 §9A: the same offline pipeline (G1's settings) reru
 
 ## 7. Calendar
 
-### 7.1 At a glance
+*Revised 16 Oct to Matt's timeline. The 15 Oct day-by-day table is replaced by two targets and a week-by-week order. The course dates do not move: **Fri 30 Oct** full draft, **Mon 2 Nov** idea statement, **Mon 7 Dec** final report.*
+
+### 7.1 Two targets
+
+1. **Every part tested, about two weeks (soft): by Sun 1 Nov.** A part counts as tested when it has run on real data at least once, written its artifacts, and passed its own unit tests. That says nothing about passing its gate.
+2. **Every gate run, six weeks (hard): by Fri 27 Nov.** Gate dates below are targets. What binds is that each gate is registered in `glassbox-prereg.md` before its run starts, whenever that is.
+
+| Part | Its first test (target 1, by ~1 Nov) | Its gate (target 2, by 27 Nov) |
+|---|---|---|
+| Artifact contract, S6 SHOW v0 | S6 builds a page from CP1's results, imported with `--import-cp1`; the same import proves `gb/core/` reproduces CP1 | — (S6 only reads) |
+| S1 SEE | closure on the 8 dev games | G1 |
+| H1 VOCAB | unit tests on synthetic boards; registered as `glassbox_vocab_v1` | G1, with its ablation |
+| S3 CHECK | **G0**: the guard fitter on CP1's candidates, no LLM | G1 |
+| S2 WRITE | dry run (prompts and token counts, no server), then the lp85 smoke test | G1 |
+| S4 CARRY | reproduces CP1's T1 with role hints off | G1 |
+| S5 ACT | replay on A0's recordings (the offline counterfactual, §6.2); ft09 online smoke test | G2, G4 |
+| H2 SCHEDULER | mock-LLM online run on ft09, 20k actions | G2 |
+| H3 TEMPLATES | a throwaway catalog from G1's trusted rules, tried on the two **seen** games (lp85, ls20) only, so no held-out game is touched | G3 |
+| IMAGINE, contact goals | their preconditions (§7.3) measured offline; `GbMap` unit tests | dev sweep 2; G4 if built |
+
+### 7.2 Week by week
 
 ```mermaid
 gantt
-    title Glassbox, 16 Oct to 7 Dec 2026
+    title Glassbox, 16 Oct to 7 Dec 2026 (two targets)
     dateFormat YYYY-MM-DD
     axisFormat %d %b
-    section M0 Foundation
-    Close v2 · prereg skeleton · artifact contract   :m0a, 2026-10-16, 1d
-    S6 SHOW v0 on CP1 data · S1 skeleton             :m0b, 2026-10-17, 2d
-    section M1 Offline rule factory
-    S1 relations · features · roles                  :m1a, 2026-10-19, 1d
-    S3 guard fitter · G0 guard rescue                :m1b, 2026-10-20, 1d
-    H1 VOCAB · S3 priorities and tiers               :m1c, 2026-10-20, 2d
-    S2 prompts v3 · smoke test · register G1         :m1d, 2026-10-21, 2d
-    G1 run and verdict                               :crit, m1e, 2026-10-22, 2d
-    Offline ablations                                :m1f, 2026-10-23, 3d
-    section M2 Online guide
-    Offline counterfactual                           :m2a, 2026-10-24, 1d
-    S5 ACT v1 · H2 SCHEDULER · cpu_check             :m2b, 2026-10-24, 3d
-    G2 dev sweep                                     :crit, m2c, 2026-10-27, 3d
-    Draft report                                     :m2d, 2026-10-28, 3d
-    Draft due                                        :milestone, d1, 2026-10-30, 0d
-    G2 verdict · S6 v1                               :m2e, 2026-10-31, 2d
-    Idea statement                                   :milestone, d2, 2026-11-02, 0d
-    section M3 Extensions
-    H3 TEMPLATES build · freeze · register G3        :m3a, 2026-11-02, 4d
-    G3 held-out A/B                                  :crit, m3b, 2026-11-06, 3d
-    S5 IMAGINE · contact goals                       :m3c, 2026-11-02, 9d
-    Dev sweep 2                                      :m3d, 2026-11-11, 3d
-    section M4 Freeze and confirm
-    Freeze · register G4                             :m4a, 2026-11-14, 2d
-    G4 confirm (75 runs)                             :crit, m4b, 2026-11-16, 5d
-    section M5 Ablations and write-up
-    Ablations                                        :m5a, 2026-11-21, 4d
-    Frontier showcase (optional)                     :m5b, 2026-11-23, 3d
-    Write-up                                         :m5c, 2026-11-25, 12d
-    Final report                                     :milestone, d3, 2026-12-07, 0d
+    section Week 0 Foundation
+    Refactor · prereg 1-3, 8-10 · contract      :w0a, 2026-10-16, 1d
+    import CP1 · S6 v0 · S1 skeleton            :w0b, 2026-10-17, 2d
+    section Week 1 Offline rules
+    S1 · S3 guards · G0 · H1 · S2 · S4           :w1a, 2026-10-19, 4d
+    G1 run and verdict                          :crit, w1b, 2026-10-22, 2d
+    Offline ablations                           :w1c, 2026-10-23, 3d
+    section Week 2 Online guide
+    Counterfactual · S5 · H2 · smoke tests       :w2a, 2026-10-26, 2d
+    H3 smoke (seen games) · IMAGINE precondition :w2b, 2026-10-27, 2d
+    G2 dev sweep                                :crit, w2c, 2026-10-28, 4d
+    Every part tested                           :milestone, t1, 2026-11-01, 0d
+    Draft due                                   :milestone, d1, 2026-10-30, 0d
+    section Weeks 3-4 Extensions
+    Idea statement                              :milestone, d2, 2026-11-02, 0d
+    H3 build · freeze · G3                      :crit, w3a, 2026-11-02, 7d
+    IMAGINE · contact goals (if earned)         :w3b, 2026-11-02, 9d
+    Dev sweep 2 · freeze · register G4          :w4a, 2026-11-11, 5d
+    section Weeks 5-6 Confirm
+    G4 confirm (75 runs)                        :crit, w5a, 2026-11-16, 6d
+    Ablations · frontier showcase (optional)    :w6a, 2026-11-22, 5d
+    Every gate run                              :milestone, t2, 2026-11-27, 0d
+    section Write-up
+    Write-up                                    :w7a, 2026-11-28, 9d
+    Final report                                :milestone, d3, 2026-12-07, 0d
 ```
 
-### 7.2 Day by day
-
-| Dates | Work | GPU | Report milestone |
+| Week | Dates | Work | GPU |
 |---|---|---|---|
-| **Fri 16 Oct** | Close v2 (Appendix A). Start `glassbox-prereg.md` (tiers, honesty rules, failure taxonomy). `custom_agents/gb/` skeleton, `gb/artifacts.py` (headers, keys, manifest), `glassbox.toml`, `gb.mk`; `check_repo.py` learns the new package's isolation rules. | none | |
-| Sat 17 – Sun 18 Oct | `tools/gb_offline.py --import-cp1` (re-runs CP1's books on its cases into Glassbox artifacts; never writes into CP1's registered folder). **S6 v0**: funnel and case viewer on CP1's data. S1 skeleton: objects, correspondence, closure. | none | |
-| Mon 19 Oct | S1: relations, feature bits, role hints, exploration matrix. Closure report on the 8 dev games. | none | |
-| Tue 20 Oct | S3 guard fitter. **G0** on CP1's candidates. Start H1. | none | |
-| Tue 20 – Wed 21 Oct | H1: 16 primitives with tests; register `glassbox_vocab_v1`. S3: priority composition, tiers. Regression test: CP1 reproduces with everything off. | none | |
-| Wed 21 – Thu 22 Oct | S2: v3 contract and prompts, exception prompt, dry runs. Smoke test on lp85 (a seen game). **Register G1.** | ~1 h | |
-| **Thu 22 → Fri 23 Oct** | **G1** overnight on the 8 dev games; verdict and report page on Friday. | 6–10 h | |
-| Fri 23 – Sun 25 Oct | Offline ablations (GB−facts, GB−vocab; −guards and −exceptions from the cache). | 4–6 h | |
-| Sat 24 Oct | Offline counterfactual on A0's recordings. | none | |
-| Sat 24 – Mon 26 Oct | S5 v1 (prune, probe, hints, `GbMap`); H2; online S1–S4 calls. `cpu_check.py` with the flag off for `goose` and `mb_gated_att`. Online smoke test (ft09, 20k actions); measure the KV cache beside Goose. | ~1 h | |
-| **Tue 27 → Thu 29 Oct** | **Register G2**; G2 dev sweep (16 GB runs one at a time, 16 GB-free runs). | 16–24 h | |
-| Wed 28 – Fri 30 Oct | Write the draft while the sweep runs. | | **Fri 30 Oct: full draft** (history, design, G0, G1, ablations, counterfactual, G2 if finished) |
-| Sat 31 Oct – Sun 1 Nov | G2 verdict; S6 v1 (online views: outcome, timeline). | none | |
-| **Mon 2 Nov** | **Idea statement** (§2.1) committed. | | **ideas concrete** |
-| Mon 2 – Thu 5 Nov | H3: build the catalog from G1 and G2's trusted rules; freeze and register `glassbox_templates_v1`; **register G3**. Check the A/B-offline recordings. | none | |
-| Mon 2 – Wed 11 Nov | S5 IMAGINE and contact goals, each only if its precondition holds (§7.3). | short tests | |
-| **Fri 6 → Sun 8 Nov** | **G3** (GB and GB+T on the 8 A/B-offline games). | 12–18 h | |
-| Wed 11 – Fri 13 Nov | Dev sweep 2: the candidate final configuration on the dev games (a regression check: no game worse on both seeds; tuned on dev, labelled). | 12–20 h | |
-| **Sat 14 – Sun 15 Nov** | **Freeze** the configuration; **register G4**. | none | |
-| **Mon 16 → Fri 20 Nov** | **G4 confirm**, 75 runs; time the first 10 and project the end. | 55–95 h | |
-| Sat 21 – Tue 24 Nov | Ablations (online on 4 dev games × 2 seeds × 3 arms; offline where cheaper). | 18–30 h | |
-| Mon 23 – Wed 25 Nov | Frontier showcase (optional; API, dev games, offline). | none locally | |
-| Wed 25 Nov – Sun 6 Dec | Write-up; figures straight from S6. (Thanksgiving is Thu 26 Nov.) | none | |
-| **Mon 7 Dec** | | | **final report** |
+| 0 | Fri 16 – Sun 18 Oct | **Done 16 Oct:** v2 closed; repo refactor (v1/v2 frozen in `legacy/rulebook/`, `gb/core/` copied, docs in three folders); artifact contract, `glassbox.toml`, `gb.mk`. **Still to do:** pre-registration sections 1–3 and 8–10; `tools/gb_offline.py --import-cp1` and the CP1 regression; S6 v0 on CP1's data; S1 skeleton | none |
+| 1 | Mon 19 – Sun 25 Oct | S1 relations, features, roles, matrix; S3 guard fitter, then **G0**; H1 (16 primitives, tests, registered); S3 priorities and tiers; S2 v3 prompts, dry runs, lp85 smoke; S4. **Register G1**, run **G1** overnight. Offline ablations | 10–16 h |
+| 2 | Mon 26 Oct – Sun 1 Nov | Offline counterfactual; S5 v1 (prune, probe, hints, `GbMap`) and H2; `cpu_check.py` with the flag off; ft09 online smoke; H3 smoke on the seen games; IMAGINE and contact preconditions measured. **Register G2**, start the G2 sweep. Draft due Fri 30 Oct. **Target 1: every part tested** | 16–24 h |
+| 3 | Mon 2 – Sun 8 Nov | Idea statement (Mon 2 Nov). G2 verdict; S6 v1 (online views). H3: build, freeze and register the catalog; **register G3**, run **G3**. IMAGINE and contact goals if their preconditions hold | 12–18 h |
+| 4 | Mon 9 – Sun 15 Nov | Dev sweep 2 (the candidate final configuration; tuned on dev, labelled). **Freeze; register G4** | 12–20 h |
+| 5 | Mon 16 – Sun 22 Nov | **G4 confirm**, 75 runs, starting by Tue 17 Nov; time the first 10 and project the end | 55–95 h |
+| 6 | Mon 23 – Fri 27 Nov | Ablations; frontier showcase (optional). **Target 2: every gate run** | 18–30 h |
+| — | Sat 28 Nov – Mon 7 Dec | Write-up; figures straight from S6. (Thanksgiving is Thu 26 Nov.) | none |
 
-### 7.3 Slip rules and preconditions
+### 7.3 Slip rules and preconditions (unchanged from the 15 Oct draft, plus the first rule)
 
+- **A part has no first test by Sun 1 Nov:** it gets its first test in week 3, before anything new is built. Its gate is not moved earlier to make up for it.
 - **G1 hasn't run by Sun 25 Oct:** G2 starts on Tue 27 Oct with whatever S1–S4 exist (S5 only ever uses trusted and axiom rules, so this is safe). The draft reports G0 and whatever of G1 exists.
 - **G2 isn't finished by Sun 1 Nov:** the 2 Nov statement is still made (it's about the design; G1 and the counterfactual support it). G2 finishes early in M3, and M3 shrinks (contact goals go first).
 - **IMAGINE's precondition:** on at least one dev game, the axiom rules of the book (from G1 offline or G2 online) claim the whole live board on at least 20% of a level's cases, measured offline on A0's recordings with S4 re-binding. If no game qualifies, IMAGINE is not built; the coverage numbers are reported as the reason, and its two days go to contact goals or to S1/S3 yield.
@@ -1065,15 +1087,12 @@ gantt
 - **The confirm starts by Tue 17 Nov at the latest.** If the first 10 runs project an end later than Mon 23 Nov, ablations shrink; the confirm itself is never shortened.
 - **Cut order if time runs short:** frontier showcase → progress heuristic → online ablations (down to 2 games) → contact goals → IMAGINE → H3's optional extras → H3 itself (then the cross-game claim rests on H1, labelled as hand-written).
 
-### 7.4 Tomorrow (Fri 16 Oct), in order
+### 7.4 Next steps (as of 16 Oct)
 
-1. Pull `refactor/shared-baselines` and check the tree is at `8c42e75`.
-2. Paste Appendix A into `rulebook-v2-prereg.md` §10 and add one status line to `rulebook-v2.md` and `CLAUDE.md`. Commit.
-3. Create `docs/plans/glassbox-prereg.md` with its sections 1–3 and 8–9 (Appendix D gives the outline). G1's section must be committed before Thu 22 Oct.
-4. Create `custom_agents/gb/__init__.py` and `gb/artifacts.py`, `experiments/glassbox/glassbox.toml` (Appendix C) and `gb.mk`; teach `check_repo.py` the package's isolation rules (it may import `wm/`; nothing in `wm/` may import it).
-5. Write `tools/gb_offline.py --import-cp1`, then start S6 v0 against the import.
-
----
+1. Review the pre-registration draft (`docs/3-glassbox/glassbox-prereg.md`, sections 1–3 and 8–10) and commit it. Sections 1, 2 and 8–10 are copied from v2's or from this plan; section 3 (G0) must be committed before G0 runs.
+2. `tools/gb_offline.py --import-cp1`: re-run CP1's books on its cases with `gb/core/`, write them as Glassbox artifacts (never into CP1's registered folder), and check CP1's numbers come out the same (`tests/test_gb_regression.py`).
+3. S6 v0 (funnel and case viewer) on that import.
+4. S1 skeleton: objects, correspondence, closure.
 
 ## 8. Compute
 
@@ -1137,6 +1156,8 @@ gantt
 | 11 | vLLM sleep mode | **only if the online smoke test shows the KV cache is short** |
 | 12 | Thinking: 12,288-token answers with the code-only retry online; the two-turn split only as an ablation | **yes** (measured 14 Oct) |
 | 13 | Name | **Glassbox** (free to change until 2 Nov) |
+| 14 | Repo layout | **v1/v2 frozen in `legacy/rulebook/`; reusable modules copied to `gb/core/`; teammates' shared pieces (registry, benchmark suites, `make bench`/`compare`, `run_curriculum.py`) kept** (decided 16 Oct) |
+| 15 | Calendar | **two targets: every part tested by ~1 Nov, every gate run by 27 Nov** (decided 16 Oct; §7) |
 
 **Still open, and yours:**
 
@@ -1174,7 +1195,7 @@ gantt
 
 | Term | Meaning |
 |---|---|
-| Action group | each button, and clicks grouped by the colour clicked (`wm/evidence.group_of`) |
+| Action group | each button, and clicks grouped by the colour clicked (`gb/core/evidence.group_of`) |
 | Case / move | a distinct (screen with decorations blanked, action) / one recorded transition |
 | Closure (perception coverage) | whether S1's object-level diff reproduces the after board; the share of changed cells it explains |
 | Relations, feature bits | S1's touching / ray / border / aligned / inside facts, and their boolean vector per case |
@@ -1245,38 +1266,40 @@ Findings are paraphrased. Most ARC-AGI-3 results below are frontier models on th
 
 ## Appendix A. Closing out Rulebook v2 (text to paste)
 
-**Into `docs/plans/rulebook-v2-prereg.md`, section 10:**
+*Applied on 16 Oct 2026 (commit `8c067fa`), with the paths as they now are.*
 
-> **16 Oct 2026 — v2 closed; superseded by Glassbox.** CP0 (7 Oct) and CP1 (15 Oct; gate FAIL, primary 2 of 8, safety met on all 8) are final and will never be re-scored. CP2–CP5 were not run. Sections 5–7 of this file are withdrawn unrun: no result will be judged by them. The successor plan is `docs/plans/glassbox-plan.md`, motivated by CP1's diagnosis (rule-writing yield, not the form of the rules, now limits the result). Its gates are registered in `docs/plans/glassbox-prereg.md` before any Glassbox run. The tier lists (section 2) and the honesty rules (section 8) carry over unchanged.
+**Into `docs/2-llm-history/rulebook-v2-prereg.md`, section 10:**
 
-**At the top of `docs/plans/rulebook-v2.md`:**
+> **16 Oct 2026 — v2 closed; superseded by Glassbox.** CP0 (7 Oct) and CP1 (15 Oct; gate FAIL, primary 2 of 8, safety met on all 8) are final and will never be re-scored. CP2–CP5 were not run. Sections 5–7 of this file are withdrawn unrun: no result will be judged by them. The successor plan is `docs/3-glassbox/glassbox-plan.md`, motivated by CP1's diagnosis (rule-writing yield, not the form of the rules, now limits the result). Its gates are registered in `docs/3-glassbox/glassbox-prereg.md` before any Glassbox run. The tier lists (section 2) and the honesty rules (section 8) carry over unchanged.
+
+**At the top of `docs/2-llm-history/rulebook-v2.md`:**
 
 > **Status, 16 Oct 2026.** Closed after CP1 (gate FAIL, 2 of 8; 0.0% wrong at T1 on all 8 dev games). CP2–CP5 not run; superseded by `glassbox-plan.md`. CP0 and CP1 results stand.
 
-**In `CLAUDE.md`, "Semester 2: where things stand":** mark Rulebook v2 as closed on 16 Oct after CP1, name Glassbox as the current plan (`docs/plans/glassbox-plan.md`, gates in `glassbox-prereg.md`), and extend the reproducibility rule: do not edit the prompt text in `wm/rules.py` or `wm/rules2.py`, `tools/wm_offline.py` or `tools/wm_tier0a_v2.py`.
+**In `CLAUDE.md`, "Semester 2: where things stand":** mark Rulebook v2 as closed on 16 Oct after CP1, name Glassbox as the current plan (`docs/3-glassbox/glassbox-plan.md`, gates in `glassbox-prereg.md`), and extend the reproducibility rule: do not edit the prompt text in `legacy/rulebook/wm/rules.py` or `legacy/rulebook/wm/rules2.py`, `legacy/rulebook/tools/wm_offline.py` or `legacy/rulebook/tools/wm_tier0a_v2.py`.
 
 ## Appendix B. Build list, file by file
 
 | File | Stage | New or reused | Milestone | Effort |
 |---|---|---|---|---|
-| `custom_agents/gb/__init__.py`, `gb/artifacts.py` | §4 | new | M0 | 0.5 d |
-| `experiments/glassbox/glassbox.toml`, `gb.mk`, launchers | §4 | new (launchers copy `experiments/rulebook/llm_run.sh`'s pattern) | M0 | in the above |
-| `tools/gb_offline.py` (`--stage`, `--from-cache`, `--import-cp1`) | driver | new; structure from `tools/wm_tier0a_v2.py` | M0–M1 | 1 d |
-| `tools/gb_report.py`, `tools/gb_view/` | S6 | new | M0 (v0), M2 (v1) | 2.5 d |
-| `gb/see.py` | S1 | new, on `gridtools.py` | M0–M1 | 1.5 d |
-| `gb/vocab.py` | H1 | new | M1 | 1.5 d |
-| `gb/guards.py` | S3 | new | M1 | 1 d |
-| `gb/check.py` (priority worker, tiers) | S3 | new; wraps `wm/bind.py` and `wm/book.py` | M1 | 1 d |
-| `gb/write.py` (v3 contract, prompts, call policy) | S2 | new; uses `wm/rules.py`, `wm/rules2.py` helpers and `wm/llm.py` | M1 | 1 d |
-| `gb/carry.py` | S4 | new; wraps `bind.search` and `book.trust` | M1–M2 | 0.5 d |
-| `gb/act.py` (guide, `GbMap`, probes, hints) | S5 | new | M2 | 2 d |
-| `gb/schedule.py` | H2 | new | M2 | 1.5 d |
+| `custom_agents/gb/__init__.py`, `gb/artifacts.py` | §4 | new; **done 16 Oct** | M0 | 0.5 d |
+| `experiments/glassbox/glassbox.toml`, `gb.mk`, launchers | §4 | new (launchers copy `legacy/rulebook/experiments/llm_run.sh`'s pattern); toml and `gb.mk` **done 16 Oct** | M0 | in the above |
+| `tools/gb_offline.py` (`--stage`, `--from-cache`, `--import-cp1`) | driver | new; structure from `legacy/rulebook/tools/wm_tier0a_v2.py` | M0–M1 | 1 d |
+| `gb/s6_show.py` (and its page template) | S6 | new | M0 (v0), M2 (v1) | 2.5 d |
+| `gb/s1_see.py` | S1 | new, on `gridtools.py` | M0–M1 | 1.5 d |
+| `gb/h1_vocab.py` | H1 | new | M1 | 1.5 d |
+| `gb/s3_guards.py` | S3 | new | M1 | 1 d |
+| `gb/s3_check.py` (priority worker, tiers) | S3 | new; wraps `gb/core/bind.py` and `gb/core/book.py` | M1 | 1 d |
+| `gb/s2_write.py` (v3 contract, prompts, call policy) | S2 | new; copies helpers from `legacy/rulebook/wm/rules.py` and `rules2.py`; uses `gb/core/llm.py` | M1 | 1 d |
+| `gb/s4_carry.py` | S4 | new; wraps `bind.search` and `book.trust` | M1–M2 | 0.5 d |
+| `gb/s5_act.py` (guide, `GbMap`, probes, hints) | S5 | new | M2 | 2 d |
+| `gb/h2_schedule.py` | H2 | new | M2 | 1.5 d |
 | `custom_agents/action.py` (`# [gb]` hooks), `custom_agents/presets.py` (a new preset, e.g. `glassbox`) | S5 | extended, removable | M2 | in S5 |
-| `gb/act.py`: IMAGINE, contact goals | S5 | new | M3 | 3.5 d |
-| `gb/templates.py` | H3 | new | M3 | 1.5 d |
+| `gb/s5_act.py`: IMAGINE, contact goals | S5 | new | M3 | 3.5 d |
+| `gb/h3_templates.py` | H3 | new | M3 | 1.5 d |
 | `tests/test_gb_*.py` (see, vocab, guards, check, carry, act, schedule, templates, report, regression) | all | new | throughout | inside each item |
-| `check_repo.py` | isolation | extended | M0 | 0.1 d |
-| `docs/plans/glassbox-prereg.md` | §6 | new | from M0 | — |
+| `check_repo.py` | isolation | extended; **done 16 Oct** | M0 | 0.1 d |
+| `docs/3-glassbox/glassbox-prereg.md` | §6 | new | from M0 | — |
 
 **Total build:** about 21–23 person-days, plus about 8 days of writing. M1 is the tightest week; its cut lines (two-feature guards, priority composition, exception prompts) exist for that reason.
 
@@ -1383,12 +1406,12 @@ flags = ["WRONG", "NEAR", "UNCLAIMED", "CONFLICT", "GUARD-FIXED", "DEMOTED",
 png_dpi = 200
 ```
 
-## Appendix D. Outline of `docs/plans/glassbox-prereg.md`
+## Appendix D. Outline of `docs/3-glassbox/glassbox-prereg.md`
 
 | Section | Content | Registered by |
 |---|---|---|
 | 1 | v2 is closed (Appendix A's text) | Fri 16 Oct |
-| 2 | Game tiers, copied unchanged from v2's section 2 (`wm/tiers.py`) | Fri 16 Oct |
+| 2 | Game tiers, copied unchanged from v2's section 2 (`tiers.py`) | Fri 16 Oct |
 | 3 | G0: what is run, and the expectation (§6.3) | before Tue 20 Oct |
 | 4 | G1: what is held equal; primary; safety; reported numbers; ablations; per-game expectations; the config hash | before Thu 22 Oct |
 | 5 | The offline counterfactual and G2 | before Tue 27 Oct |
