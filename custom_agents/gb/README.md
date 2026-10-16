@@ -49,4 +49,6 @@ S6's first data.
 | `cp1_import.py` | built 16 Oct: all 437 recomputed numbers on CP1's 8 games equal the registered ones; `tests/test_gb_regression.py` |
 | S6 SHOW v0 | built 16 Oct (`s6_show.py` + its page template `s6_show_page.html`): the funnel and the case viewer, `make gb-report RUN=<name>`; `tests/test_gb_show.py`. v1 (stage panels, online views, compare mode) comes with M2 |
 | S1 SEE | built 16 Oct, all 8 steps (`s1_see.py`, `make gb-see`): objects, correspondence, closure and "explained"; relations, feature bits, roles, the exploration matrix and the facts text (pinned by a golden test); `tests/test_gb_see.py` (21 tests) |
-| S2–S5, H1–H3 | not built yet (plan section 7) |
+| H1 VOCAB | started 16 Oct (`h1_vocab.py`): S1's objects, subject, relations and feature bits moved here (S1's outputs identical before and after on CP1's 8 games), plus `features()`, which works the same facts out inside the rule sandbox; `gb/core/contract.py` hands it to every rule. `tests/test_gb_vocab.py`. The other primitives (`translate`, `slide`, ...) come with H1 proper |
+| S3 guard fitter | built 16 Oct (`s3_guards.py`, `make gb-guards`): near-miss rules split by a guard learned from S1's facts into a narrowed rule and an exception, replayed; the book and T1 before and after. Tested on synthetic games only (`tests/test_gb_guards.py`): its first run on CP1's candidates IS G0, so it refuses them without `G0=1` |
+| S2, S3's grading, priorities and tiers, S4, S5, H2, H3 | not built yet (plan section 7) |

@@ -150,43 +150,50 @@ before the run each judges).
   the guard fitter; roles (mover, static, click-changers/no-ops, counters);
   the exploration matrix; the facts text (pinned by a golden test). The
   viewer shows the text and the roles.
+- **Done 16 Oct, H1 start + the S3 guard fitter** (plan §5.3 "As built"):
+  - `gb/h1_vocab.py` holds S1's objects, subject choice, relations and
+    feature bits (one copy for S1, the guards and the rules), plus
+    `features(board, act, api, mover)`: the same facts inside the rule
+    sandbox, the subject found by flood fill over row runs (0.02–0.25 ms per
+    move on the 8 games). S1 imports it and stops if the sandbox's subject is
+    not one of its own objects; its outputs on the 8 games are identical
+    before and after (104 files, 624 arrays). `gb/core/contract.py`'s `Rule`
+    hands `h1_vocab.SANDBOX` to every rule (lazy import); test_gb_regression
+    passes and `make gb-import-cp1` gives 437 of 437.
+  - `gb/s3_guards.py` (`make gb-guards`): R/W cases of every
+    admitted-but-not-trusted rule; a guard over S1's bits (single, then
+    AND-pairs, either polarity; geometry, then subject/action, then colour)
+    fitted on 70% and checked on 30% (W and R split separately, W first, one
+    `random.Random(guard_seed=0)`, rounded half up); the NARROWED rule (base ∧
+    ¬guard) and the EXCEPTION (base ∧ guard, the base's claimed cells stay;
+    `KIND = "exception"`, `PRIORITY = 1`) as source wrapping the original
+    (its own names renamed `base_*` with ast, comments kept); the mover and
+    guard colours use the rule's own `Colour()` slot when it holds that colour,
+    else a new slot; replayed with the original's binding plus the new slots;
+    the book and T1 before and after, CP1's way (new rules re-bound on the fit
+    split by `bind.search`). An exception never passes v2's bar (gain 0), so
+    it is reported against v1's known-no-op bar. Directions are the screen's
+    (one action group per rule), not re-aligned.
+  - Tested on synthetic games only (`tests/test_gb_guards.py`, 15 tests:
+    hand-made bits, the wrapper, a click game whose colour guard re-binds, a
+    maze run folder end to end). It refuses CP1's candidates without `G0=1`
+    / `--g0`, and has NOT been run on them.
+  - **Known S1 limit found doing it** (pinned in `tests/test_gb_vocab.py`):
+    `sits_on` takes a tie by the lower colour number, so a mover between two
+    walls numbered below the floor "sits on" the walls and touches nothing.
+    On CP1's training levels: dc22 87 of 408 button cases; m0r0 none (its
+    mover is on the background in all 1,187).
 - **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
-  draft (sections 1–3, 8–10) before G0 runs, and confirms S1's "explained" as
-  perception coverage; (2) the S3 guard fitter (`gb/s3_guards.py`, not started),
-  then G0.
-- **The guard fitter, as designed 16 Oct (not yet built):**
-  - *Shared code first.* Move S1's relation and feature code (`sits_on`,
-    `relations`, `inside`, `feature_names`, `feature_row`, the subject choice)
-    into `gb/h1_vocab.py`, the plan's single implementation shared by S1, the
-    guards and later the H1 primitives. S1 imports it, and its outputs must
-    stay identical (compare the facts .npz before and after). In the rule
-    sandbox, find the subject by flood fill, not by labelling every colour:
-    admitted rules must run in 5 ms or less per move.
-  - *Making it available to rules.* `gb/core/contract.py`'s `Rule` passes
-    `extra=SLOT_TYPES` to `compile_functions`; add a lazy import of h1_vocab's
-    sandbox names there. That is a gb/core change, so
-    `tests/test_gb_regression.py` must pass.
-  - *The search.* Over S1's feature bits on the cases the rule applies to:
-    right (R) and wrong (W). Single literals first, then AND-pairs, either
-    polarity. A guard must be true on every W case and false on every R case.
-    Fit on 70%, hold out 30% (`random.Random(0)` over cases sorted by key).
-    Require at least 3 wrong cases. Prefer geometry (touch / ray / edge /
-    clear), then subject size, then colour.
-  - *What it writes.* New rule source that wraps the original: rename its
-    `applies` / `predict` to `base_applies` / `base_predict` with ast. The
-    NARROWED rule is base ∧ ¬guard. The automatic EXCEPTION (when W's claimed
-    cells did not change) is base ∧ guard, and predicts "the base's claimed
-    cells stay as they are" (`KIND = "exception"`, `PRIORITY = 1`). The mover
-    colour and any colour in a guard become PARAMS slots (`Colour()`), so they
-    re-bind on the next level. A v1 rule is wrapped in v2 form. The two new
-    rules split the base rule's cases between them, so v2's plain composition
-    is enough for G0 (priorities come later).
-  - *Testing.* Synthetic games only: the wall game in `tests/test_gb_see.py`,
-    where `left_touch` alone separates the blocked move. Its FIRST run on CP1's
-    candidates IS G0, so not before prereg section 3 is registered.
+  draft (sections 1–3, 8–10) and confirms S1's "explained" as perception
+  coverage; (2) **G0**: `make gb-guards RUN=cp1_import G0=1` (CPU, minutes);
+  (3) H1's primitives, S3's priorities and tiers, S2, S4.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
-  pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).
+  pre-registration draft (sections 1–3, 8–10) before G0 runs (section 3 should
+  name the as-built details above: the split, the replay binding, T1's
+  re-binding, the exception's bar, the config hash); whether to fix the
+  `sits_on` tie in S1 before G0 (an S1 VERSION bump; it changes dc22's facts);
+  plan §10 (a), (b).
 - **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
   (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
   (ft09, 1,970 moves) and `mb_gated_att` (tu93, 1,960 moves). Agent files
