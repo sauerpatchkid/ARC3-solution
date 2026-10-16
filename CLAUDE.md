@@ -133,9 +133,10 @@ before the run each judges).
 - **OPEN, Matt's:** prereg 3a (G0's expectation names tu93, but CP1 admitted no
   tu93 rule, so the guard fitter as scoped can't touch it) and 3b (the hold-out
   seed), both before G0; plan §10 (a) and (b).
-- **Not yet checked:** `tools/cpu_check.py` before/after the refactor. Agent
-  files changed only in comments and docstrings (compiled bytecode identical),
-  but the standing rule asks for it; ask Matt before running (~80 min CPU).
+- **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
+  (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
+  (ft09, 1,970 moves) and `mb_gated_att` (tu93, 1,960 moves). Agent files
+  changed only in comments and docstrings.
 - **Frontier models:** everything is the local model. The only frontier use is
   an optional showcase in late November (plan §6.5, limits in prereg §10).
 
