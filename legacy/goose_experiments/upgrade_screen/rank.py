@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """rank.py — the upgrade screen's leaderboard.
 
-    uv run python experiments/upgrade_screen/rank.py results/screen/<stamp>/manifest.tsv
+    uv run python legacy/goose_experiments/upgrade_screen/rank.py results/screen/<stamp>/manifest.tsv
 
 Every arm is compared, paired by (game, seed), with the adopted agent
 ("novelty"); map arms are also compared with "map". Ranking, decided before
@@ -24,7 +24,7 @@ import json
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """screen2.py — upgrade screen, round 2: combinations of round 1's best ideas.
 
-SEPARATE from round 1. It imports round 1's runner (experiments/upgrade_screen/
+SEPARATE from round 1. It imports round 1's runner (legacy/goose_experiments/upgrade_screen/
 screen.py) and only swaps in its own arms, games and results folder; it never
 edits a round-1 file. Round 1's best result is saved at git tag
 `upgrade-screen-round1` and in results/screen/20260925_121259/.
@@ -9,7 +9,7 @@ edits a round-1 file. Round 1's best result is saved at git tag
 No new agent code: every arm is a combination of switches that already exist
 (EVAL_RETURN_MAP, EVAL_UPGRADES options in custom_agents/upgrades.py).
 
-    uv run python experiments/upgrade_screen2/screen2.py --dry-run
+    uv run python legacy/goose_experiments/upgrade_screen2/screen2.py --dry-run
     make upgrade-screen2                 # detached
     make upgrade-screen2-status
     make upgrade-screen2-pause

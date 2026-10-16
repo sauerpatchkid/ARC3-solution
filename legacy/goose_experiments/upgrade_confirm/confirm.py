@@ -11,7 +11,7 @@ Confirm rule. Plan: docs/plans/upgrade-confirm.md.
     make upgrade-confirm-status / upgrade-confirm-pause
     make upgrade-confirm RESUME=results/confirm_upgrade/<stamp>/manifest.tsv
 
-Reuses experiments/upgrade_screen/screen.py as a library (parallel runs,
+Reuses legacy/goose_experiments/upgrade_screen/screen.py as a library (parallel runs,
 per-run results folders, pause, resume) without editing it.
 """
 import os
@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))  # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "upgrade_screen"))
 

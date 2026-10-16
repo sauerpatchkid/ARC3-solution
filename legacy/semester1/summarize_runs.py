@@ -38,7 +38,7 @@ import numpy as np
 
 # LEGACY relocation: this file now lives in legacy/, but metrics_common.py is at
 # the repo root — put the repo root on sys.path so the shared canonicalizer imports.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # the repo (moved to legacy/semester1 on 16 Oct 2026)
 from metrics_common import find_indicator_cells, GRID, N_CELLS
 
 

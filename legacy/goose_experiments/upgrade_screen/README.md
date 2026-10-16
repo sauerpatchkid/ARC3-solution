@@ -1,4 +1,4 @@
-# experiments/upgrade_screen — the upgrade screen
+# legacy/goose_experiments/upgrade_screen — the upgrade screen
 
 A short screening sweep over nine candidate improvements to the novelty label
 and the return map, ranked against the adopted agent. Built and smoke-tested,

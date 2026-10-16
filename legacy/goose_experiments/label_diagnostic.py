@@ -2,8 +2,8 @@
 """label_diagnostic.py — Plan B step 1: would a novelty label have been more
 useful than the frame-change label? Answered on corpora we already have.
 
-    uv run python tools/label_diagnostic.py                 # every run under results/runs
-    uv run python tools/label_diagnostic.py --games ft09,ls20 --limit 3   # quick look
+    uv run python legacy/goose_experiments/label_diagnostic.py                 # every run under results/runs
+    uv run python legacy/goose_experiments/label_diagnostic.py --games ft09,ls20 --limit 3   # quick look
     make label-diag
 
 For each recorded run this replays the transition corpus through the ONLINE
@@ -45,7 +45,7 @@ from datetime import datetime
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 

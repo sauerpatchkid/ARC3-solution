@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """rank2.py — round 2's leaderboard.
 
-    uv run python experiments/upgrade_screen2/rank2.py results/screen2/<stamp>/manifest.tsv
+    uv run python legacy/goose_experiments/upgrade_screen2/rank2.py results/screen2/<stamp>/manifest.tsv
 
-Reuses round 1's scoring (experiments/upgrade_screen/rank.py: load, compare,
+Reuses round 1's scoring (legacy/goose_experiments/upgrade_screen/rank.py: load, compare,
 AULC) without editing it. Every arm is paired by (game, seed) with round 1's
 best ("map_bars", run fresh here) and with the adopted agent ("novelty").
 

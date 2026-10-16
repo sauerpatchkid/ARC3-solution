@@ -1,4 +1,4 @@
-# experiments/upgrade_screen2 — upgrade screen, round 2
+# legacy/goose_experiments/upgrade_screen2 — upgrade screen, round 2
 
 Combinations of round 1's two best ideas (map_bars, map_gated) with the two
 cheap ideas that helped without losses (attempt, deadclick), on round 1's 8

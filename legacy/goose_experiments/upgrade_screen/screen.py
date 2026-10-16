@@ -6,7 +6,7 @@ deserve a proper dev test (3 seeds x 100k, pre-registered rule). Candidates
 and the reasoning behind each: docs/plans/upgrade-screen.md and
 docs/reports/Goose_Upgrade_Options.docx.
 
-    uv run python experiments/upgrade_screen/screen.py --dry-run      # plan + ETA
+    uv run python legacy/goose_experiments/upgrade_screen/screen.py --dry-run      # plan + ETA
     make upgrade-screen                                                 # detached
     make upgrade-screen-status
     make upgrade-screen-pause          # finish the runs in progress, then stop
@@ -23,7 +23,7 @@ pause, crash or sleep loses at most the runs in progress; --resume skips
 everything already in the manifest. When all runs are done, rank.py writes
 the leaderboard.
 
-Everything here is removable: delete experiments/upgrade_screen/ and the
+Everything here is removable: delete legacy/goose_experiments/upgrade_screen/ and the
 lines tagged [upgrades] (see custom_agents/upgrades.py).
 """
 import argparse
@@ -35,7 +35,7 @@ import threading
 import time
 from datetime import datetime
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # the repo
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import manifest as _manifest  # noqa: E402  (the repo's one manifest reader)
