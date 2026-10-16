@@ -1,0 +1,102 @@
+# experiments/glassbox/glassbox.toml - every Glassbox knob, one section per stage.
+# A run copies this file into results/glassbox/<run>/config.toml; gate runs put its
+# hash into the pre-registration (docs/3-glassbox/glassbox-prereg.md). Each section
+# is read only by its own stage (custom_agents/gb/<stage>.py), so changing a knob
+# re-runs that stage and the ones after it, never the ones before.
+# Defaults and their reasons: docs/3-glassbox/glassbox-plan.md section 5.
+
+[run]
+tier = "dev"                      # dev | seen | ab_offline | untouched (untouched: only inside the confirm)
+manifest = "results/confirm_upgrade/20260927_221915/manifest.tsv"
+seed = 0
+
+[see]                             # S1
+version = 1
+connectivity = 4
+large_cells = 1024
+relations_scope = "changed+clicked"
+ray_max = 64
+text_lines = 12
+mover_min_buttons = 2
+mover_min_moves = 10
+matrix_size_buckets = [1, 4, 16, 64]
+
+[vocab]                           # H1
+version = 1                       # registered as glassbox_vocab_v1
+enabled = true
+max_doc_tokens = 1500
+
+[write]                           # S2
+k_first = 4
+calls_per_group = 8
+max_groups = 12
+examples = 6
+facts = true
+exceptions = true
+thinking = true
+answer_tokens_offline = 20480
+answer_tokens_online = 12288
+code_only_retry = true
+repairs = 1
+
+[check]                           # S3
+guard_max_literals = 2
+guard_holdout = 0.30
+guard_min_wrong = 3
+guard_colour_features = "params"  # "params" | "off"
+auto_exception = true
+priorities = true
+max_rules_per_group = 4
+trusted_min_cases = 20
+axiom_min_cases = 60
+axiom_min_levels = 2
+
+[carry]                           # S4
+fit_moves_offline = 300
+online_min_cases = 10
+online_max_wait = 1000
+noop_min_clicks = 20
+roles_in_bind = true
+repair_calls = 1
+
+[act]                             # S5 (online)
+prune = true
+probe = true
+hints = true
+imagine = false                   # on only after its M3 build and precondition (section 7.3)
+contact = false
+progress = false
+alpha = 0.1
+beta = 2.0
+gamma = 1.0
+probe_share = 0.05
+probe_moves = 30
+hint_drop_moves = 2000
+w = [1.0, 1.0, 2.0, 1.0]          # w1 changed, w2 new position, w3 goal progress, w4 already seen
+imagine_depth = 4
+iw_prune = true
+contact_max_steps = 30
+override_cap_run = 10000
+override_stall = 500
+
+[schedule]                        # H2 (online)
+warmup_moves = 2000
+contradictions_before_repair = 3
+stall_coverage = 0.80
+requests = 16
+k = 2
+completions = 48
+tokens = 400000
+sleep_mode = false
+
+[templates]                       # H3
+enabled = false                   # true only in GB+T arms
+catalog = "artifacts/glassbox_templates_v1.jsonl"
+search_budget_s = 240
+max_templates = 60
+
+[show]                            # S6
+cases_per_flag = 50
+flags = ["WRONG", "NEAR", "UNCLAIMED", "CONFLICT", "GUARD-FIXED", "DEMOTED",
+         "PRUNED-BUT-CHANGED", "IMAGINED-MISMATCH", "PROBE", "LEVEL-UP"]
+png_dpi = 200

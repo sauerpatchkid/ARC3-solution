@@ -37,6 +37,9 @@ help:
 	@echo ""
 	@echo "  make clean CONFIRM=yes                  delete EVERY recorded run under results/runs"
 	@echo ""
+	@echo "Glassbox (the LLM track, custom_agents/gb/):"  # [gb]
+	@echo "  make gb-help                         its commands, one per stage"  # [gb]
+	@echo ""  # [gb]
 	@echo "Archive (frozen, see legacy/README.md):"
 	@echo "  make -f legacy/goose_experiments/experiments.mk <target>   Plan B, Option 1, upgrade screens"
 	@echo "  legacy/rulebook/   Rulebook v1 and v2;  legacy/coach_track/   the Coach;  legacy/llm_track/   semester 1"
@@ -151,3 +154,4 @@ baseline:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
 	RECORDINGS_DIR=$(RESULTS)/recordings \
 	uv run ARC-AGI-3-Agents/main.py --agent=action --game=$(GAME)
+-include experiments/glassbox/gb.mk  # [gb]

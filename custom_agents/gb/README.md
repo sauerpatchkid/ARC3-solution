@@ -1,0 +1,46 @@
+# Glassbox code (`custom_agents/gb/`)
+
+Goose explores. A local LLM writes small rules about the game from Goose's own
+moves. Each rule is checked against every recorded move, and only checked rules
+are allowed to steer Goose. Plan: [`docs/3-glassbox/glassbox-plan.md`](../../docs/3-glassbox/glassbox-plan.md).
+
+**One stage per file, numbered in the order the data flows.** Each stage reads
+files and writes files into its own folder of the run
+(`results/glassbox/<run>/<stage>/`), so you can change one stage and re-run it
+and the stages after it, without touching the ones before.
+
+## The stages, and the problem each one fixes
+
+| Step | File | The problem it fixes | What it does | LLM? | Judged by |
+|---|---|---|---|---|---|
+| **S1 SEE** | `s1_see.py` | The LLM must work out from pictures what moved and what blocked it, and we can't tell "couldn't see it" from "couldn't write it" | Finds objects, matches them before and after, lists relations (touching, what's ahead), and checks whether that description rebuilds the after-screen (**closure**) | no | G1 |
+| **H1 VOCAB** | `h1_vocab.py` | Rules are long raw numpy with boundary bugs; 44% of CP1's answers ran out of room | Up to 16 tested grid primitives (`translate`, `is_blocked`, `recolour`…) the rules may call | no | G1 |
+| **S2 WRITE** | `s2_write.py` | One rule tried to explain several mechanisms at once | Asks the LLM for one mechanism per rule, with S1's facts and H1's primitives in the prompt | **yes** | G1 |
+| **S3 CHECK** | `s3_check.py`, `s3_guards.py` | Near-miss rules (90–99.8% right) only became exact by covering less | Replays every rule; a **guard fitter** learns when a rule fails; exceptions, priorities, three trust tiers | no | G0, G1 |
+| **S4 CARRY** | `s4_carry.py` | Each new level needs its rules re-fitted, and at first it has little evidence (vc33) | Re-binds rules to the new level by search; waits for enough evidence online | no | G1 |
+| **S5 ACT** | `s5_act.py` | Rules have never been used online: Goose still spends moves on actions known to do nothing | Soft-prunes known no-ops, probes what's unexplained, follows goal hints; later IMAGINE | no | G2, G4 |
+| **H2 SCHEDULER** | `h2_schedule.py` | An LLM call takes 1–2 minutes; it must come at useful moments, within a budget, and keep runs reproducible | Event triggers (warm-up, level-up, surprise, stall) and a fixed budget | decides | G2 |
+| **H3 TEMPLATES** | `h3_templates.py` | Every new game starts from zero rules | Tries rules learned on dev games on a new game, by re-binding, before asking the LLM | no | G3 |
+| **S6 SHOW** | `s6_show.py` | The numbers are spread over many files, and you can't see a prediction next to what happened | One offline page per run: a funnel per game, a panel per stage, a move-by-move case viewer | no | (reads only) |
+
+Inherited, not new: `core/` is Rulebook v2's checking machinery, copied
+(see `core/__init__.py`). `artifacts.py` is the plumbing that keeps stages
+separate.
+
+## Where things are
+
+| | Path |
+|---|---|
+| Settings, one section per stage | `experiments/glassbox/glassbox.toml` |
+| Commands, one per stage | `experiments/glassbox/gb.mk` (included by the root Makefile: `make gb-help`) |
+| A run's files | `results/glassbox/<run>/` (offline), `results/runs/<ts>/<game>/glassbox/` (online) |
+| Tests | `tests/test_gb_*.py` |
+| Gates, registered before each run | `docs/3-glassbox/glassbox-prereg.md` |
+
+## Status
+
+| Piece | State |
+|---|---|
+| `core/` | copied from Rulebook v2 on 16 Oct; 51 tests |
+| `artifacts.py` | built 16 Oct |
+| S1–S6, H1–H3 | not built yet (plan section 7) |

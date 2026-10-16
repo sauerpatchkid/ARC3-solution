@@ -57,7 +57,7 @@ BASELINE_FILES = [
 PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 # First-party modules in this repo.
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "canon", "return_map",
-         "gridtools", "presets", "manifest", "tiers", "registry",
+         "gridtools", "presets", "manifest", "tiers", "registry", "gb",
          "upgrades",  # [upgrades]
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
@@ -66,7 +66,7 @@ LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "cano
 ARCHIVED = {"legacy", "llm_track", "coach", "coach_track", "wm", "rulebook"}
 
 # Baseline tooling that must never run LLM code or use its environment.
-BASELINE_TOOLING = ["Makefile", "sweep.sh"]
+BASELINE_TOOLING = ["Makefile", "sweep.sh", "experiments/glassbox/gb.mk"]
 LLM_INVOCATION = re.compile(
     r"-m\s+(legacy\.)?llm_track|\.venv-llm|-C\s+(legacy/)?llm_track"
     r"|(bash|sh|source)\s+(legacy/)?llm_track/")
@@ -95,6 +95,24 @@ def imported_modules(path):
     return out
 
 
+def untagged_gb_imports(path):
+    """Line numbers where a file imports the Glassbox package (gb) on a line
+    that is not tagged `# [gb]`. Glassbox is off by default and removable: the
+    agent may reach it only through tagged hook lines (sed -i '/\\[gb\\]/d')."""
+    src = open(path).read()
+    lines = src.splitlines()
+    bad = []
+    for node in ast.walk(ast.parse(src, filename=path)):
+        names = []
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            names = [node.module]
+        if any(n == "gb" or n.startswith("gb.") for n in names) and "# [gb]" not in lines[node.lineno - 1]:
+            bad.append(node.lineno)
+    return bad
+
+
 # Folders that are not this repo's live code: the archive itself, the harness
 # submodule, virtualenvs, run output and downloaded games.
 NOT_LIVE = {"legacy", "ARC-AGI-3-Agents", "results", "environment_files"}
@@ -120,6 +138,10 @@ def check_isolation():
     check("baseline does not depend on legacy/ or llm_track", not bad,
           f"offenders: {', '.join(bad)}" if bad else
           f"{len(files)} files clean")
+    gb_lines = [f"{rel}:{n}" for rel in BASELINE_FILES if os.path.exists(os.path.join(ROOT, rel))
+                for n in untagged_gb_imports(os.path.join(ROOT, rel))]
+    check("the baseline imports Glassbox (gb) only on lines tagged # [gb]", not gb_lines,
+          f"offenders: {', '.join(gb_lines)}" if gb_lines else "clean")
     bad_tool = [rel for rel in BASELINE_TOOLING
                 if os.path.exists(os.path.join(ROOT, rel))
                 and LLM_INVOCATION.search(open(os.path.join(ROOT, rel)).read())]
