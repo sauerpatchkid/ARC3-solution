@@ -1,4 +1,4 @@
-"""lint.py - the literal lint (docs/plans/rulebook-v2.md section 4.2): does a rule
+"""lint.py - the literal lint (docs/2-llm-history/rulebook-v2.md section 4.2): does a rule
 have level facts written into its code?
 
 An AST pass over the rule's functions (everything but bind(), whose job is to

@@ -4,7 +4,7 @@ semester 2, compared with the novelty-label agent measured in the same test.
     uv run python docs/reports/make_options_chart.py docs/reports/goose_options_comparison.png
 
 Numbers are the total levels per arm read from each test's manifest (see
-docs/plans/*results*.md). Colours validated with the dataviz skill's checker:
+docs/1-goose-upgrades/*results*.md). Colours validated with the dataviz skill's checker:
 blue 600 #184f95 (adopted) and blue 350 #5598e7 (ingredient) pass as an ordinal
 pair; both separate from the grey (worst CVD dE 20.8, normal 23.8); every bar is
 value-labelled because the lighter marks sit under 3:1 contrast.

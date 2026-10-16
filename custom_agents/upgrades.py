@@ -3,7 +3,7 @@ behind EVAL_UPGRADES, kept separate from both.
 
 Nothing here runs unless EVAL_UPGRADES is set; with it unset the agent is
 exactly the novelty-label agent (or the return-map agent). The ADOPTED Goose
-(mb_gated_att, docs/plans/upgrade-confirm-results.md) is
+(mb_gated_att, docs/1-goose-upgrades/upgrade-confirm-results.md) is
 
     EVAL_LABEL=novel EVAL_RETURN_MAP=1 EVAL_UPGRADES=bars,map_gated,attempt
 
@@ -25,7 +25,7 @@ Sampling upgrade (on top of the novelty label):
   deadclick  A click on the same cell and colour that has done nothing 4 times
              this level is never chosen again this level (Goose resamples).
              Not part of the adopted agent; kept because Rulebook v2's LLM-free
-             arm builds on it (docs/plans/rulebook-v2.md, C2-free).
+             arm builds on it (docs/2-llm-history/rulebook-v2.md, C2-free).
 
 Map upgrade (needs EVAL_RETURN_MAP=1; changes custom_agents/return_map.py's
 behaviour through a subclass, never by editing it):
@@ -34,7 +34,7 @@ behaviour through a subclass, never by editing it):
                "stay") scored by new screens per move in each attempt.
 
 REMOVED 2026-10-06: `graded`, `map_objects` and `map_diverse` lost the upgrade
-screen (docs/plans/upgrade-screen-results.md) and were deleted. Their code and
+screen (docs/1-goose-upgrades/upgrade-screen-results.md) and were deleted. Their code and
 tests are at the git tags `upgrade-screen-round1` and `pre-cleanup-2026-10-06`.
 The grid helpers they used (label_components, screen_objects) live on in
 custom_agents/gridtools.py.
@@ -43,7 +43,7 @@ HOW TO REMOVE IT
 Every hook line in custom_agents/action.py, check_repo.py and the root
 Makefile ends in `# [upgrades]`; `sed -i '/\\[upgrades\\]/d' <file>` restores
 each byte for byte. Then delete this file, tests/test_upgrades.py and
-experiments/upgrade_screen/. Neither the novelty label nor the return map
+legacy/goose_experiments/upgrade_screen/. Neither the novelty label nor the return map
 depends on anything here.
 """
 import json

@@ -1,5 +1,5 @@
 """bind.py - fitting a rule's PARAMS to a level by search, with no LLM call
-(docs/plans/rulebook-v2.md section 4.3), and running a rule with a binding.
+(docs/2-llm-history/rulebook-v2.md section 4.3), and running a rule with a binding.
 
 SEARCH. For one rule on one level's evidence, in ONE child process:
   1. The level's bindings: every combination of the slots' values, up to 4,096.

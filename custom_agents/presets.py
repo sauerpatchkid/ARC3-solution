@@ -22,7 +22,7 @@ import os
 from action import Action
 
 # Adopted 2026-09-28: 112 vs 79 levels on 25 games x 3 seeds
-# (docs/plans/upgrade-confirm-results.md).
+# (docs/1-goose-upgrades/upgrade-confirm-results.md).
 MB_GATED_ATT = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1",
                 "EVAL_UPGRADES": "bars,map_gated,attempt"}
 

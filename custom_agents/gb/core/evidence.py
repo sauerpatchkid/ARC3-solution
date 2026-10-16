@@ -1,5 +1,5 @@
 """evidence.py - one level's recorded moves, as the evidence rules are checked on
-(docs/plans/llm-rulebook.md section 3.1).
+(docs/2-llm-history/llm-rulebook.md section 3.1).
 
 A KEY is a distinct (screen, action): the screen with decoration cells blanked,
 plus the unified action index. Every recorded move of a level falls on one key.
@@ -17,7 +17,7 @@ but are never shown in a prompt.
 The level-completing move is left out: its next screen is the next level's
 first screen, which no rule about mechanics can predict.
 
-MOVES (Rulebook v2, docs/plans/rulebook-v2-prereg.md section 4.4). The index
+MOVES (Rulebook v2, docs/2-llm-history/rulebook-v2-prereg.md section 4.4). The index
 above merges moves made at different times, so beside it `moves` keeps one entry
 per recorded move, in order: `key` (which key it fell on, -1 if the cap dropped
 that key), `out` (the hash of its OWN next screen, decorations blanked) and,
@@ -98,7 +98,7 @@ class Region:
 class Api:
     """The `api` argument: what a rule may know about the level.
 
-    Rulebook v2 (docs/plans/rulebook-v2.md section 4.1) adds `level` (1 for the
+    Rulebook v2 (docs/2-llm-history/rulebook-v2.md section 4.1) adds `level` (1 for the
     first level, as the prompts count them), `colours` (the colours on the
     level's first board) and, for a rule graded move by move, `t` (recorded
     moves since the attempt started) and `attempt`; those two are None when a
@@ -335,7 +335,7 @@ class LevelEvidence:
 
     @classmethod
     def split(cls, game, corpus, level, fit_moves=300, known_mask=None, **kw):
-        """(fit, score) for a transfer level (docs/plans/rulebook-v2.md section
+        """(fit, score) for a transfer level (docs/2-llm-history/rulebook-v2.md section
         3.3): the level's first `fit_moves` moves are what re-binding and
         repair may look at, the rest are what scores are computed on, so no
         arm is scored on moves it was fitted to.

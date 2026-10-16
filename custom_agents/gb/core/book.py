@@ -1,6 +1,6 @@
 """book.py - trust across every level seen, and the composed rule book
-(docs/plans/rulebook-v2.md sections 4.4 and 4.5; the definitions the CP1 gate
-uses are in docs/plans/rulebook-v2-prereg.md section 4.2).
+(docs/2-llm-history/rulebook-v2.md sections 4.4 and 4.5; the definitions the CP1 gate
+uses are in docs/2-llm-history/rulebook-v2-prereg.md section 4.2).
 
 TRUST. A rule is graded on every level it has been seen on, each with that
 level's own binding (wm/bind.py):

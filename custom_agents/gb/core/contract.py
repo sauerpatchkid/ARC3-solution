@@ -1,4 +1,4 @@
-"""contract.py - the Rulebook v2 rule contract (docs/plans/rulebook-v2.md section 4.1).
+"""contract.py - the Rulebook v2 rule contract (docs/2-llm-history/rulebook-v2.md section 4.1).
 
 v1's rules failed to carry to the next level because level facts (this colour,
 that row) were written into the code. A v2 rule keeps its MECHANISM in code and

@@ -1,5 +1,5 @@
 """llm.py - the Rulebook's LLM calls: OpenAI-compatible chat over HTTP to the
-server in experiments/rulebook/serve.sh. Standard library only; the agent's
+server in experiments/llm/serve.sh. Standard library only; the agent's
 environment never imports vLLM.
 
 A request asks for n candidates at once. Answers are cached on disk (JSON lines)

@@ -24,7 +24,7 @@ map said, or the planned move is not available, the route is dropped and Goose
 plays normally. Moves that were followed by a game over are never used in a
 route. With `EVAL_RETURN_MAP` unset the agent never constructs this class.
 
-WHY (docs/plans/option-1-return-map.md has the full version)
+WHY (docs/1-goose-upgrades/option-1-return-map.md has the full version)
   - ARC-AGI-3 preview: 2nd place (Blind Squirrel) built a state graph; 3rd
     place (arXiv 2512.24156) keeps a graph and heads for the shortest path to
     untested state-action pairs, solving a median 30/52 levels with no learning.

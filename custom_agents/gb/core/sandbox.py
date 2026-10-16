@@ -13,7 +13,7 @@ Two layers, in order:
                   board arrays and the `api` object only - never engine objects.
 
 This guards against mistakes and accidents in locally generated code. It is not
-a hardened security boundary (docs/plans/llm-rulebook.md section 3.3 says what
+a hardened security boundary (docs/2-llm-history/llm-rulebook.md section 3.3 says what
 the report may claim). Copied from legacy/llm_track/heur_sandbox.py.
 """
 import ast

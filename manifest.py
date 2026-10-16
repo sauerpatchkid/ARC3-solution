@@ -4,7 +4,7 @@ A manifest is what every sweep writes as it goes, one line per finished run:
 
     run_dir <TAB> game <TAB> seed <TAB> arm
 
-(sweep.sh, experiments/upgrade_screen/screen.py and the scripts built on it).
+(sweep.sh, legacy/goose_experiments/upgrade_screen/screen.py and the scripts built on it).
 Seven scripts used to parse this themselves, each a little differently: some
 skipped a short line, some crashed on it. They all call read_manifest() now.
 

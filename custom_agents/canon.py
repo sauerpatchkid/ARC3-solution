@@ -17,7 +17,7 @@ frame. Every `refresh` transitions after that the mask is recomputed from the
 running counts, so a cell that stops changing drops out and one that starts
 ticking is picked up. Keys made under different masks are not comparable in
 general; callers keep their `seen` sets across a refresh anyway (the plan
-accepts that lag), and the diagnostic in tools/label_diagnostic.py measures
+accepts that lag), and the diagnostic in legacy/goose_experiments/label_diagnostic.py measures
 how far the end-of-run online mask is from the offline one.
 
 Pure numpy + xxhash; nothing here touches torch. custom_agents/action.py uses
@@ -112,7 +112,7 @@ class LevelMemory:
 
     Until 2026-10-06 this class also held Plan B's tried-action soft mask
     (EVAL_MASK_TRIED, arms A2 and A3). The confirm sweep dropped the mask
-    (docs/plans/plan-B-confirm-sweep-results.md), so it was removed; the code is
+    (docs/1-goose-upgrades/plan-B-confirm-sweep-results.md), so it was removed; the code is
     at the git tag pre-cleanup-2026-10-06.
     """
 

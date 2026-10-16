@@ -11,7 +11,7 @@ pairs present on both sides are compared. Reports per game: levels per seed,
 paired wins/ties/losses, mean unique states, median late novelty and, when
 the new arm used the return map, its share of actions and route outcomes.
 
-Adoption rule (docs/plans/option-1-return-map.md; the same shape Plan B used):
+Adoption rule (docs/1-goose-upgrades/option-1-return-map.md; the same shape Plan B used):
   1. levels summed over the pairs: new >= base, and paired wins > losses;
   2. no game where new completes fewer levels than base on every seed.
 
@@ -22,7 +22,7 @@ all three; part 1 is:
   confirm  levels new >  base, wins >  losses             Rulebook 25-game confirms
 With --rule left out, verdicts are computed and printed exactly as before.
 
---seal PATH (Rulebook v2 confirms, docs/plans/rulebook-v2-prereg.md section 5.3):
+--seal PATH (Rulebook v2 confirms, docs/2-llm-history/rulebook-v2-prereg.md section 5.3):
 per-game rows of the held-out tiers (A/B-offline and untouched) are NOT printed.
 They are written to PATH, packed so that they are not read by accident, and
 each held-out tier is shown as one subtotal row. The verdict is unchanged: it
@@ -30,7 +30,7 @@ is computed on every game. Open a sealed file with
     uv run python tools/paired_compare.py --open-sealed PATH --reason "CP3 artifacts frozen"
 which prints it and logs the opening in artifacts/registry.json.
 
-Added for the Coach plan (docs/plans/llm-coach.md §6), both off the rule's path:
+Added for the Coach plan (docs/2-llm-history/llm-coach.md §6), both off the rule's path:
   --expect N  blocks the verdict (BLOCKED, exit code 2) unless both arms have
               exactly the N declared (game, seed) runs, one each, the same
               action cap, and no run that ended on an error (run_end.json).
@@ -123,7 +123,7 @@ def seal(path, rows, meta):
     import zlib
     blob = base64.b64encode(zlib.compress(json.dumps({"meta": meta, "rows": rows}).encode())).decode()
     with open(path, "w") as f:
-        f.write("SEALED per-game held-out results (docs/plans/rulebook-v2-prereg.md section 5.3).\n"
+        f.write("SEALED per-game held-out results (docs/2-llm-history/rulebook-v2-prereg.md section 5.3).\n"
                 "Do not open before the CP3 artifacts are frozen and registered. Open with:\n"
                 "  uv run python tools/paired_compare.py --open-sealed <this file> --reason \"...\"\n\n"
                 + blob + "\n")

@@ -1,4 +1,4 @@
-"""metrics.py - Rulebook v2's measuring tools (docs/plans/rulebook-v2.md section 3.3).
+"""metrics.py - Rulebook v2's measuring tools (docs/2-llm-history/rulebook-v2.md section 3.3).
 
 v1 graded a rule on whole boards: one wrong cell anywhere and the case counted as
 wrong, so a rule that explained most of a change counted for nothing. v2 lets a
@@ -28,7 +28,7 @@ of the transfer level, with the memory baseline also given the fit split.
 Counts are in recorded moves (a case seen 40 times counts 40) wherever v1's
 were, and over distinct cases where v1's coverage was.
 
-THE GATE'S INTERVAL (docs/plans/rulebook-v2-prereg.md section 4.4, settled 13 Oct
+THE GATE'S INTERVAL (docs/2-llm-history/rulebook-v2-prereg.md section 4.4, settled 13 Oct
 2026 before any CP1 run). Rates here are PER MOVE: a move is right for an arm if
 the arm's prediction for its case matches that move's OWN recorded next screen
 on every non-decoration cell (so a case seen to end two ways cannot be right on

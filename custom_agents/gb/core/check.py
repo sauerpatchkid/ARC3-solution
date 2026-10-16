@@ -1,5 +1,5 @@
 """check.py - is a rule right, how far can it be trusted, and what does the whole
-rule book cover (docs/plans/llm-rulebook.md sections 3.2 and 6.3).
+rule book cover (docs/2-llm-history/llm-rulebook.md sections 3.2 and 6.3).
 
 THE CHECK. A rule is run, in a child process, on every key of a level's
 evidence. Where applies() is True, predict() must reproduce the key's recorded
@@ -28,7 +28,7 @@ that the move does nothing.
 COVERAGE (gate G1) = the share of the level's distinct CHANGING keys the book
 predicts exactly; UNKNOWN and wrong both count as misses.
 
-CLAIMED CELLS (Rulebook v2, docs/plans/rulebook-v2.md section 4.5). predict()
+CLAIMED CELLS (Rulebook v2, docs/2-llm-history/rulebook-v2.md section 4.5). predict()
 may return (next_board, claimed) instead of next_board: `claimed` is a 64x64
 bool array of the cells the rule vouches for, every other cell is UNKNOWN as
 far as that rule goes. A v1 rule returns a bare board and so claims every cell.

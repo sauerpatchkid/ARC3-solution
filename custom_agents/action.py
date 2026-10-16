@@ -37,7 +37,7 @@ Architecture:
 Training:
 - Supervised learning on (state, action) -> frame_changed labels
   (or, with EVAL_LABEL=novel, -> "reached a canonical state not seen before in
-  this level"; see docs/plans/plan-B-goose-novelty.md and canon.py)
+  this level"; see docs/1-goose-upgrades/plan-B-goose-novelty.md and canon.py)
 - Action head always trained, click head only trained when ACTION6 is selected
 - Experience buffer cleared when score increases (new level)
 
@@ -155,7 +155,7 @@ class Action(Agent):
         # EVAL_RESET_ON_LEVEL=0 to DISABLE resets (the persistence arm).
         self.reset_on_level = env_flag("EVAL_RESET_ON_LEVEL", True)
 
-        # --- Plan B (docs/plans/plan-B-goose-novelty.md): the novelty label ---
+        # --- Plan B (docs/1-goose-upgrades/plan-B-goose-novelty.md): the novelty label ---
         # EVAL_LABEL=novel trains on "did this action reach a canonical state
         # not seen before in this level" instead of "did the frame change".
         # It defaults to the baseline, and with it off none of this code runs,
@@ -173,12 +173,12 @@ class Action(Agent):
         self.memory_on = self.label == "novel"
         self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh) if self.memory_on else None
         self.memory = LevelMemory() if self.memory_on else None
-        # Option 1: a map of the level and a way back (docs/plans/option-1-return-map.md).  # [return-map]
+        # Option 1: a map of the level and a way back (docs/1-goose-upgrades/option-1-return-map.md).  # [return-map]
         # Off unless EVAL_RETURN_MAP=1. It needs the screen fingerprint's mask.  # [return-map]
         self.return_map = ReturnMap.from_env() if env_flag("EVAL_RETURN_MAP", False) else None  # [return-map]
         if self.return_map is not None and self.canon is None:  # [return-map]
             self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [return-map]
-        # Upgrade screen (experiments/upgrade_screen/): off unless EVAL_UPGRADES is set.  # [upgrades]
+        # Upgrade screen (legacy/goose_experiments/upgrade_screen/): off unless EVAL_UPGRADES is set.  # [upgrades]
         self.upgrades = Upgrades.from_env() if os.getenv("EVAL_UPGRADES", "").strip() else None  # [upgrades]
         if self.upgrades is not None:  # [upgrades]
             self.upgrades.check(getattr(self, "return_map", None) is not None)  # [upgrades]

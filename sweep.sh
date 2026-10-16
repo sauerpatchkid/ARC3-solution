@@ -28,9 +28,9 @@
 #          seed is run once per arm with the matching flags, the ':both/:off'
 #          reset suffixes are ignored, and the manifest's arm column holds the
 #          arm name. Unset = the reset arms, exactly as before.
-#            A0 change label (baseline)       docs/plans/plan-B-goose-novelty.md
+#            A0 change label (baseline)       docs/1-goose-upgrades/plan-B-goose-novelty.md
 #            A1 novelty label
-#            A4 novelty label + return map    docs/plans/option-1-return-map.md
+#            A4 novelty label + return map    docs/1-goose-upgrades/option-1-return-map.md
 #          (A2 and A3, the tried-action mask, were removed on 2026-10-06.)
 #          The ADOPTED agent is not an arm here: it is the registered agent
 #          mb_gated_att, so run it with AGENT=mb_gated_att and no ARMS.
