@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glassbox report</title>
+<!-- S6 SHOW's page (custom_agents/gb/s6_show.py fills in the data). Self-contained:
+     no network, no external files. Colours: the dataviz reference palette; the diff
+     marks (blue = explained, red = wrong) pass every colour-vision check in both
+     modes, and every mark also differs by shape. Boards use the game's own colours. -->
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --bar: #2a78d6; --track: #eceae4;
+  --right: #2a78d6; --wrong: #d03b3b; --unclaimed: #898781;
+  --good: #006300; --bad: #d03b3b; --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --bar: #3987e5; --track: #2c2c2a;
+    --right: #3987e5; --wrong: #d03b3b; --unclaimed: #898781;
+    --good: #0ca30c; --bad: #e66767; --focus: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --bar: #3987e5; --track: #2c2c2a;
+  --right: #3987e5; --wrong: #d03b3b; --unclaimed: #898781;
+  --good: #0ca30c; --bad: #e66767; --focus: #3987e5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+h2 { font-size: 17px; margin: 0 0 6px; font-weight: 600; }
+h3 { font-size: 14px; margin: 18px 0 6px; font-weight: 600; }
+p { margin: 0 0 8px; }
+.sub, .lede { color: var(--ink2); }
+.lede { max-width: 80ch; }
+section, header.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+                       padding: 18px 18px 16px; margin: 0 0 16px; }
+.top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; margin: 12px 0 0; }
+.meta div { min-width: 0; }
+.meta dt { color: var(--muted); font-size: 12px; }
+.meta dd { margin: 0; overflow-wrap: anywhere; }
+button, select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis);
+                 border-radius: 6px; padding: 5px 10px; }
+button { cursor: pointer; }
+button:hover, select:hover { border-color: var(--muted); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* the verdict */
+.gate { border-left: 4px solid var(--axis); }
+.gate ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.gate li { margin: 4px 0; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;
+        border: 1px solid var(--border); font-size: 12px; white-space: nowrap; }
+.chip.good { color: var(--good); }
+.chip.bad { color: var(--bad); }
+.verdict { font-weight: 600; }
+/* the funnel tables */
+.table-wrap { overflow-x: auto; margin: 8px 0 4px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+th { font-weight: 500; color: var(--ink2); font-size: 12px; vertical-align: bottom; }
+th.num, td.num { text-align: right; }
+td.num { white-space: nowrap; }
+tr.game-row { cursor: pointer; }
+tr.game-row:hover td { background: color-mix(in srgb, var(--surface), var(--ink) 4%); }
+.bar { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.track { position: relative; flex: 0 0 88px; height: 10px; border-left: 1px solid var(--axis); }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); border-radius: 0 4px 4px 0; }
+.val { white-space: nowrap; }
+.val small { color: var(--muted); }
+.defs { margin-top: 10px; color: var(--ink2); }
+.defs dt { color: var(--ink); font-weight: 500; margin-top: 6px; }
+.defs dd { margin: 0 0 0 0; }
+/* the viewer */
+.filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; margin: 10px 0 12px; }
+.filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+.filters select { max-width: 280px; }
+.nav { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; flex-wrap: wrap; }
+.nav .pos { color: var(--ink2); }
+.nav .hint { color: var(--muted); font-size: 12px; }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+figure { margin: 0; }
+figure canvas { width: 100%; max-width: 300px; aspect-ratio: 1; display: block; border-radius: 4px;
+                border: 1px solid var(--border); image-rendering: pixelated; }
+figcaption { font-size: 12px; color: var(--ink2); margin-top: 5px; max-width: 300px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; color: var(--ink2); font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { flex: none; }
+.case { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 6px 24px; margin-top: 14px;
+        align-items: start; }
+.case dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; align-content: start; }
+.case dt { color: var(--muted); }
+.case dd { margin: 0; overflow-wrap: anywhere; }
+.rule { border-top: 1px solid var(--grid); padding: 8px 0; }
+.rule .rid { color: var(--muted); }
+pre { background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 340px; }
+.empty { color: var(--ink2); padding: 24px 0; }
+footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink);
+       border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 12px; max-width: 320px;
+       box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+#tip b { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="card">
+    <div class="top">
+      <div>
+        <h1>Glassbox report: <span id="run-name"></span></h1>
+        <p class="sub" id="source"></p>
+      </div>
+      <button id="theme" type="button" aria-label="Switch colour theme">Theme: system</button>
+    </div>
+    <dl class="meta" id="meta"></dl>
+  </header>
+
+  <section class="gate" id="gate" hidden>
+    <h2 id="gate-title"></h2>
+    <ul id="gate-list"></ul>
+    <p class="verdict" id="gate-verdict"></p>
+  </section>
+
+  <section id="funnel-sec">
+    <h2>Where each game breaks</h2>
+    <p class="lede">Each bar is a share of the level's <b>distinct changing cases</b>: a case is one screen and
+      one action, counted once however often it was played, and changing means the screen really changed. Read
+      a row left to right to see where a game's cases are lost. Click a row to open its cases below.</p>
+    <h3 id="train-title">The training level: what the book explains</h3>
+    <div class="table-wrap"><table id="train-table"></table></div>
+    <h3>The next level: the book after re-binding (T1), no LLM</h3>
+    <div class="table-wrap"><table id="next-table"></table></div>
+    <details class="defs">
+      <summary>What each column counts</summary>
+      <dl>
+        <dt>In a group the LLM was asked about</dt>
+        <dd>Changing cases in an action group (a button, or clicks on one colour) that got LLM calls.</dd>
+        <dt>An admitted rule explains part of it</dt>
+        <dd>Some admitted rule applies, gets at least one changed cell right, and gets every cell it claims right.
+          Admitted rules can still be wrong elsewhere, so they are not in the book.</dd>
+        <dt>The book explains part, nothing wrong</dt>
+        <dd>The book (the trusted rules, composed cell by cell) gets at least one changed cell right and no claimed
+          cell wrong.</dd>
+        <dt>The book gets the whole screen right</dt>
+        <dd>Every live cell of the predicted screen matches what happened (v1's strict number, "case coverage").</dd>
+        <dt>Cell coverage</dt>
+        <dd>Of all changed cells on the level, the share the book claims and gets right. Glassbox's G1 primary.</dd>
+        <dt>T1 wrong</dt>
+        <dd>Share of the next level's changing cases with a wrong claimed cell. The safety bar is 5%.</dd>
+        <dt>Per move right; T1 − baseline</dt>
+        <dd>Share of recorded moves whose whole next screen T1 predicts, beside "nothing changes" and "memory"
+          (repeat what this screen and action did before). The 95% interval resamples attempts.</dd>
+      </dl>
+    </details>
+  </section>
+
+  <section id="viewer">
+    <h2>Case viewer</h2>
+    <p class="lede">One case at a time: the screen before, what the book predicted, what really happened, and
+      the difference. Use the filters, or the arrow keys ← → to page.</p>
+    <div class="filters">
+      <label>Game <select id="f-game"></select></label>
+      <label>Level <select id="f-level"></select></label>
+      <label>Flag <select id="f-flag"></select></label>
+      <label>Action group <select id="f-group"></select></label>
+      <label>Rule <select id="f-rule"></select></label>
+    </div>
+    <div class="nav">
+      <button id="prev" type="button" aria-label="Previous case">←</button>
+      <span class="pos" id="pos" aria-live="polite"></span>
+      <button id="next" type="button" aria-label="Next case">→</button>
+      <span class="hint" id="shown-note"></span>
+    </div>
+    <div id="case-area">
+      <div class="panels">
+        <figure><canvas id="c-before" width="512" height="512" role="img" aria-label="Screen before the move"></canvas>
+          <figcaption><b>Before</b>, with the move. Faded cells are decorations the checker ignores.</figcaption></figure>
+        <figure><canvas id="c-pred" width="512" height="512" role="img" aria-label="The book's prediction"></canvas>
+          <figcaption><b>Predicted</b> by the book. Outlined cells are claimed; the rest are dimmed.</figcaption></figure>
+        <figure><canvas id="c-after" width="512" height="512" role="img" aria-label="Screen after the move"></canvas>
+          <figcaption><b>After</b>: what really happened.</figcaption></figure>
+        <figure><canvas id="c-diff" width="512" height="512" role="img" aria-label="Difference between prediction and reality"></canvas>
+          <figcaption><b>Difference</b>, over a faint copy of the real screen.</figcaption></figure>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="case">
+        <dl id="case-facts"></dl>
+        <div id="case-rules"></div>
+      </div>
+    </div>
+    <p class="empty" id="empty" hidden></p>
+  </section>
+
+  <footer id="footer"></footer>
+</main>
+<div id="tip" role="tooltip" hidden></div>
+<script id="glassbox-data" type="application/json">/*GLASSBOX_DATA*/null</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("glassbox-data").textContent);
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+};
+const pct = (x, d = 0) => (100 * x).toFixed(d) + "%";
+const share = (n, of) => (of ? n / of : 0);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// ---- theme -------------------------------------------------------------------------------------
+const THEMES = ["system", "light", "dark"];
+let theme = "system";
+try { theme = localStorage.getItem("glassbox-theme") || "system"; } catch (e) { /* storage blocked */ }
+function applyTheme() {
+  if (theme === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  $("theme").textContent = "Theme: " + theme;
+  if (state.cases) drawCase();
+}
+$("theme").addEventListener("click", () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  try { localStorage.setItem("glassbox-theme", theme); } catch (e) { /* storage blocked */ }
+  applyTheme();
+});
+
+// ---- header and verdict ----------------------------------------------------------------------
+function header() {
+  const m = DATA.meta;
+  $("run-name").textContent = m.run;
+  $("source").textContent = m.imported_from.length
+    ? "Imported from " + m.imported_from.join(", ") + " and re-run with gb/core (no LLM, no search)."
+    : "A Glassbox run.";
+  const llm = m.llm;
+  const rows = [
+    ["Built", m.built + " at commit " + m.commit],
+    ["Run created", (m.created || "?") + "; " + m.sessions.length + " session(s)"],
+    ["Settings hash", m.config_hash],
+    ["Model", m.model.join(", ") || "none"],
+    ["LLM use", llm.answers ? llm.answers.toLocaleString() + " answers, " + llm.tokens.toLocaleString() +
+      " tokens, " + llm.ran_out + " ran out of room (" + pct(share(llm.ran_out, llm.answers)) + ")" : "none"],
+    ["Time per game, summed", llm.hours ? llm.hours + " h (games and groups ran in parallel)" : "?"],
+  ];
+  for (const [k, v] of rows) $("meta").append(el("div", {}, el("dt", { text: k }), el("dd", { text: v })));
+  $("footer").textContent = "Built by custom_agents/gb/s6_show.py from results/glassbox/" + m.run +
+    "/. It only reads the run's files: each case drawn here was re-run in the sandbox and gave exactly the status the stage stored.";
+  if (DATA.gate) {
+    const g = DATA.gate;
+    $("gate").hidden = false;
+    $("gate").style.borderLeftColor = g.pass ? css("--good") : css("--bad");
+    $("gate-title").textContent = g.name;
+    for (const c of g.criteria) {
+      const chip = el("span", { class: "chip " + (c.pass ? "good" : "bad"), text: (c.pass ? "✓ met" : "✗ not met") });
+      const games = c.games.length ? " (" + c.games.join(", ") + ")" : "";
+      $("gate-list").append(el("li", {}, chip, " " + c.label + ": " + c.value + games + "; needs " + c.needs + "."));
+    }
+    $("gate-verdict").textContent = "Verdict: " + (g.pass ? "PASS" : "FAIL") + " (pass = primary and safety).";
+  }
+}
+
+// ---- the funnel ------------------------------------------------------------------------------
+const tip = $("tip");
+function showTip(target, lines) {
+  tip.replaceChildren(el("b", { text: lines[0] }), ...lines.slice(1).map((l) => el("div", { text: l })));
+  tip.hidden = false;
+  const r = target.getBoundingClientRect();
+  const x = Math.min(r.left, window.innerWidth - 330), y = r.bottom + 6;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = (y + 120 > window.innerHeight ? r.top - tip.offsetHeight - 6 : y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+function barCell(n, of, game, label) {
+  const s = share(n, of);
+  const fill = el("span", { class: "fill" });
+  fill.style.width = (100 * s) + "%";
+  const cell = el("td", { tabindex: "0" },
+    el("div", { class: "bar" }, el("span", { class: "track" }, fill),
+       el("span", { class: "val" }, pct(s) + " ", el("small", { text: n.toLocaleString() }))));
+  const lines = [pct(s, 1), game + " · " + label, n.toLocaleString() + " of " + of.toLocaleString() + " changing cases"];
+  cell.addEventListener("pointerenter", () => showTip(cell, lines));
+  cell.addEventListener("focus", () => showTip(cell, lines));
+  cell.addEventListener("pointerleave", hideTip);
+  cell.addEventListener("blur", hideTip);
+  return cell;
+}
+function shareCell(x, game, label) {             // a share that is not a case count (cell coverage)
+  const fill = el("span", { class: "fill" });
+  fill.style.width = (100 * x) + "%";
+  const cell = el("td", { tabindex: "0" },
+    el("div", { class: "bar" }, el("span", { class: "track" }, fill), el("span", { class: "val", text: pct(x, 1) })));
+  const lines = [pct(x, 2), game + " · " + label];
+  cell.addEventListener("pointerenter", () => showTip(cell, lines));
+  cell.addEventListener("focus", () => showTip(cell, lines));
+  cell.addEventListener("pointerleave", hideTip);
+  cell.addEventListener("blur", hideTip);
+  return cell;
+}
+function diffText(d) {
+  const p = (d.point >= 0 ? "+" : "") + d.point.toFixed(3);
+  return d.lo == null ? p + " (no interval)" : p + " [" + d.lo.toFixed(3) + ", " + d.hi.toFixed(3) + "]";
+}
+function funnelTables() {
+  const head = (cols) => el("thead", {}, el("tr", {}, ...cols.map(([t, c]) => el("th", { class: c || "", text: t }))));
+  const tt = $("train-table"), nt = $("next-table");
+  tt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ["In a group the LLM was asked about"],
+                  ["An admitted rule explains part of it"], ["The book explains part, nothing wrong"],
+                  ["The book gets the whole screen right"], ["Cell coverage (G1's primary)"], ["Rules in the book", "num"]]));
+  nt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ["Rules carried", "num"],
+                  ["T1 explains part, nothing wrong"], ["T1 gets the whole screen right"], ["T1 wrong (≤ 5%)"],
+                  ["Moves right: T1 / nothing / memory", "num"], ["T1 − nothing [95% interval]", "num"],
+                  ["T1 − memory [95% interval]", "num"], ["Beats both"]]));
+  const tb = el("tbody"), nb = el("tbody");
+  for (const f of DATA.funnel) {
+    const pick = () => { $("f-game").value = f.game; onGame(); $("viewer").scrollIntoView({ behavior: "smooth" }); };
+    const row = el("tr", { class: "game-row", title: "Open " + f.game + "'s cases" },
+      el("td", { text: f.game }), el("td", { class: "num", text: f.level }),
+      el("td", { class: "num", text: f.changing.toLocaleString() }),
+      barCell(f.in_called, f.changing, f.game, "in a group the LLM was asked about"),
+      barCell(f.admitted, f.changing, f.game, "an admitted rule explains part of it"),
+      barCell(f.book_part, f.changing, f.game, "the book explains part, nothing wrong"),
+      barCell(f.book_whole, f.changing, f.game, "the book gets the whole screen right"),
+      shareCell(f.cell_coverage, f.game, "cell coverage on the training level"),
+      el("td", { class: "num", text: f.book_rules }));
+    row.addEventListener("click", pick);
+    tb.append(row);
+    const t = f.transfer;
+    if (!t) { nb.append(el("tr", {}, el("td", { text: f.game }), el("td", { colspan: "10", text: "no next level in the recording" }))); continue; }
+    const safe = t.wrong <= 0.05;
+    const r = t.rate;
+    const row2 = el("tr", { class: "game-row", title: "Open " + f.game + "'s cases" },
+      el("td", { text: f.game }), el("td", { class: "num", text: t.level }),
+      el("td", { class: "num", text: t.changing.toLocaleString() }), el("td", { class: "num", text: t.rules }),
+      barCell(t.t1_part, t.changing, f.game, "T1 explains part, nothing wrong"),
+      barCell(t.t1_whole, t.changing, f.game, "T1 gets the whole screen right"),
+      el("td", {}, el("span", { class: "chip " + (safe ? "good" : "bad"), text: (safe ? "✓ " : "✗ ") + pct(t.wrong, 1) })),
+      el("td", { class: "num", text: pct(r.book, 1) + " / " + pct(r.nothing, 1) + " / " + pct(r.memory, 1) }),
+      el("td", { class: "num", text: diffText(t.diff.nothing) }), el("td", { class: "num", text: diffText(t.diff.memory) }),
+      el("td", {}, el("span", { class: "chip " + (t.beats_both ? "good" : ""), text: t.beats_both ? "✓ yes" : "– no" })));
+    row2.addEventListener("click", pick);
+    nb.append(row2);
+  }
+  tt.append(tb);
+  nt.append(nb);
+}
+
+// ---- the case viewer ------------------------------------------------------------------------------
+const state = { game: null, data: null, level: null, cases: null, i: 0 };
+const wanted = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));   // a link to one case
+function remember() {
+  const p = new URLSearchParams({ game: state.game, level: $("f-level").value, flag: $("f-flag").value, case: String(state.i + 1) });
+  history.replaceState(null, "", "#" + p.toString());
+}
+const cache = {};
+async function gameData(game) {
+  if (!cache[game]) {
+    const bytes = Uint8Array.from(atob(DATA.games[game]), (c) => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    cache[game] = JSON.parse(await new Response(stream).text());
+  }
+  return cache[game];
+}
+const bytesOf = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+function bitsOf(b64) {
+  const p = bytesOf(b64), out = new Uint8Array(4096);
+  for (let i = 0; i < 4096; i++) out[i] = (p[i >> 3] >> (7 - (i & 7))) & 1;
+  return out;
+}
+function fillSelect(sel, options, keep) {
+  sel.replaceChildren(...options.map(([v, t]) => el("option", { value: v, text: t })));
+  if (keep != null && options.some(([v]) => v === keep)) sel.value = keep;
+}
+async function onGame() {
+  state.game = $("f-game").value;
+  state.data = await gameData(state.game);
+  fillSelect($("f-level"), state.data.levels.map((lv, i) => [String(i), lv.label]), wanted.level || "0");
+  onLevel();
+}
+function onLevel() {
+  state.level = state.data.levels[Number($("f-level").value)];
+  const lv = state.level;
+  const flagOpts = [["", "Every flagged case (" + lv.shown + " shown)"]].concat(
+    DATA.meta.flags.filter((f) => f in lv.flag_counts).map((f) => [f, f + " (" + lv.flag_counts[f].toLocaleString() + " cases)"]));
+  fillSelect($("f-flag"), flagOpts, wanted.flag != null ? wanted.flag : $("f-flag").value);
+  const groups = [...new Set(lv.cases.map((c) => c.group))].sort();
+  fillSelect($("f-group"), [["", "Every group"]].concat(groups.map((g) => [g, g])), $("f-group").value);
+  const rules = [...new Set(lv.cases.flatMap((c) => c.rules))].sort((a, b) => a - b);
+  fillSelect($("f-rule"), [["", "Any or none"], ["none", "No rule applies"]].concat(
+    rules.map((r) => [String(r), "#" + r + " " + (state.data.rules[r] ? state.data.rules[r].rule.slice(0, 60) : "")])), $("f-rule").value);
+  onFilter();
+}
+function onFilter() {
+  const flag = $("f-flag").value, group = $("f-group").value, rule = $("f-rule").value;
+  state.cases = state.level.cases.filter((c) =>
+    (!flag || c.flags.includes(flag)) && (!group || c.group === group) &&
+    (!rule || (rule === "none" ? c.rules.length === 0 : c.rules.includes(Number(rule)))));
+  state.i = 0;
+  if (wanted.case) { state.i = Math.max(0, Math.min(state.cases.length - 1, Number(wanted.case) - 1 || 0)); }
+  for (const k of ["level", "flag", "case"]) delete wanted[k];
+  $("shown-note").textContent = "The viewer keeps the " + DATA.meta.per_flag +
+    " most-played cases of each flag; the counts in the Flag list are all of them.";
+  drawCase();
+}
+function step(d) {
+  if (!state.cases || !state.cases.length) return;
+  state.i = (state.i + d + state.cases.length) % state.cases.length;
+  drawCase();
+}
+$("f-game").addEventListener("change", onGame);
+$("f-level").addEventListener("change", onLevel);
+for (const id of ["f-flag", "f-group", "f-rule"]) $(id).addEventListener("change", onFilter);
+$("prev").addEventListener("click", () => step(-1));
+$("next").addEventListener("click", () => step(1));
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest && e.target.closest("select, input, textarea")) return;
+  if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+  if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+});
+
+// ---- drawing ------------------------------------------------------------------------------------
+const S = 8;      // canvas pixels per board cell (512 / 64)
+function drawBoard(ctx, board, live, veil, veilAlpha) {
+  const pal = DATA.palette, surface = css("--surface");
+  for (let i = 0; i < 4096; i++) {
+    const y = i >> 6, x = i & 63;
+    ctx.fillStyle = pal[board[i]] || "#000";
+    ctx.fillRect(x * S, y * S, S, S);
+    if (veil && veil(i)) {
+      ctx.globalAlpha = veilAlpha;
+      ctx.fillStyle = surface;
+      ctx.fillRect(x * S, y * S, S, S);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+function outline(ctx, mask) {          // the edge of a set of cells: ink line with a surface halo
+  const edges = [];
+  for (let i = 0; i < 4096; i++) {
+    if (!mask[i]) continue;
+    const y = i >> 6, x = i & 63;
+    if (y === 0 || !mask[i - 64]) edges.push([x, y, x + 1, y]);
+    if (y === 63 || !mask[i + 64]) edges.push([x, y + 1, x + 1, y + 1]);
+    if (x === 0 || !mask[i - 1]) edges.push([x, y, x, y + 1]);
+    if (x === 63 || !mask[i + 1]) edges.push([x + 1, y, x + 1, y + 1]);
+  }
+  for (const [w, c] of [[5, css("--surface")], [2, css("--ink")]]) {
+    ctx.lineWidth = w; ctx.strokeStyle = c; ctx.lineCap = "square";
+    ctx.beginPath();
+    for (const [x0, y0, x1, y1] of edges) { ctx.moveTo(x0 * S, y0 * S); ctx.lineTo(x1 * S, y1 * S); }
+    ctx.stroke();
+  }
+}
+function ring(ctx, y, x) {             // where a click landed
+  const cx = x * S + S / 2, cy = y * S + S / 2;
+  for (const [w, c] of [[6, css("--surface")], [2.5, css("--ink")]]) {
+    ctx.lineWidth = w; ctx.strokeStyle = c;
+    ctx.beginPath(); ctx.arc(cx, cy, S * 1.6, 0, 2 * Math.PI); ctx.stroke();
+  }
+}
+function drawCase() {
+  const empty = !state.cases || !state.cases.length;
+  $("case-area").hidden = empty;
+  $("empty").hidden = !empty;
+  $("prev").disabled = $("next").disabled = empty;
+  if (empty) {
+    $("pos").textContent = "No cases";
+    $("empty").textContent = "No case matches these filters. On this level the book may have no rules, or this flag never occurs.";
+    return;
+  }
+  const c = state.cases[state.i], lv = state.level;
+  $("pos").textContent = "Case " + (state.i + 1) + " of " + state.cases.length;
+  remember();
+  const live = bitsOf(lv.live), before = bytesOf(c.b), after = bytesOf(c.a), pred = bytesOf(c.p);
+  const claimed = bitsOf(c.c), clash = bitsOf(c.x);
+  const dead = (i) => !live[i];
+  // before
+  const cb = $("c-before").getContext("2d");
+  drawBoard(cb, before, live, dead, 0.55);
+  const m = /row (\d+), column (\d+)/.exec(c.action);
+  if (m) ring(cb, Number(m[1]), Number(m[2]));
+  // predicted: claimed cells at full strength and outlined, the rest dimmed
+  const cp = $("c-pred").getContext("2d");
+  drawBoard(cp, pred, live, (i) => !claimed[i], 0.72);
+  outline(cp, claimed);
+  // after
+  drawBoard($("c-after").getContext("2d"), after, live, dead, 0.55);
+  // difference: marks differ by shape as well as colour
+  const cd = $("c-diff").getContext("2d");
+  cd.fillStyle = css("--surface"); cd.fillRect(0, 0, 512, 512);
+  cd.globalAlpha = 0.16; drawBoard(cd, after, live, null, 0); cd.globalAlpha = 1;
+  const right = css("--right"), wrong = css("--wrong"), un = css("--unclaimed");
+  let nRight = 0, nWrong = 0, nUn = 0;
+  for (let i = 0; i < 4096; i++) {
+    if (!live[i]) continue;
+    const y = i >> 6, x = i & 63, X = x * S, Y = y * S;
+    const changed = before[i] !== after[i];
+    if (claimed[i] && pred[i] !== after[i]) {
+      nWrong++;
+      cd.strokeStyle = wrong; cd.lineWidth = 2.2; cd.beginPath();
+      cd.moveTo(X + 1.5, Y + 1.5); cd.lineTo(X + S - 1.5, Y + S - 1.5);
+      cd.moveTo(X + S - 1.5, Y + 1.5); cd.lineTo(X + 1.5, Y + S - 1.5); cd.stroke();
+    } else if (claimed[i] && changed) {
+      nRight++;
+      cd.fillStyle = right; cd.fillRect(X + 1, Y + 1, S - 2, S - 2);
+    } else if (changed && !claimed[i]) {
+      nUn++;
+      cd.strokeStyle = un; cd.lineWidth = 1.5; cd.beginPath();
+      cd.moveTo(X + 1, Y + S - 1); cd.lineTo(X + S - 1, Y + 1); cd.stroke();
+    }
+  }
+  legend(nRight, nWrong, nUn, c.cells.clash);
+  facts(c, lv);
+}
+function swatch(kind) {
+  const ns = "http://www.w3.org/2000/svg", s = document.createElementNS(ns, "svg");
+  s.setAttribute("width", "14"); s.setAttribute("height", "14"); s.setAttribute("aria-hidden", "true");
+  const add = (tag, attrs) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); s.append(e); };
+  if (kind === "right") add("rect", { x: 1.5, y: 1.5, width: 11, height: 11, fill: css("--right") });
+  if (kind === "wrong") { add("path", { d: "M2 2L12 12M12 2L2 12", stroke: css("--wrong"), "stroke-width": 2.4 }); }
+  if (kind === "un") add("path", { d: "M2 12L12 2", stroke: css("--unclaimed"), "stroke-width": 2 });
+  return s;
+}
+function legend(nRight, nWrong, nUn, nClash) {
+  const items = [
+    el("span", {}, swatch("right"), "Changed cell, claimed and right: " + nRight),
+    el("span", {}, swatch("wrong"), "Claimed cell, wrong: " + nWrong),
+    el("span", {}, swatch("un"), "Changed cell nobody claimed: " + nUn)];
+  if (nClash) items.push(el("span", { text: "Cells two rules claimed differently (dropped): " + nClash }));
+  $("legend").replaceChildren(...items);
+}
+const STATUS_TEXT = { EXACT: ["✓", "whole screen right", "good"], PARTIAL: ["◐", "part of the change claimed, nothing wrong", ""],
+                      WRONG: ["✗", "a claimed cell is wrong", "bad"], UNKNOWN: ["?", "no rule in the book applies", ""] };
+function facts(c, lv) {
+  const [icon, words, cls] = STATUS_TEXT[c.status];
+  const copy = el("button", { type: "button", text: "copy" });
+  copy.addEventListener("click", () => { try { navigator.clipboard.writeText(c.id); copy.textContent = "copied"; } catch (e) { copy.textContent = "select it"; } });
+  const rows = [
+    ["Case", el("span", {}, c.id + " ", copy)],
+    ["Level", lv.label],
+    ["Move", c.action],
+    ["Action group", c.group],
+    ["Recorded", c.moves.toLocaleString() + (c.moves === 1 ? " time" : " times") +
+      (c.variants > 1 ? "; seen to end in " + c.variants + " different ways (hidden state)" : "") +
+      (c.frozen ? "; inside a frozen stretch" : "")],
+    ["Status", el("span", { class: "chip " + cls, text: icon + " " + c.status + ": " + words })],
+    ["Flags", c.flags.join(", ")],
+    ["Cells", c.cells.changed + " changed; " + c.cells.claimed + " claimed; " + c.cells.right + " right, " +
+      c.cells.wrong + " wrong" + (c.cells.clash ? ", " + c.cells.clash + " clashing" : "")],
+  ];
+  $("case-facts").replaceChildren(...rows.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", {}, v)]));
+  const box = $("case-rules");
+  box.replaceChildren(el("h3", { text: c.rules.length ? "Rules that applied (" + lv.arm + ")" : "No rule in the " + lv.arm + " applies to this case" }));
+  for (const id of c.rules) {
+    const r = state.data.rules[id];
+    if (!r) continue;
+    const tier = r.trusted ? "trusted" : r.admitted ? "admitted" : "candidate";
+    const binding = lv.key === "score" ? r.t1_binding : r.binding;
+    box.append(el("div", { class: "rule" },
+      el("div", {}, el("span", { class: "rid", text: "#" + id + " · " + tier + (r.in_book ? " · in the book" : "") + " · " + r.origin + " · " }),
+         el("span", { text: r.rule })),
+      el("div", { class: "rid", text: "PARAMS: " + (binding && Object.keys(binding).length ? JSON.stringify(binding) : "none") }),
+      r.t1 && lv.key === "score" ? el("div", { class: "rid", text: "Re-binding: " + r.t1 }) : null,
+      el("details", {}, el("summary", { text: "code" }), el("pre", { text: r.code }))));
+  }
+}
+
+// ---- start --------------------------------------------------------------------------------------
+header();
+funnelTables();
+fillSelect($("f-game"), DATA.funnel.map((f) => [f.game, f.game]), wanted.game);
+if (wanted.theme && THEMES.includes(wanted.theme)) theme = wanted.theme;
+applyTheme();
+if (typeof DecompressionStream === "undefined") {
+  $("empty").hidden = false; $("case-area").hidden = true;
+  $("empty").textContent = "This browser cannot unpack the case data (it needs DecompressionStream). The funnel above is complete.";
+} else {
+  onGame();
+}
+</script>
+</body>
+</html>

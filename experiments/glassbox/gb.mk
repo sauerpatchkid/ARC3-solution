@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -21,6 +21,7 @@ gb-help:
 	@echo "  make gb-test       Glassbox's tests"
 	@echo "  make gb-import-cp1 re-run Rulebook v2's CP1 with gb/core into results/glassbox/cp1_import/;"
 	@echo "                     every number is checked against CP1's registered one (~80 s, CPU)"
+	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
 
@@ -32,3 +33,7 @@ gb-test:
 
 gb-import-cp1:
 	uv run python tools/gb_offline.py --import-cp1
+
+RUN ?= cp1_import
+gb-report:
+	uv run python tools/gb_offline.py --stage show --run $(RUN)

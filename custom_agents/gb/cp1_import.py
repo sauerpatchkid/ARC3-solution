@@ -23,7 +23,9 @@ Reads results/rulebook/v2/tier0a_v2/ (registered: read only, never written).
 Writes results/glassbox/<run>/:
   evidence/<game>_L<k>_{train,fit,score}.npz   copies of CP1's evidence
   s2_write/<game>/candidates.jsonl             CP1's candidates, as recorded
+  s2_write/<game>/llm.json                     CP1's LLM use for the game (answers, tokens, model)
   s3_check/<game>/rules.jsonl                  every candidate re-graded on its training level
+  s3_check/<game>/rule_cases.npz               per rule and case: applies, claimed cells right, cells right
   s3_check/<game>_L<k>.book.json               the book: members, notes, numbers
   s3_check/<game>_L<k>.status.npz              per case of the training level: the book's status
   s4_carry/<game>_L<k+1>.carry.json            each book rule's re-binding (CP1's) and T0/T1/T2
@@ -45,7 +47,8 @@ from gb.core.evidence import LevelEvidence
 from gb.core.metrics import gate_interval, memory_hash, moves_right, nothing_hash
 
 CP1_DIR = os.path.join(A.ROOT, "results", "rulebook", "v2", "tier0a_v2")
-VERSION = 1                     # of what the imported files mean (artifacts.py)
+VERSION = 2                     # of what the imported files mean (artifacts.py); 2 adds rule_cases.npz,
+                                # llm.json and the book's groups_called, which S6 reads
 WORKERS = 8                     # candidates graded at the same time (each in its own child process)
 
 
@@ -57,6 +60,12 @@ def cp1_games(src=CP1_DIR):
 def load_cp1(game, src=CP1_DIR):
     with open(os.path.join(src, f"{game}.json")) as f:
         return json.load(f)
+
+
+def cp1_model(src=CP1_DIR):
+    """The model CP1's answers came from (every cached answer records it)."""
+    with open(os.path.join(src, "llm_cache.jsonl")) as f:
+        return json.loads(f.readline())["model"]
 
 
 def is_trusted(c):
@@ -150,7 +159,10 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
     with open(p_cands, "w") as f:
         for c in cands:
             f.write(json.dumps(dict(c, source="cp1")) + "\n")
-    run.write_header("s2_write", game, VERSION, settings, inputs, {"candidates": p_cands})
+    p_llm = os.path.join(s2, "llm.json")
+    with open(p_llm, "w") as f:
+        json.dump(dict(res["llm"], seconds=res["seconds"], model=cp1_model(src), source="cp1"), f, indent=1)
+    run.write_header("s2_write", game, VERSION, settings, inputs, {"candidates": p_cands, "llm": p_llm})
 
     # -- S3: every candidate re-graded on the training level ---------------------------------------
     gradable = [c for c in cands if c.get("stage") == "checked" and "trust" in c]
@@ -163,6 +175,15 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
                       "binding": c.get("binding"), "lint": c.get("lint"), "duplicate": c.get("duplicate"),
                       "v2_admitted": bool(t and t["admitted"]), "v2_trusted": bool(t and t["trusted"]),
                       "trust": t, "in_book": c.get("in_book", False), "t1": c.get("t1"), "source": "cp1"})
+    regraded = [(c, r) for c, (r, t) in zip(gradable, graded) if r is not None]
+    n_cases = len(train.actions)
+    p_rule_cases = os.path.join(run.stage_dir("s3_check"), game, "rule_cases.npz")
+    os.makedirs(os.path.dirname(p_rule_cases), exist_ok=True)
+    np.savez_compressed(
+        p_rule_cases, ids=np.array([c["id"] for c, _ in regraded], np.int32).reshape(-1),
+        applies=np.array([r["applies"] for _, r in regraded], bool).reshape(-1, n_cases),
+        claimed_ok=np.array([r["claimed_ok"] for _, r in regraded], bool).reshape(-1, n_cases),
+        cells_right=np.array([r["cells_right"] for _, r in regraded], np.int32).reshape(-1, n_cases))
     log(f"[{game}] re-graded {len(gradable)} candidates: "
         f"{sum(i['match'] for i in check.items)} match CP1")
 
@@ -188,12 +209,13 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
     with open(p_book, "w") as f:
         json.dump(plain({"game": game, "level": k_train, "members": [c["id"] for c in book],
                          "offered": [c["id"] for c in trusted],
+                         "groups_called": [g["group"] for g in res["groups"]],
                          "notes": {str(c["id"]): n for c, n in zip(trusted, comp["notes"]) if n},
                          "numbers": book_train, "source": "cp1"}), f, indent=1)
     p_status = os.path.join(s3, f"{game}_L{k_train}.status.npz")
     np.savez_compressed(p_status, **_status_arrays(comp), members=np.array([c["id"] for c in book]))
     run.write_header("s3_check", game, VERSION, settings, inputs,
-                     {"rules": p_rules, "book": p_book, "status": p_status})
+                     {"rules": p_rules, "rule_cases": p_rule_cases, "book": p_book, "status": p_status})
 
     # -- S4: transfer, scored again with CP1's bindings -------------------------------------------
     if res.get("transfer") and "score" in paths:

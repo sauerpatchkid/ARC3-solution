@@ -45,6 +45,6 @@ def test_gb_core_reproduces_cp1(checks, game):
 def test_the_import_writes_glassbox_artifacts_and_never_touches_cp1(checks):
     _, run = checks
     h = run.require("s3_check", "dc22", cp1_import.VERSION)
-    assert set(h["outputs"]) == {"rules", "book", "status"}
+    assert set(h["outputs"]) == {"rules", "rule_cases", "book", "status"}
     assert run.require("s4_carry", "ft09", cp1_import.VERSION)["inputs"]["cp1_result"]["sha256"]
     assert registry.verify("rulebook_v2_cp1_tier0a") == []          # CP1's registered files are unchanged

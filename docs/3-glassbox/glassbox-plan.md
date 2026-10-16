@@ -1067,7 +1067,7 @@ gantt
 
 | Week | Dates | Work | GPU |
 |---|---|---|---|
-| 0 | Fri 16 – Sun 18 Oct | **Done 16 Oct:** v2 closed; repo refactor (v1/v2 frozen in `legacy/rulebook/`, `gb/core/` copied, docs in three folders); artifact contract, `glassbox.toml`, `gb.mk`. `tools/gb_offline.py --import-cp1` and the CP1 regression (437 of 437 numbers equal CP1's). **Still to do:** register pre-registration sections 1–3 and 8–10; S6 v0 on CP1's data; S1 skeleton | none |
+| 0 | Fri 16 – Sun 18 Oct | **Done 16 Oct:** v2 closed; repo refactor (v1/v2 frozen in `legacy/rulebook/`, `gb/core/` copied, docs in three folders); artifact contract, `glassbox.toml`, `gb.mk`. `tools/gb_offline.py --import-cp1` and the CP1 regression (437 of 437 numbers equal CP1's); S6 v0 on CP1's data. **Still to do:** register pre-registration sections 1–3 and 8–10; S1 skeleton | none |
 | 1 | Mon 19 – Sun 25 Oct | S1 relations, features, roles, matrix; S3 guard fitter, then **G0**; H1 (16 primitives, tests, registered); S3 priorities and tiers; S2 v3 prompts, dry runs, lp85 smoke; S4. **Register G1**, run **G1** overnight. Offline ablations | 10–16 h |
 | 2 | Mon 26 Oct – Sun 1 Nov | Offline counterfactual; S5 v1 (prune, probe, hints, `GbMap`) and H2; `cpu_check.py` with the flag off; ft09 online smoke; H3 smoke on the seen games; IMAGINE and contact preconditions measured. **Register G2**, start the G2 sweep. Draft due Fri 30 Oct. **Target 1: every part tested** | 16–24 h |
 | 3 | Mon 2 – Sun 8 Nov | Idea statement (Mon 2 Nov). G2 verdict; S6 v1 (online views). H3: build, freeze and register the catalog; **register G3**, run **G3**. IMAGINE and contact goals if their preconditions hold | 12–18 h |
@@ -1091,7 +1091,7 @@ gantt
 
 1. Review the pre-registration draft (`docs/3-glassbox/glassbox-prereg.md`, sections 1–3 and 8–10) and commit it. Sections 1, 2 and 8–10 are copied from v2's or from this plan; section 3 (G0) must be committed before G0 runs.
 2. ~~`tools/gb_offline.py --import-cp1`~~ **done 16 Oct**: `gb/cp1_import.py` re-grades every CP1 candidate, recomposes the books and re-scores T0/T1/T2 with `gb/core/` and CP1's bindings (no LLM, no search) into `results/glassbox/cp1_import/`; all 437 numbers on the 8 games equal CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games in ~15 s.
-3. S6 v0 (funnel and case viewer) on that import.
+3. ~~S6 v0~~ **done 16 Oct**: `make gb-report RUN=cp1_import` builds `results/glassbox/cp1_import/s6_show/index.html` (0.4 MB, offline): CP1's gate recomputed, the funnel per game for the training level and T1, and a case viewer (before / predicted / after / difference; flags WRONG, NEAR, UNCLAIMED, CONFLICT, EXACT; links to a single case). Each drawn case is re-run in the sandbox and must give the status S3 stored, or the build stops.
 4. S1 skeleton: objects, correspondence, closure.
 
 ## 8. Compute

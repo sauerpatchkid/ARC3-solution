@@ -97,6 +97,6 @@ max_templates = 60
 
 [show]                            # S6
 cases_per_flag = 50
-flags = ["WRONG", "NEAR", "UNCLAIMED", "CONFLICT", "GUARD-FIXED", "DEMOTED",
-         "PRUNED-BUT-CHANGED", "IMAGINED-MISMATCH", "PROBE", "LEVEL-UP"]
+flags = ["WRONG", "NEAR", "UNCLAIMED", "CONFLICT", "EXACT", "GUARD-FIXED", "DEMOTED",
+         "PRUNED-BUT-CHANGED", "IMAGINED-MISMATCH", "PROBE", "LEVEL-UP"]   # S6 v0 computes the first five
 png_dpi = 200

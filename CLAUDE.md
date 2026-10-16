@@ -132,9 +132,15 @@ before the run each judges).
   CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games
   in ~15 s, and fails with the names of the numbers that moved (checked by
   changing the interval's seed).
+- **Done 16 Oct, S6 v0:** `make gb-report RUN=cp1_import` writes
+  `results/glassbox/cp1_import/s6_show/index.html` (offline, ~0.4 MB): CP1's
+  gate recomputed, the funnel per game, and the case viewer. Every case it
+  draws is re-run in the sandbox and must match S3's stored status.
+  `figures/funnel.png` is for the written report. Diff marks are blue (right) /
+  red (wrong) / grey hatch (unclaimed), checked with the dataviz validator.
 - **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
-  draft (sections 1–3, 8–10) before G0 runs; (2) S6 v0 (funnel and case viewer)
-  on `results/glassbox/cp1_import/`; (3) S1 skeleton.
+  draft (sections 1–3, 8–10) before G0 runs; (2) S1 skeleton (objects,
+  correspondence, closure).
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
   pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).

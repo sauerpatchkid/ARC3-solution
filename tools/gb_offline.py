@@ -6,11 +6,14 @@ inputs, opens the run folder (gb/artifacts.py) and calls the stage. Stages are
 added here as they are built (plan section 4.3).
 
     uv run python tools/gb_offline.py --import-cp1 [--games ft09,dc22] [--run cp1_import]
+    uv run python tools/gb_offline.py --stage show --run cp1_import
 
 --import-cp1  re-run Rulebook v2's CP1 with gb/core (no LLM, no search) and write
               it as Glassbox artifacts; every number is checked against CP1's
               registered one (custom_agents/gb/cp1_import.py). Exit status 1 if
               any differs.
+--stage show  S6 SHOW: the run's report page, funnel figure and case viewer
+              (custom_agents/gb/s6_show.py) in results/glassbox/<run>/s6_show/.
 """
 import argparse
 import json
@@ -24,6 +27,7 @@ sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 
 from gb import artifacts as A  # noqa: E402
 from gb import cp1_import  # noqa: E402
+from gb import s6_show  # noqa: E402
 
 
 def import_cp1(a):
@@ -52,9 +56,13 @@ def main():
     ap.add_argument("--run", default="cp1_import", help="run folder name under results/glassbox/")
     ap.add_argument("--cp1", default=cp1_import.CP1_DIR, help="CP1's registered result folder (read only)")
     ap.add_argument("--workers", type=int, default=cp1_import.WORKERS)
+    ap.add_argument("--stage", choices=["show"], help="run one stage on --run (more are added as they are built)")
     a = ap.parse_args()
     if a.import_cp1:
         sys.exit(import_cp1(a))
+    if a.stage == "show":
+        s6_show.build(a.run, log=lambda m: print(m, flush=True))
+        return
     ap.error("nothing to do: give --import-cp1 (stage commands are added as each stage is built)")
 
 
