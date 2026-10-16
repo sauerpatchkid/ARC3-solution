@@ -25,7 +25,9 @@ and the stages after it, without touching the ones before.
 
 Inherited, not new: `core/` is Rulebook v2's checking machinery, copied
 (see `core/__init__.py`). `artifacts.py` is the plumbing that keeps stages
-separate.
+separate. `cp1_import.py` re-runs Rulebook v2's CP1 with `core/` and writes it
+as Glassbox artifacts: it proves the copy still gives CP1's numbers, and it is
+S6's first data.
 
 ## Where things are
 
@@ -33,6 +35,7 @@ separate.
 |---|---|
 | Settings, one section per stage | `experiments/glassbox/glassbox.toml` |
 | Commands, one per stage | `experiments/glassbox/gb.mk` (included by the root Makefile: `make gb-help`) |
+| The offline driver | `tools/gb_offline.py` (`--import-cp1` now; `--stage <s>` as stages are built) |
 | A run's files | `results/glassbox/<run>/` (offline), `results/runs/<ts>/<game>/glassbox/` (online) |
 | Tests | `tests/test_gb_*.py` |
 | Gates, registered before each run | `docs/3-glassbox/glassbox-prereg.md` |
@@ -43,4 +46,5 @@ separate.
 |---|---|
 | `core/` | copied from Rulebook v2 on 16 Oct; 51 tests |
 | `artifacts.py` | built 16 Oct |
+| `cp1_import.py` | built 16 Oct: all 437 recomputed numbers on CP1's 8 games equal the registered ones; `tests/test_gb_regression.py` |
 | S1–S6, H1–H3 | not built yet (plan section 7) |

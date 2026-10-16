@@ -125,11 +125,16 @@ before the run each judges).
   in three numbered folders; `gb/artifacts.py` (run folders, stage headers,
   cache keys); `experiments/glassbox/glassbox.toml` and `gb.mk`;
   `experiments/llm/` (server and environment); pre-registration draft.
-- **Next, in order (plan §7.4):** (1) Matt reviews the pre-registration draft
-  (sections 1–3, 8–10) and commits it as registered; (2)
-  `tools/gb_offline.py --import-cp1` plus `tests/test_gb_regression.py` (gb/core
-  must reproduce CP1's registered numbers); (3) S6 v0 on that import; (4) S1
-  skeleton.
+- **Done 16 Oct, CP1 import:** `gb/cp1_import.py` (`make gb-import-cp1`)
+  re-runs CP1 with `gb/core` (CP1's bindings, no LLM, no search) into
+  `results/glassbox/cp1_import/` (evidence, candidates, re-graded rules, books,
+  per-case statuses, T0/T1/T2). All 437 recomputed numbers on the 8 games equal
+  CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games
+  in ~15 s, and fails with the names of the numbers that moved (checked by
+  changing the interval's seed).
+- **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
+  draft (sections 1–3, 8–10) before G0 runs; (2) S6 v0 (funnel and case viewer)
+  on `results/glassbox/cp1_import/`; (3) S1 skeleton.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
   pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).
@@ -148,8 +153,9 @@ before the run each judges).
   `tests/test_gb_<stage>.py`, and one `make gb-<stage>` target added to `gb.mk`
   when it is built. Every module starts with the problem it fixes.
 - **`gb/core/` is inherited, not new.** Change it only in ways that leave CP1's
-  registered numbers unchanged (the regression check, once built). Anything
-  that should change a result goes in a stage file, behind a knob.
+  registered numbers unchanged: run `tests/test_gb_regression.py` (and
+  `make gb-import-cp1` for all 8 games) before committing any change to it.
+  Anything that should change a result goes in a stage file, behind a knob.
 - **`legacy/rulebook/` is frozen.** Never edit its prompts (`wm/rules.py`,
   `wm/rules2.py`) or tools: v1's and v2's answer caches are keyed on the
   prompts. Glassbox copies helpers from it; it never imports it.

@@ -17,7 +17,8 @@ these; they do not change what these modules mean.
   llm.py       HTTP client for the local server, with an answer cache
 
 The rule for changing anything here: CP1's registered numbers must still come
-out the same when CP1 is re-scored with this code (the regression check built
-with tools/gb_offline.py --import-cp1). A change that should alter results
-belongs in a stage file, behind its own config knob.
+out the same when CP1 is re-scored with this code. tests/test_gb_regression.py
+checks 4 games in ~15 s; `make gb-import-cp1` checks all 8 (437 numbers, ~80 s).
+A change that should alter results belongs in a stage file, behind its own
+config knob.
 """

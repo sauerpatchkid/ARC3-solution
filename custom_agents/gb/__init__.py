@@ -8,6 +8,8 @@ stage fixes.
 
   core/            checking machinery copied from Rulebook v2 (see core/__init__.py)
   artifacts.py     the artifact contract: run folders, stage headers, cache keys
+  cp1_import.py    Rulebook v2's CP1 re-run with core/ and written as artifacts: the
+                   check that core/ still reproduces CP1, and S6's first data
 
   s1_see.py        S1 SEE    objects, relations and object-level diffs (no LLM)
   s2_write.py      S2 WRITE  the LLM writes one-mechanism rules
