@@ -138,9 +138,17 @@ before the run each judges).
   draws is re-run in the sandbox and must match S3's stored status.
   `figures/funnel.png` is for the written report. Diff marks are blue (right) /
   red (wrong) / grey hatch (unclaimed), checked with the dataviz validator.
+- **Done 16 Oct, S1 skeleton:** `gb/s1_see.py` (`make gb-see RUN=cp1_import`)
+  describes each change as whole objects (moved, recoloured, grew, shrank,
+  vanished, appeared; reshaped when none fits). The plan's "closure" cannot fail
+  as written (100% everywhere), so S1's measure is "explained": a short list
+  of whole-object items that rebuilds the screen. On CP1's training levels:
+  ft09, m0r0, tu93, vc33 100%; dc22 89%; g50t 88%; tr87 61%; cd82 30%. S6 shows
+  it as the funnel's first stage.
 - **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
-  draft (sections 1–3, 8–10) before G0 runs; (2) S1 skeleton (objects,
-  correspondence, closure).
+  draft (sections 1–3, 8–10) before G0 runs, and confirms S1's "explained" as
+  perception coverage; (2) S1 steps 4–8 (relations, feature bits, roles,
+  matrix, facts text), then the S3 guard fitter and G0.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
   pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).

@@ -48,4 +48,5 @@ S6's first data.
 | `artifacts.py` | built 16 Oct |
 | `cp1_import.py` | built 16 Oct: all 437 recomputed numbers on CP1's 8 games equal the registered ones; `tests/test_gb_regression.py` |
 | S6 SHOW v0 | built 16 Oct (`s6_show.py` + its page template `s6_show_page.html`): the funnel and the case viewer, `make gb-report RUN=<name>`; `tests/test_gb_show.py`. v1 (stage panels, online views, compare mode) comes with M2 |
-| S1–S5, H1–H3 | not built yet (plan section 7) |
+| S1 SEE skeleton | built 16 Oct (`s1_see.py`, `make gb-see`): objects, correspondence, closure, and the "explained" measure; `tests/test_gb_see.py`. Relations, features, roles, matrix and text come next |
+| S2–S5, H1–H3 | not built yet (plan section 7) |

@@ -17,6 +17,7 @@ large_cells = 1024
 relations_scope = "changed+clicked"
 ray_max = 64
 text_lines = 12
+compact_items = 8                 # a change S1 "explains" is at most this many whole-object items
 mover_min_buttons = 2
 mover_min_moves = 10
 matrix_size_buckets = [1, 4, 16, 64]

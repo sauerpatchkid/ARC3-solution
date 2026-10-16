@@ -105,6 +105,8 @@ figcaption b { color: var(--ink); font-weight: 600; }
 .case dt { color: var(--muted); }
 .case dd { margin: 0; overflow-wrap: anywhere; }
 .rule { border-top: 1px solid var(--grid); padding: 8px 0; }
+ul.s1 { margin: 6px 0 0; padding-left: 18px; }
+ul.s1 li { margin: 2px 0; }
 .rule .rid { color: var(--muted); }
 pre { background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto;
       font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 340px; }
@@ -147,6 +149,10 @@ footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
     <details class="defs">
       <summary>What each column counts</summary>
       <dl>
+        <dt>S1 explains it</dt>
+        <dd>S1 (no LLM) describes the change as a short list (at most 8) of whole objects that moved, recoloured,
+          grew, shrank, vanished or appeared, and that list rebuilds the screen. Where this is low, perception is
+          the bottleneck, not the LLM.</dd>
         <dt>In a group the LLM was asked about</dt>
         <dd>Changing cases in an action group (a button, or clicks on one colour) that got LLM calls.</dd>
         <dt>An admitted rule explains part of it</dt>
@@ -319,10 +325,12 @@ function diffText(d) {
 function funnelTables() {
   const head = (cols) => el("thead", {}, el("tr", {}, ...cols.map(([t, c]) => el("th", { class: c || "", text: t }))));
   const tt = $("train-table"), nt = $("next-table");
-  tt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ["In a group the LLM was asked about"],
+  const hasS1 = DATA.funnel.some((f) => f.s1 != null);
+  const s1Col = hasS1 ? [["S1 explains it"]] : [];
+  tt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ...s1Col, ["In a group the LLM was asked about"],
                   ["An admitted rule explains part of it"], ["The book explains part, nothing wrong"],
-                  ["The book gets the whole screen right"], ["Cell coverage (G1's primary)"], ["Rules in the book", "num"]]));
-  nt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ["Rules carried", "num"],
+                  ["The book gets the whole screen right"], ["Cell coverage (G1's primary)"], ["Book rules", "num"]]));
+  nt.append(head([["Game"], ["Level", "num"], ["Changing cases", "num"], ...s1Col, ["Rules carried", "num"],
                   ["T1 explains part, nothing wrong"], ["T1 gets the whole screen right"], ["T1 wrong (≤ 5%)"],
                   ["Moves right: T1 / nothing / memory", "num"], ["T1 − nothing [95% interval]", "num"],
                   ["T1 − memory [95% interval]", "num"], ["Beats both"]]));
@@ -332,6 +340,7 @@ function funnelTables() {
     const row = el("tr", { class: "game-row", title: "Open " + f.game + "'s cases" },
       el("td", { text: f.game }), el("td", { class: "num", text: f.level }),
       el("td", { class: "num", text: f.changing.toLocaleString() }),
+      hasS1 ? (f.s1 != null ? barCell(f.s1, f.changing, f.game, "S1 explains it as whole objects") : el("td", { text: "–" })) : null,
       barCell(f.in_called, f.changing, f.game, "in a group the LLM was asked about"),
       barCell(f.admitted, f.changing, f.game, "an admitted rule explains part of it"),
       barCell(f.book_part, f.changing, f.game, "the book explains part, nothing wrong"),
@@ -341,12 +350,14 @@ function funnelTables() {
     row.addEventListener("click", pick);
     tb.append(row);
     const t = f.transfer;
-    if (!t) { nb.append(el("tr", {}, el("td", { text: f.game }), el("td", { colspan: "10", text: "no next level in the recording" }))); continue; }
+    if (!t) { nb.append(el("tr", {}, el("td", { text: f.game }), el("td", { colspan: hasS1 ? "11" : "10", text: "no next level in the recording" }))); continue; }
     const safe = t.wrong <= 0.05;
     const r = t.rate;
     const row2 = el("tr", { class: "game-row", title: "Open " + f.game + "'s cases" },
       el("td", { text: f.game }), el("td", { class: "num", text: t.level }),
-      el("td", { class: "num", text: t.changing.toLocaleString() }), el("td", { class: "num", text: t.rules }),
+      el("td", { class: "num", text: t.changing.toLocaleString() }),
+      hasS1 ? (t.s1 != null ? barCell(t.s1, t.changing, f.game, "S1 explains it as whole objects") : el("td", { text: "–" })) : null,
+      el("td", { class: "num", text: t.rules }),
       barCell(t.t1_part, t.changing, f.game, "T1 explains part, nothing wrong"),
       barCell(t.t1_whole, t.changing, f.game, "T1 gets the whole screen right"),
       el("td", {}, el("span", { class: "chip " + (safe ? "good" : "bad"), text: (safe ? "✓ " : "✗ ") + pct(t.wrong, 1) })),
@@ -563,6 +574,12 @@ function facts(c, lv) {
     ["Cells", c.cells.changed + " changed; " + c.cells.claimed + " claimed; " + c.cells.right + " right, " +
       c.cells.wrong + " wrong" + (c.cells.clash ? ", " + c.cells.clash + " clashing" : "")],
   ];
+  if (c.s1) {
+    const items = c.s1.items.length ? el("ul", { class: "s1" }, ...c.s1.items.map((t) => el("li", { text: t }))) : el("span", { text: "no change" });
+    rows.push(["S1 sees", el("div", {},
+      el("span", { class: "chip " + (c.s1.explained ? "good" : ""), text: c.s1.explained ? "✓ explained as whole objects"
+        : "– not explained (" + pct(c.s1.unit) + " of changed cells by whole objects)" }), items)]);
+  }
   $("case-facts").replaceChildren(...rows.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", {}, v)]));
   const box = $("case-rules");
   box.replaceChildren(el("h3", { text: c.rules.length ? "Rules that applied (" + lv.arm + ")" : "No rule in the " + lv.arm + " applies to this case" }));

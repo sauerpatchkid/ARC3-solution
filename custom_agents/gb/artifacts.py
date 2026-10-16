@@ -16,7 +16,9 @@ skipped. So changing a guard-fitter knob (S3's settings) re-runs S3 and the
 stages after it, and S1's and S2's files are reused from disk.
 
 Bump a stage's VERSION by hand when what its output MEANS changes (not for a
-refactor). That invalidates the stage and everything after it.
+refactor). That invalidates the stage and everything after it. The header also
+records a hash of the stage's own code (`code`), so a stage skipped as current
+can warn that its code has changed since its files were written.
 """
 import hashlib
 import json
@@ -114,20 +116,26 @@ class Run:
         h = self.read_header(stage, game)
         return h is not None and h["key"] == self.key(stage, version, settings, inputs)
 
-    def write_header(self, stage, game, version, settings, inputs, outputs):
+    def write_header(self, stage, game, version, settings, inputs, outputs, code=None):
         """Record what produced this stage's files for one game. Call it after
-        the outputs ({label: path}) are written."""
+        the outputs ({label: path}) are written. `code`: the stage's source file."""
         header = {"stage": stage, "game": game, "version": version, "settings": settings,
                   "inputs": {label: {"path": _rel(p), "sha256": file_sha256(p)}
                              for label, p in sorted(inputs.items())},
                   "outputs": {label: {"path": _rel(p), "sha256": file_sha256(p)}
                               for label, p in sorted(outputs.items())},
                   "key": self.key(stage, version, settings, inputs),
+                  "code": file_sha256(code)[:16] if code else None,
                   "commit": git_commit(), "created": _now()}
         path = self._header_path(stage, game)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         _write_json(path, header)
         return header
+
+    def code_changed(self, stage, game, code):
+        """True if the stage's source file differs from the one that wrote its files."""
+        h = self.read_header(stage, game)
+        return bool(h and h.get("code") and h["code"] != file_sha256(code)[:16])
 
     def read_header(self, stage, game):
         path = self._header_path(stage, game)

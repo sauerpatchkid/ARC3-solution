@@ -153,7 +153,7 @@ transfer). Glassbox adds:
 
 | Flag | Means |
 |---|---|
-| perception gap | S1's closure is below 50% of a game's changing cases |
+| perception gap | S1 explains fewer than 50% of a game's changing cases (draft revised 16 Oct: the plan's "closure" cannot fail as written, so the flag uses S1's "explained"; plan §5.1 step 3) |
 | guard overfit | a fitted guard fails its hold-out, or fails on the next level |
 | imagined mismatch | an imagined step (S5 IMAGINE) differs from the real screen when walked |
 | template coincidence | a template is trusted on a held-out game's training level but wrong at T1 |

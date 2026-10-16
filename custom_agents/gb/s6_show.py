@@ -14,6 +14,7 @@ they come from the CP1 import or from Glassbox's own stages):
   s3_check/<game>_L<k>.book.json, .status.npz    the book and its status per case
   s4_carry/<game>_L<k+1>.carry.json              re-binding and T0/T1/T2
   s4_carry/<game>_L<k+1>.t1_status.npz           T1's status per case
+  s1_see/<game>_L<k>_<split>.facts.{npz,jsonl}   S1's description of each case (optional)
 Writes s6_show/:
   index.html          the page: self-contained, opens offline, no external files
   cases/<game>.json   the flagged cases the viewer pages through
@@ -77,14 +78,25 @@ def load_game(run_dir, game):
     g["llm"] = json.load(open(llm)) if os.path.exists(llm) else None
     carry = [f for f in os.listdir(s4) if f.startswith(f"{game}_L") and f.endswith(".carry.json")] \
         if os.path.isdir(s4) else []
-    g["carry"] = g["t1_status"] = None
+    g["carry"] = g["t1_status"] = g["s1_score"] = None
+    g["s1_train"] = _s1(run_dir, f"{game}_L{k}_train")
     if carry:
         k2 = int(carry[0][len(game) + 2:].split(".")[0])
         g.update(k_next=k2, carry=json.load(open(os.path.join(s4, carry[0]))),
                  t1_status=dict(np.load(os.path.join(s4, f"{game}_L{k2}.t1_status.npz"))),
                  fit_path=os.path.join(run_dir, "evidence", f"{game}_L{k2}_fit.npz"),
-                 score_path=os.path.join(run_dir, "evidence", f"{game}_L{k2}_score.npz"))
+                 score_path=os.path.join(run_dir, "evidence", f"{game}_L{k2}_score.npz"),
+                 s1_score=_s1(run_dir, f"{game}_L{k2}_score"))
     return g
+
+
+def _s1(run_dir, name):
+    """S1's facts for one split, if S1 has run on it."""
+    p = os.path.join(run_dir, "s1_see", name + ".facts.npz")
+    if not os.path.exists(p):
+        return None
+    return {"arr": dict(np.load(p)),
+            "recs": {r["k"]: r for r in _jsonl(os.path.join(run_dir, "s1_see", name + ".facts.jsonl"))}}
 
 
 # ---- the funnel ---------------------------------------------------------------------------
@@ -113,7 +125,9 @@ def funnel(g, train):
     if n and round(int(book_whole.sum()) / n, 4) != nums["case_coverage"]:
         raise RuntimeError(f"{g['game']}: the funnel's whole-screen count disagrees with S3's case coverage")
     count = lambda m: int(m.sum())
+    s1 = g["s1_train"]
     out = {"game": g["game"], "level": g["k"], "changing": n, "cases": len(ch),
+           "s1": count(ch & s1["arr"]["explained"]) if s1 else None,
            "in_called": count(in_called), "admitted": count(admitted & ch), "book_part": count(book_part),
            "book_whole": count(book_whole), "book_rules": len(g["book"]["members"]),
            "cell_coverage": nums["cell_coverage"], "book_wrong": nums["wrong"], "transfer": None}
@@ -125,6 +139,7 @@ def funnel(g, train):
             "level": g["k_next"], "changing": int(sch.sum()), "rules": t1["rules_in"],
             "t1_part": count(sch & _explains(s1["status"], s1["cells_right"])),
             "t1_whole": count(sch & (s1["status"] == EXACT)), "wrong": t1["wrong"],
+            "s1": count(sch & g["s1_score"]["arr"]["explained"]) if g["s1_score"] else None,
             "rate": t1["per_move"]["rate"], "diff": t1["per_move"]["diff"],
             "beats_both": t1["per_move"]["beats_both"], "moves": t1["per_move"]["moves"],
             "unit": t1["per_move"]["unit"], "units": t1["per_move"]["units"]}
@@ -261,7 +276,16 @@ def action_text(a):
     return f"click at row {y}, column {x}"
 
 
-def level_cases(g, which, ev_path, members, st, flags, per_flag, label, arm):
+def _s1_case(s1, k, changed):
+    if s1 is None:
+        return None
+    r = s1["recs"].get(k)
+    if r is None:
+        return {"explained": True, "unit": 1.0, "items": []} if not changed else None
+    return {"explained": r["explained"], "unit": r["unit"], "items": [it["text"] for it in r["items"]]}
+
+
+def level_cases(g, which, ev_path, members, st, flags, per_flag, label, arm, s1=None):
     """The flagged cases of one level, with their boards and predictions."""
     ev = LevelEvidence.load(ev_path)
     chosen = pick(flags_of(ev, st, flags), per_flag)
@@ -281,7 +305,8 @@ def level_cases(g, which, ev_path, members, st, flags, per_flag, label, arm):
                       "frozen": bool(ev.frozen[k]), "status": STATUS[p["status"]], "flags": chosen[k],
                       "cells": {"right": p["cells_right"], "wrong": p["cells_wrong"], "clash": p["cells_clash"],
                                 "claimed": p["claimed_n"], "changed": int(changed.sum())},
-                      "rules": p["rules"], "b": _b64(ev.before[k].astype(np.uint8)),
+                      "rules": p["rules"], "s1": _s1_case(s1, k, bool(ev.changed[k])),
+                      "b": _b64(ev.before[k].astype(np.uint8)),
                       "a": _b64(ev.after[k].astype(np.uint8)), "p": _b64(p["pred"]),
                       "c": _bits(p["claimed"]), "x": _bits(p["clash"])})
     counts = {f: len(v) for f, v in flags_of(ev, st, flags).items()}
@@ -297,14 +322,15 @@ def game_cases(g, flags, per_flag):
     members = [{"id": i, "src": g["code"][i]["code"], "binding": rules[i]["binding"], "layout_path": g["train_path"]}
                for i in book_ids]
     levels = [level_cases(g, "train", g["train_path"], members, g["status"], flags, per_flag,
-                          f"Level {g['k']}: the training level, the book", "book")]
+                          f"Level {g['k']}: the training level, the book", "book", g["s1_train"])]
     if g["carry"] is not None:
         t1 = {r["id"]: r for r in g["carry"]["rules"] if r.get("in_t1")}
         kept = [int(i) for i in g["t1_status"]["members"]]
         members1 = [{"id": i, "src": g["code"][i]["code"], "binding": t1[i]["binding"], "layout_path": g["fit_path"]}
                     for i in kept]
         levels.append(level_cases(g, "score", g["score_path"], members1, g["t1_status"], flags, per_flag,
-                                  f"Level {g['k_next']}: the next level (score split), T1 after re-binding", "T1"))
+                                  f"Level {g['k_next']}: the next level (score split), T1 after re-binding", "T1",
+                                  g["s1_score"]))
     shown = {i for lv in levels for c in lv["cases"] for i in c["rules"]} | set(book_ids)
     carry = {r["id"]: r for r in (g["carry"] or {}).get("rules", [])}
     rule_info = {str(i): {"rule": rules[i].get("rule") or "", "group": rules[i]["group"],
@@ -330,7 +356,8 @@ def funnel_png(funnels, path, dpi=200):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     games = [f["game"] for f in funnels]
-    stages = STAGES + [("t1_whole", "Next level: T1 gets\nthe whole screen right")]
+    stages = ([("s1", "S1 describes it as\nwhole objects")] if all(f["s1"] is not None for f in funnels) else []) \
+        + STAGES + [("t1_whole", "Next level: T1 gets\nthe whole screen right")]
     fig, axes = plt.subplots(1, len(stages), figsize=(2.3 * len(stages) + 0.8, 0.42 * len(games) + 1.5),
                              sharey=True, dpi=dpi)
     fig.patch.set_facecolor(SURFACE)

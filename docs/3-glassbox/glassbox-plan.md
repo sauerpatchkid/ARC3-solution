@@ -337,6 +337,13 @@ Every module card has the same rows: **The problem it fixes · What it does · F
 1. **Objects.** 4-connected single-colour components of live, non-background cells (`gridtools.label_components`). Regions over 1,024 cells are kept and flagged `large`: they are walls and floors, and they matter as blockers. Each object has an id, colour, cells, bounding box, size, a shape hash (its cells relative to its box) and a centroid.
 2. **Correspondence.** For each changed area (8-connected component of the change mask, the same areas `legacy/rulebook/wm/rules.py` boxes in its pictures), the objects touching it before and after are matched: same colour and shape somewhere else → *moved (dy, dx)*; same cells, new colour → *recoloured (c → c′)*; same colour, overlapping but different cells → *reshaped*; unmatched before → *vanished*; unmatched after → *appeared*. Ties go to the smallest displacement.
 3. **Closure.** Apply the diff to the before board (move, recolour, erase to background, paint) and compare with the after board on live cells. *Exact closure* means the object description fully explains the move; otherwise S1 records the share of changed cells it explains. **This is the "perception coverage" number**: if it's low on a game, perception is the bottleneck there, not the LLM.
+
+   *Refined when the skeleton was built (16 Oct), measured on CP1's 8 dev games before any Glassbox run.* As written, closure cannot fail: "appeared" and "reshaped" paint the after-screen's own objects, so every change rebuilds (it measured 100% on every game). S1 therefore reports three numbers (`gb/s1_see.py` has the details):
+   - *closure*: the check above, kept as a sanity check on S1 itself;
+   - *unit*: the share of changed cells rebuilt without free-form reshapes. Same-colour overlaps are split into grew (old cells kept), shrank (new cells were old) and reshaped (neither); a departing object is erased to the colour it left behind (small objects sit on large ones); and a floor that only changed because something crossed it is dropped;
+   - ***explained***: closure, unit = 100%, and at most `compact_items` (8) items. This is perception coverage: the funnel's "explained by S1" and the failure taxonomy's *perception gap*.
+
+   On the training levels: ft09, m0r0, tu93 and vc33 are 100% explained; dc22 89%, g50t 88%, tr87 61% (glyph patterns that cycle), cd82 30% (rotations). So on tu93 and m0r0, which got no trusted rule in CP1, perception is not what failed.
 4. **Relations**, only for the objects involved in the change plus the clicked object, to keep the text short. Per direction (up, down, left, right): touching or not, the colour touched, ray distance to the first non-background cell and its colour, at the screen border or not. Also: aligned (same row or column band) with objects of the same colour, and inside (bounding box within a larger object's, such as a container). For a move with a displacement, the same relations are also given **ahead**, in the direction of the displacement: these are the features that explain blocked moves.
 5. **Feature bits.** The relations become a fixed boolean vector per case (roughly 100–300 bits: `touching_ahead`, `ray_ahead<=step`, `border_ahead`, `ahead_colour==c` for each colour on the level, `clicked_colour==c`, `clicked_size<=k`, `inside_large`, …). S3's guard fitter works on these.
 6. **Roles**, per level, from all its cases: the *mover* (the colour whose objects move under two or more buttons), *static* colours (never change), *click-changers* (colours whose clicks change something), *counter cells* (the bar in the decoration mask). They are exposed to rules as `api.roles`, a hint that `bind()` may read (S4).
@@ -360,6 +367,7 @@ click at (row 30, col 40) on object B (colour 12 orange, 3x3): B recoloured 12 -
 | `relations_scope` | `changed+clicked` | `all` describes every object (debugging only; long) |
 | `ray_max` | 64 | how far a ray looks |
 | `text_lines` | 12 | cap on the facts text per case |
+| `compact_items` | 8 | the most whole-object items a change S1 "explains" may have |
 | `mover_min_buttons` / `mover_min_moves` | 2 / 10 | how much evidence makes a role hint |
 | `matrix_size_buckets` | 1, 2–4, 5–16, 17–64, 65+ | how object types are binned |
 
@@ -1067,7 +1075,7 @@ gantt
 
 | Week | Dates | Work | GPU |
 |---|---|---|---|
-| 0 | Fri 16 – Sun 18 Oct | **Done 16 Oct:** v2 closed; repo refactor (v1/v2 frozen in `legacy/rulebook/`, `gb/core/` copied, docs in three folders); artifact contract, `glassbox.toml`, `gb.mk`. `tools/gb_offline.py --import-cp1` and the CP1 regression (437 of 437 numbers equal CP1's); S6 v0 on CP1's data. **Still to do:** register pre-registration sections 1–3 and 8–10; S1 skeleton | none |
+| 0 | Fri 16 – Sun 18 Oct | **Done 16 Oct:** v2 closed; repo refactor (v1/v2 frozen in `legacy/rulebook/`, `gb/core/` copied, docs in three folders); artifact contract, `glassbox.toml`, `gb.mk`. `tools/gb_offline.py --import-cp1` and the CP1 regression (437 of 437 numbers equal CP1's); S6 v0 on CP1's data; S1 skeleton (objects, correspondence, closure; S6 shows it). **Still to do:** register pre-registration sections 1–3 and 8–10 | none |
 | 1 | Mon 19 – Sun 25 Oct | S1 relations, features, roles, matrix; S3 guard fitter, then **G0**; H1 (16 primitives, tests, registered); S3 priorities and tiers; S2 v3 prompts, dry runs, lp85 smoke; S4. **Register G1**, run **G1** overnight. Offline ablations | 10–16 h |
 | 2 | Mon 26 Oct – Sun 1 Nov | Offline counterfactual; S5 v1 (prune, probe, hints, `GbMap`) and H2; `cpu_check.py` with the flag off; ft09 online smoke; H3 smoke on the seen games; IMAGINE and contact preconditions measured. **Register G2**, start the G2 sweep. Draft due Fri 30 Oct. **Target 1: every part tested** | 16–24 h |
 | 3 | Mon 2 – Sun 8 Nov | Idea statement (Mon 2 Nov). G2 verdict; S6 v1 (online views). H3: build, freeze and register the catalog; **register G3**, run **G3**. IMAGINE and contact goals if their preconditions hold | 12–18 h |
@@ -1092,7 +1100,7 @@ gantt
 1. Review the pre-registration draft (`docs/3-glassbox/glassbox-prereg.md`, sections 1–3 and 8–10) and commit it. Sections 1, 2 and 8–10 are copied from v2's or from this plan; section 3 (G0) must be committed before G0 runs.
 2. ~~`tools/gb_offline.py --import-cp1`~~ **done 16 Oct**: `gb/cp1_import.py` re-grades every CP1 candidate, recomposes the books and re-scores T0/T1/T2 with `gb/core/` and CP1's bindings (no LLM, no search) into `results/glassbox/cp1_import/`; all 437 numbers on the 8 games equal CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games in ~15 s.
 3. ~~S6 v0~~ **done 16 Oct**: `make gb-report RUN=cp1_import` builds `results/glassbox/cp1_import/s6_show/index.html` (0.4 MB, offline): CP1's gate recomputed, the funnel per game for the training level and T1, and a case viewer (before / predicted / after / difference; flags WRONG, NEAR, UNCLAIMED, CONFLICT, EXACT; links to a single case). Each drawn case is re-run in the sandbox and must give the status S3 stored, or the build stops.
-4. S1 skeleton: objects, correspondence, closure.
+4. ~~S1 skeleton~~ **done 16 Oct**: `gb/s1_see.py` (`make gb-see`), objects, correspondence (moved, recoloured, grew, shrank, reshaped, vanished, appeared) and closure, about 2 minutes for all 8 games; S6 shows "S1 explains it" in the funnel and S1's items for each case. Closure as written cannot fail, so "explained" is the measure (step 3 above). Next (week 1): relations, feature bits, role hints, the exploration matrix and the facts text (steps 4–8).
 
 ## 8. Compute
 
