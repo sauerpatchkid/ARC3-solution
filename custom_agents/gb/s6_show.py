@@ -95,8 +95,21 @@ def _s1(run_dir, name):
     p = os.path.join(run_dir, "s1_see", name + ".facts.npz")
     if not os.path.exists(p):
         return None
+    p_roles = os.path.join(run_dir, "s1_see", name + ".roles.json")
     return {"arr": dict(np.load(p)),
-            "recs": {r["k"]: r for r in _jsonl(os.path.join(run_dir, "s1_see", name + ".facts.jsonl"))}}
+            "recs": {r["k"]: r for r in _jsonl(os.path.join(run_dir, "s1_see", name + ".facts.jsonl"))},
+            "roles": json.load(open(p_roles)) if os.path.exists(p_roles) else None}
+
+
+def roles_text(roles):
+    """S1's role hints for a level, in one line."""
+    if not roles:
+        return ""
+    names = lambda cs: ", ".join(str(c) for c in cs) or "none"
+    mover = f"colour {roles['mover']}" if roles.get("mover") is not None else "none"
+    return (f"S1's roles on this level: mover {mover}; static colours {names(roles.get('static', []))}; "
+            f"clicks change colours {names(roles.get('click_changers', []))}, never change "
+            f"{names(roles.get('click_noops', []))}; counters {names(roles.get('counters', []))}.")
 
 
 # ---- the funnel ---------------------------------------------------------------------------
@@ -277,12 +290,12 @@ def action_text(a):
 
 
 def _s1_case(s1, k, changed):
-    if s1 is None:
+    """What S1 says about one case: its facts text and whether it explains the change."""
+    if s1 is None or k not in s1["recs"]:
         return None
-    r = s1["recs"].get(k)
-    if r is None:
-        return {"explained": True, "unit": 1.0, "items": []} if not changed else None
-    return {"explained": r["explained"], "unit": r["unit"], "items": [it["text"] for it in r["items"]]}
+    r = s1["recs"][k]
+    return {"explained": r.get("explained", True), "unit": r.get("unit", 1.0), "changed": bool(r.get("changed")),
+            "text": r.get("text") or [it["text"] for it in r.get("items", [])]}
 
 
 def level_cases(g, which, ev_path, members, st, flags, per_flag, label, arm, s1=None):
@@ -311,6 +324,7 @@ def level_cases(g, which, ev_path, members, st, flags, per_flag, label, arm, s1=
                       "c": _bits(p["claimed"]), "x": _bits(p["clash"])})
     counts = {f: len(v) for f, v in flags_of(ev, st, flags).items()}
     return {"key": which, "label": label, "arm": arm, "level": ev.level + 1, "live": _bits(ev.live),
+            "roles": roles_text(s1["roles"]) if s1 else "",
             "flag_counts": counts, "shown": len(cases), "cases": cases}
 
 

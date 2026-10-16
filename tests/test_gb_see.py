@@ -155,8 +155,116 @@ def test_a_whole_level_of_the_toy_game():
     # No decoration mask: with the estimated one, the block slides through cells
     # marked as decorations and looks clipped (S1 only sees live cells).
     ev = LevelEvidence.from_moves("toy", 0, f, n, a, mask=np.zeros((64, 64), bool))
-    arr, records = S.see_level(ev)
+    arr, records, role, mat = S.see_level(ev)
     s = S.summary(ev, arr)
-    assert s["changing"] == int(ev.changed.sum()) == len(records)
+    assert s["changing"] == int(ev.changed.sum()) == sum(r["changed"] > 0 for r in records)
+    assert len(records) == len(ev.actions)                             # every case has a record and a text
     assert s["explained"] == 1.0 and s["closure"] == 1.0                 # slides and recolours only
     assert s["kinds"]["moved"] > 0 and s["kinds"]["recoloured"] > 0 and s["kinds"]["reshaped"] == 0
+
+
+# ---- steps 4-8: relations, feature bits, roles, matrix, text ----------------------------------------
+def wall_game(n=200, seed=0):
+    """A 2x2 colour-9 block on black beside a grey wall. ACTION3 slides it left,
+    ACTION4 right, unless something is in the way."""
+    rng = np.random.default_rng(seed)
+    b = board()
+    b[20:30, 10] = 4                           # the wall
+    b[24:26, 12:14] = 9                        # the block, one cell from the wall
+    F, N, A = [], [], []
+    for _ in range(n):
+        a = int(rng.choice([2, 3]))
+        nb = b.copy()
+        ys, xs = np.nonzero(b == 9)
+        tgt = xs + (-1 if a == 2 else 1)
+        if tgt.min() >= 0 and tgt.max() <= 63 and (b[ys, tgt][~np.isin(tgt, xs)] == BG).all():
+            nb[b == 9] = BG
+            nb[ys, tgt] = 9
+        F.append(b)
+        N.append(nb)
+        A.append(a)
+        b = nb
+    return np.array(F), np.array(N), np.array(A, np.int32)
+
+
+def wall_level():
+    f, n, a = wall_game()
+    ev = LevelEvidence.from_moves("wall", 0, f, n, a, mask=np.zeros((64, 64), bool))
+    arr, records, role, mat = S.see_level(ev)
+    names = [str(x) for x in arr["feature_names"]]
+    feats = np.unpackbits(arr["features"], axis=1)[:, :len(names)].astype(bool)
+    return ev, arr, records, role, mat, names, feats
+
+
+def test_relations_on_a_hand_made_board():
+    b = board()
+    b[30:32, 30:32] = 9                        # the object
+    b[30:32, 33] = 4                           # one empty column to its right, then grey
+    o = next(o for o in S.objects(b, LIVE, BG) if o.colour == 9)
+    rel, under = S.relations(b, o, LIVE, BG)
+    assert under == BG
+    assert rel["right"] == {"dist": 2, "colour": 4, "touch": False, "edge": 32}
+    assert rel["left"]["dist"] is None and rel["left"]["edge"] == 30
+    b[29, 30] = 4
+    o = next(o for o in S.objects(b, LIVE, BG) if o.colour == 9)
+    assert S.relations(b, o, LIVE, BG)[0]["up"]["touch"]
+
+
+def test_inside_finds_the_smallest_container():
+    b = board()
+    b[10:40, 10:40] = 2
+    b[20:30, 20:30] = 3
+    b[24:26, 24:26] = 9
+    objs = S.objects(b, LIVE, BG)
+    o = next(o for o in objs if o.colour == 9)
+    assert S.inside(o, objs).colour == 3
+
+
+def test_roles_find_the_mover_and_the_static_colours():
+    role = wall_level()[3]
+    assert role["mover"] == 9 and role["movers"] == [9] and 4 in role["static"] and role["counters"] == []
+
+
+def test_a_blocked_move_shows_the_wall_on_its_side():
+    ev, arr, records, role, mat, names, feats = wall_level()
+    blocked = [r["k"] for r in records if not r["changed"] and ev.actions[r["k"]] == 2]
+    moved_left = [r["k"] for r in records if r["changed"] and ev.actions[r["k"]] == 2]
+    assert blocked and moved_left
+    col = names.index("left_touch")
+    assert feats[blocked, col].all() and not feats[moved_left, col].any()     # a one-feature guard separates them
+    assert feats[blocked, names.index("left_colour=4")].all()
+    assert (arr["dist_left"][blocked] == 1).all()
+
+
+def test_the_matrix_flags_mixed_outcomes():
+    mat = wall_level()[4]
+    left = next(r for r in mat if r["family"] == "ACTION3")
+    right = next(r for r in mat if r["family"] == "ACTION4")
+    assert left["counts"]["nothing"] >= 1 and left["counts"]["moved"] > 0 and left["entropy"] > 0
+    assert right["counts"] == {"moved": right["cases"]} and right["entropy"] == 0
+
+
+def test_the_facts_text_is_pinned():
+    # GOLDEN: S2's prompts will quote this text, so a change to it must be on purpose.
+    ev, arr, records, *_ = wall_level()
+    blocked = next(r for r in records if not r["changed"] and ev.actions[r["k"]] == 2)
+    assert blocked["text"] == [
+        "ACTION3.",
+        "  The mover (colour 9 blue, 2x2, rows 24-25, cols 11-12): up: clear to the screen edge (24 cells); "
+        "down: clear to the screen edge (38 cells); left: touching colour 4 darker gray; "
+        "right: clear to the screen edge (51 cells).",
+        "  Nothing changed."]
+    moved = next(r for r in records if r["changed"] and ev.actions[r["k"]] == 3)
+    assert moved["text"][-2:] == [
+        "  Object (colour 9 blue, 2x2, rows 24-25, cols 12-13) moved (+0, +1), leaving colour 5 black.",
+        "  1 other object did not change. The description explains the whole change."]
+
+
+def test_the_text_keeps_to_its_line_cap():
+    b, a = board(), board()
+    for i in range(14):
+        b[2 + 4 * i, 2:4] = 3 + (i % 2)
+        a[2 + 4 * i, 3:5] = 3 + (i % 2)
+    r = see(b, a)
+    lines = S.facts_text(0, None, {}, None, None, r, [], 0, max_lines=12)
+    assert len(lines) == 12 and lines[-2].startswith("  ... and")

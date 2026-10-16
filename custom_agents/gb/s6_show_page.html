@@ -105,8 +105,8 @@ figcaption b { color: var(--ink); font-weight: 600; }
 .case dt { color: var(--muted); }
 .case dd { margin: 0; overflow-wrap: anywhere; }
 .rule { border-top: 1px solid var(--grid); padding: 8px 0; }
-ul.s1 { margin: 6px 0 0; padding-left: 18px; }
-ul.s1 li { margin: 2px 0; }
+pre.s1 { margin: 6px 0 0; white-space: pre-wrap; max-height: none; }
+.roles { color: var(--ink2); font-size: 13px; margin: 0 0 10px; }
 .rule .rid { color: var(--muted); }
 pre { background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto;
       font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 340px; }
@@ -185,6 +185,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
       <label>Action group <select id="f-group"></select></label>
       <label>Rule <select id="f-rule"></select></label>
     </div>
+    <p class="roles" id="roles"></p>
     <div class="nav">
       <button id="prev" type="button" aria-label="Previous case">←</button>
       <span class="pos" id="pos" aria-live="polite"></span>
@@ -424,6 +425,7 @@ function onFilter() {
   state.i = 0;
   if (wanted.case) { state.i = Math.max(0, Math.min(state.cases.length - 1, Number(wanted.case) - 1 || 0)); }
   for (const k of ["level", "flag", "case"]) delete wanted[k];
+  $("roles").textContent = state.level.roles || "";
   $("shown-note").textContent = "The viewer keeps the " + DATA.meta.per_flag +
     " most-played cases of each flag; the counts in the Flag list are all of them.";
   drawCase();
@@ -575,10 +577,9 @@ function facts(c, lv) {
       c.cells.wrong + " wrong" + (c.cells.clash ? ", " + c.cells.clash + " clashing" : "")],
   ];
   if (c.s1) {
-    const items = c.s1.items.length ? el("ul", { class: "s1" }, ...c.s1.items.map((t) => el("li", { text: t }))) : el("span", { text: "no change" });
-    rows.push(["S1 sees", el("div", {},
-      el("span", { class: "chip " + (c.s1.explained ? "good" : ""), text: c.s1.explained ? "✓ explained as whole objects"
-        : "– not explained (" + pct(c.s1.unit) + " of changed cells by whole objects)" }), items)]);
+    const chip = !c.s1.changed ? null : el("span", { class: "chip " + (c.s1.explained ? "good" : ""),
+      text: c.s1.explained ? "✓ explained as whole objects" : "– not explained (" + pct(c.s1.unit) + " of changed cells by whole objects)" });
+    rows.push(["S1 sees", el("div", {}, chip, el("pre", { class: "s1", text: c.s1.text.join("\n") }))]);
   }
   $("case-facts").replaceChildren(...rows.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", {}, v)]));
   const box = $("case-rules");

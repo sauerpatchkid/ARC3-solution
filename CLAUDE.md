@@ -145,10 +145,14 @@ before the run each judges).
   of whole-object items that rebuilds the screen. On CP1's training levels:
   ft09, m0r0, tu93, vc33 100%; dc22 89%; g50t 88%; tr87 61%; cd82 30%. S6 shows
   it as the funnel's first stage.
+- **Done 16 Oct, S1 steps 4–8:** relations for each move's subject (mover or
+  clicked object) and ahead of moved objects; feature bits per direction for
+  the guard fitter; roles (mover, static, click-changers/no-ops, counters);
+  the exploration matrix; the facts text (pinned by a golden test). The
+  viewer shows the text and the roles.
 - **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
   draft (sections 1–3, 8–10) before G0 runs, and confirms S1's "explained" as
-  perception coverage; (2) S1 steps 4–8 (relations, feature bits, roles,
-  matrix, facts text), then the S3 guard fitter and G0.
+  perception coverage; (2) the S3 guard fitter, then G0.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
   pre-registration draft (sections 1–3, 8–10) before G0 runs; plan §10 (a), (b).
