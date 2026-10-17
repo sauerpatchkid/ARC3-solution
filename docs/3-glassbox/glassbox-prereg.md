@@ -15,7 +15,7 @@ before the run they affect.
 |---|---|---|
 | 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
-| 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50` |
+| 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
@@ -242,5 +242,21 @@ training data" as any Glassbox artifact (H1's vocabulary, H3's templates).
 
 ## 11. Changes after registration
 
-*(None yet. Each entry: date, section, what changed, why, and whether any run
-had started.)*
+*(Each entry: date, section, what changed, why, and whether any run had
+started.)*
+
+1. **16 Oct 2026, section 3, after G0 ran (no change to its text or numbers).**
+   The run's manifest records `341ebec+dirty`. The only difference from a
+   clean tree was the `ARC-AGI-3-Agents` submodule's local edits
+   (`agents/__init__.py`, `agents/structs.py`, the game harness), present
+   before this session and not imported by anything G0 runs; G0's code was
+   unchanged since `c051e50` as required. Recorded so "with a clean tree" is
+   not read as met to the letter.
+2. **16 Oct 2026, section 3, after G0 ran.** The run's summary has no T1 for
+   tu93: `s3_guards.py` looked for the transfer level as the training level
+   + 1 (tu93: 2), but CP1's transfer level for tu93 is 3. No rule of tu93's
+   was in scope, so its book is the same before and after, and its T1 before
+   and after is the import's (3.6% per move; equal to CP1's registered
+   number). Fixed after the run (the code now takes the first later level
+   with a fit split; `tests/test_gb_guards.py` uses level 2). G0 was not
+   rerun: no G0 number depends on it.

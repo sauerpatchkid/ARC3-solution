@@ -195,13 +195,28 @@ before the run each judges).
     only when it is given.
   - S3 now checks its own "before" (book and T1) against what the import
     recorded (`before_matches_import` in its summary); a mismatch voids G0.
-- **Pre-registration section 3 (G0) REGISTERED 16 Oct** (Matt), with the
-  as-built procedure, the config hash and the code commit. Sections 1, 2 and
-  8–10 are still drafts.
-- **Next, in order (plan §7.4):** (1) **G0**: `make gb-guards RUN=cp1_import
-  G0=1` (CPU, minutes), reported as section 3 says; (2) Matt registers sections
-  1, 2, 8–10 and confirms S1's "explained" as perception coverage; (3) H1's
-  primitives, S3's priorities and tiers, S2, S4.
+- **Pre-registration section 3 (G0) REGISTERED 16 Oct** (Matt; `341ebec`,
+  pushed), with the as-built procedure, the config hash and the code commit.
+  Sections 1, 2 and 8–10 are still drafts.
+- **G0 RUN 16 Oct** (`341ebec`, ~20 s, valid: "before" equals the import on
+  every game). Write-up: `docs/3-glassbox/g0-guard-rescue.md`. **No rescue:**
+  12 rules in scope (m0r0 11, cd82 1), 0 guards, nothing changed; the
+  expectation (m0r0 gains a trusted rule) is not met. Why: m0r0's 11 rules
+  are right on EVERY case they apply to (W = 0); they miss trust only on
+  conflicting cases (ACTION1 8 cases, 9 of 606 moves; ACTION2 1, 1 of 575),
+  and those cluster at move 137 of an attempt (9 of 14 minority endings at
+  t = 137, 2 more with the majority there): a timed event the screen does not
+  show. cd82's rule has 1 wrong case (needs 3). The registered reading ("no
+  rescues means the features are the problem") does not fit: the features
+  were never tried. Two notes in prereg section 11 (the submodule makes the
+  manifest say `+dirty`; tu93's T1 was missing from the summary, a
+  transfer-level bug fixed after the run, no G0 number affected).
+- **Next, in order (plan §7.4):** (1) **Matt decides how G0 steers week 1**
+  (the write-up's options: a move-counter fact graded move by move; the
+  tiers' treatment of conflicting cases; the fitter waits for G1's
+  near-misses); (2) Matt registers sections 1, 2, 8–10 and confirms S1's
+  "explained" as perception coverage; (3) H1's primitives, S3's priorities and
+  tiers, S2, S4.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0; S1's tie fixed before G0. **Still OPEN,
   Matt's:** registering sections 1, 2, 8–10; plan §10 (a), (b).
