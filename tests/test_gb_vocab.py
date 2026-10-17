@@ -161,3 +161,108 @@ def test_features_are_fast_on_a_busy_board():
         H.features(b, a, api, 9)
     ms = (time.perf_counter() - t0) * 1000 / len(acts)
     assert ms < 2.5, f"{ms:.2f} ms per move (a rule may take 5 ms in all)"
+
+
+# ---- H1's primitives ---------------------------------------------------------------------------------
+def api_for(b, mask=None):
+    mask = np.zeros((64, 64), bool) if mask is None else mask
+    return LevelEvidence.from_moves("x", 0, b[None], b[None], np.array([0], np.int32), mask=mask).api
+
+
+def test_finding_objects():
+    b = board()
+    b[10:12, 10:12] = 9
+    b[30, 30:40] = 4
+    api = api_for(b)
+    objs = H.rule_objects(b, api)
+    assert [o.colour for o in objs] == [4, 9] and objs[0].size == 10      # largest first
+    me = H.find_object(b, api, 9)
+    assert me.box == (10, 11, 10, 11) and me.mask.sum() == 4 and not me.mask.flags.writeable
+    assert H.find_object(b, api, 7) is None and H.find_object(b, api, BG) is None
+    assert H.object_at(b, api, (30, 35)).colour == 4 and H.object_at(b, api, (0, 0)) is None
+    assert H.object_at(b, api, None) is None and H.object_at(b, api, (99, 0)) is None
+    assert H.rule_objects(board(), api) == []
+
+
+def test_rays_and_blocking_at_the_border_and_against_a_wall():
+    b = board()
+    b[10:12, 0:2] = 9                                   # at the left edge
+    b[10:12, 5] = 4                                     # a wall 3 cells to its right
+    api = api_for(b)
+    me = H.find_object(b, api, 9)
+    assert H.ray(b, api, (10, 1), 0, 1) == (4, 4) and H.ray(b, api, (10, 0), 0, -1) == (None, None)
+    assert H.is_blocked(b, api, me, 0, -1)              # off the screen
+    assert not H.is_blocked(b, api, me, 0, 3) and H.is_blocked(b, api, me, 0, 4)
+    assert not H.is_blocked(b, api, me, 0, 4, blockers=[8]) and H.is_blocked(b, api, me, 0, 4, blockers=[4])
+    assert H.is_blocked(b, api, None, 0, 1)
+
+
+def test_moving_objects():
+    b = board()
+    b[10:12, 10:12] = 9
+    b[12, 10:12] = 12                                   # a two-colour sprite: 9 over 12
+    b[10:13, 20] = 4
+    api = api_for(b)
+    sprite = H.rule_objects(b, api, 9)[0].mask | H.rule_objects(b, api, 12)[0].mask
+    out, claim = H.translate(b, api, sprite, 0, 1)
+    assert (out[10:12, 11:13] == 9).all() and (out[12, 11:13] == 12).all() and (out[10:13, 10] == BG).all()
+    assert claim.sum() == 9 and (b[10:12, 10:12] == 9).all()                  # old + new cells; b untouched
+    out, claim = H.slide(b, api, sprite, 0, 1)
+    assert (out[10:12, 18:20] == 9).all() and out[10, 17] == BG             # stops touching the wall
+    out, claim = H.slide(b, api, sprite, 0, -1)
+    assert (out[10:12, 0:2] == 9).all()                                     # stops at the screen edge
+    out, claim = H.translate(b, api, sprite, 0, -11)                         # off the screen: nothing
+    assert np.array_equal(out, b) and not claim.any()
+    out, claim = H.translate(b, api, None, 0, 1)
+    assert np.array_equal(out, b) and not claim.any()
+
+
+def test_recolour_swap_unchanged():
+    b = board()
+    b[5, 5] = 3
+    b[5, 7] = 12
+    api = api_for(b)
+    a, c = H.object_at(b, api, (5, 5)), H.object_at(b, api, (5, 7))
+    out, claim = H.recolour(b, api, a, 9)
+    assert out[5, 5] == 9 and claim.sum() == 1
+    out, claim = H.swap(b, api, a, c)
+    assert out[5, 5] == 12 and out[5, 7] == 3 and claim.sum() == 2
+    big = np.zeros((64, 64), bool)
+    big[0:2, 0:2] = True
+    assert not H.swap(b, api, a, big)[1].any()                               # different sizes
+    out, claim = H.unchanged(b, a)
+    assert np.array_equal(out, b) and claim.sum() == 1
+
+
+def test_a_rule_written_with_primitives_is_exact_on_the_maze():
+    from test_gb_guards import maze
+    f, n, a, o = maze(0, 9, 600)
+    ev = LevelEvidence.from_moves("maze", 0, f, n, a, mask=np.zeros((64, 64), bool))
+    src = '''
+RULE = "ACTION3 moves the agent one cell left unless it is blocked"
+PARAMS = {"agent": Colour()}
+def applies(board, act, api, p):
+    return act.action == 3 and find_object(board, api, p["agent"]) is not None
+def predict(board, act, api, p):
+    me = find_object(board, api, p["agent"])
+    if is_blocked(board, api, me, 0, -1):
+        return unchanged(board, me)
+    return translate(board, api, me, 0, -1)
+'''
+    rule = C.Rule(src)
+    p = rule.values({"agent": 9}, ev.api.layout)
+    t0, n_applied = time.perf_counter(), 0
+    for k in range(len(ev.actions)):
+        board_, act, api = ev.inputs(k)
+        if rule.applies(board_, act, api, p):
+            n_applied += 1
+            pred, claim = rule.predict(board_, act, api, p, ev.live)
+            assert (pred[claim] == ev.after[k][claim]).all(), k
+    ms = (time.perf_counter() - t0) * 1000 / len(ev.actions)
+    assert n_applied > 50 and ms < 1.0, ms
+
+
+def test_the_card_stays_inside_its_budget():
+    assert len(H.CARD) // 3 <= 1500                       # the plan's 1,500-token cap, by rules2's high estimate
+    for name in H.PRIMITIVES:
+        assert f"{name}(" in H.CARD, name

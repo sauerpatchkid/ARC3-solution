@@ -5,8 +5,9 @@ about (touching, a ray, the screen edge), S3's guard fitter learns from those
 same facts when a rule fails, and the guard it writes must work them out again
 inside the rule sandbox, from the board alone. Three copies of that code would
 drift apart, and a guard fitted on one copy would be judged by another. This
-file is the one copy. (Plan section 5.7. The rest of H1's primitives, such as
-`translate` and `slide`, are added here when H1 is built.)
+file is the one copy. (Plan section 5.7.) It also holds the grid operations rules
+may call (H1's primitives, below), so the LLM writes short rules from tested
+parts instead of raw numpy with the same boundary bugs every time.
 
   Obj, objects        4-connected single-colour regions of live cells that are
                       not the background (S1 step 1)
@@ -18,6 +19,12 @@ file is the one copy. (Plan section 5.7. The rest of H1's primitives, such as
   features            the same bits inside the rule sandbox, from what a rule
                       is given (board, act, api) plus the mover colour: what a
                       fitted guard calls
+  PRIMITIVES          objects, find_object, object_at, ray, is_blocked,
+                      translate, slide, recolour, swap, unchanged: the plan's
+                      cut-line ten (section 5.7), each tested on synthetic boards
+                      (tests/test_gb_vocab.py), described to the LLM by CARD.
+                      Version 1 is registered as glassbox_vocab_v1 before G1;
+                      a change after that is version 2.
 
 SANDBOX is what gb/core/contract.py hands every rule beside numpy and the slot
 types. In the sandbox the subject is found by flood fill over row runs, never by
@@ -41,8 +48,10 @@ RAY_BITS = (2, 4, 8)
 
 # ---- objects -------------------------------------------------------------------------------------
 class Obj:
-    """One single-colour region: its colour, its cells (flat indices, sorted), box and shape."""
-    __slots__ = ("colour", "cells", "size", "box", "shape", "large")
+    """One single-colour region: its colour, its cells (flat indices, sorted), box
+    (top, bottom, left, right; inclusive), shape and, for rules, `mask` (a
+    read-only 64x64 bool array, True on its cells)."""
+    __slots__ = ("colour", "cells", "size", "box", "shape", "large", "_m")
 
     def __init__(self, colour, cells, large_cells=LARGE_CELLS):
         self.colour, self.cells = int(colour), cells
@@ -52,6 +61,16 @@ class Obj:
         self.shape = (self.box[1] - self.box[0], self.box[3] - self.box[2],
                       ((ys - self.box[0]) * GRID + (xs - self.box[2])).tobytes())    # cells relative to the box
         self.large = self.size > large_cells
+        self._m = None
+
+    @property
+    def mask(self):
+        if self._m is None:
+            m = np.zeros(GRID * GRID, bool)
+            m[self.cells] = True
+            self._m = m.reshape(GRID, GRID)
+            self._m.flags.writeable = False
+        return self._m
 
     def describe(self):
         r0, r1, c0, c1 = self.box
@@ -278,4 +297,210 @@ def features(board, act, api, mover=None, with_inside=False):
     return feature_set(a, s, rels, ins, under, bg, a >= 5 and s is None)
 
 
-SANDBOX = {"features": features}
+# ---- H1's primitives: what rules may call ---------------------------------------------------------
+# Every primitive takes the board and `api` first, never changes its inputs, never raises on a
+# missing object (it returns the board unchanged with nothing claimed), and returns either an
+# answer or (next board, claimed cells), so a rule can return a primitive's result directly.
+def _live(api):
+    return ~np.asarray(api.ticker, bool)
+
+
+def _nothing(board):
+    return np.array(board), np.zeros((GRID, GRID), bool)
+
+
+def _cells(x):
+    """A 64x64 bool mask from an object or a mask."""
+    return x.mask if isinstance(x, Obj) else np.asarray(x, bool)
+
+
+def rule_objects(board, api, colour=None):
+    """The objects on the board (4-connected one-colour areas, not the background
+    or ticker cells), largest first; only those of `colour` if given.
+    Each has .colour, .size, .box (top, bottom, left, right) and .mask.
+        objs = objects(board, api, p["wall"])"""
+    board = np.asarray(board)
+    found = objects(board, _live(api), api.background)
+    if colour is not None:
+        found = [o for o in found if o.colour == colour]
+    return sorted(found, key=lambda o: -o.size)
+
+
+def find_object(board, api, colour):
+    """The largest object of `colour`, or None.
+        me = find_object(board, api, p["agent"])"""
+    board = np.asarray(board)
+    if colour is None or colour == api.background:
+        return None
+    return subject(board, 0, _live(api), api.background, colour)
+
+
+def object_at(board, api, rc):
+    """The object under cell rc = (row, col), e.g. the clicked one, or None.
+        hit = object_at(board, api, act.click)"""
+    if rc is None:
+        return None
+    y, x = int(rc[0]), int(rc[1])
+    if not (0 <= y < GRID and 0 <= x < GRID):
+        return None
+    return subject(np.asarray(board), 5 + y * GRID + x, _live(api), api.background, None)
+
+
+def ray(board, api, rc, dy, dx):
+    """From cell rc, step by (dy, dx) to the first live cell that is not the
+    background: (steps taken, its colour), or (None, None) at the screen edge.
+        dist, colour = ray(board, api, (5, 7), 0, 1)"""
+    board, live = np.asarray(board), _live(api)
+    y, x = int(rc[0]) + dy, int(rc[1]) + dx
+    n = 1
+    while (dy or dx) and 0 <= y < GRID and 0 <= x < GRID:
+        if live[y, x] and board[y, x] != api.background:
+            return n, int(board[y, x])
+        y, x, n = y + dy, x + dx, n + 1
+    return None, None
+
+
+def _shifted(mask, dy, dx):
+    """The mask moved by (dy, dx), or None if any cell would leave the screen."""
+    ys, xs = np.nonzero(mask)
+    if not len(ys) or ys.min() + dy < 0 or ys.max() + dy >= GRID or xs.min() + dx < 0 or xs.max() + dx >= GRID:
+        return None
+    out = np.zeros_like(mask)
+    out[ys + dy, xs + dx] = True
+    return out
+
+
+def is_blocked(board, api, obj, dy, dx, blockers=None):
+    """Would moving obj by (dy, dx) put a cell off the screen, or onto a cell
+    (not its own) that is not the background, or, with `blockers` (a list of
+    colours), onto one of those colours? True if obj is None.
+        if is_blocked(board, api, me, 0, -1): ..."""
+    if obj is None:
+        return True
+    board, m = np.asarray(board), _cells(obj)
+    to = _shifted(m, dy, dx)
+    if to is None:
+        return True
+    land = board[to & ~m]
+    return bool(np.isin(land, blockers).any() if blockers is not None else (land != api.background).any())
+
+
+def translate(board, api, obj, dy, dx, behind=None):
+    """obj moved by (dy, dx): its old cells become `behind` (default: the
+    background), its new cells its colour. Claims the old and new cells.
+    Off the screen: the board unchanged, nothing claimed.
+        return translate(board, api, me, -1, 0)"""
+    if obj is None:
+        return _nothing(board)
+    board, m = np.asarray(board), _cells(obj)
+    to = _shifted(m, dy, dx)
+    if to is None:
+        return _nothing(board)
+    out = np.array(board)
+    colours = board[m]
+    out[m] = api.background if behind is None else behind
+    ys, xs = np.nonzero(m)
+    out[ys + dy, xs + dx] = colours                      # keeps a many-colour object's pattern
+    return out, m | to
+
+
+def slide(board, api, obj, dy, dx, blockers=None, behind=None):
+    """obj moved step by step by (dy, dx) until the next step is_blocked. Claims
+    the old and new cells (only the old ones if it cannot move at all).
+        return slide(board, api, me, 0, 1)"""
+    if obj is None:
+        return _nothing(board)
+    board, m = np.asarray(board), _cells(obj)
+    if not (dy or dx):
+        return np.array(board), np.array(m)
+    sy = sx = 0
+    cur, clear = m, _without(board, m, api, behind)      # it never blocks itself
+    while not is_blocked(clear, api, cur, dy, dx, blockers):
+        cur = _shifted(cur, dy, dx)
+        sy, sx = sy + dy, sx + dx
+    if not (sy or sx):
+        return np.array(board), np.array(m)
+    return translate(board, api, m, sy, sx, behind)
+
+
+def _without(board, m, api, behind):
+    """The board with an object's own cells cleared."""
+    out = np.array(board)
+    out[m] = api.background if behind is None else behind
+    return out
+
+
+def recolour(board, api, cells, colour):
+    """`cells` (an object or a 64x64 bool mask) painted `colour`; claims them.
+        return recolour(board, api, object_at(board, api, act.click), p["paint"])"""
+    if cells is None:
+        return _nothing(board)
+    m = _cells(cells)
+    out = np.array(board)
+    out[m] = colour
+    return out, np.array(m)
+
+
+def swap(board, api, a, b):
+    """The contents of two same-sized cell sets (objects or masks) exchanged, cell
+    by cell in reading order; claims both. Different sizes: the board unchanged,
+    nothing claimed.
+        return swap(board, api, me, neighbour)"""
+    if a is None or b is None:
+        return _nothing(board)
+    ma, mb = _cells(a), _cells(b)
+    if ma.sum() != mb.sum() or (ma & mb).any():
+        return _nothing(board)
+    board = np.asarray(board)
+    out = np.array(board)
+    out[ma], out[mb] = board[mb], board[ma]
+    return out, ma | mb
+
+
+def unchanged(board, cells):
+    """The board as it is, claiming `cells` (an object or a mask): "these cells
+    stay as they are", for no-op and exception rules.
+        return unchanged(board, me)"""
+    if cells is None:
+        return _nothing(board)
+    return np.array(board), np.array(_cells(cells))
+
+
+PRIMITIVES = {"objects": rule_objects, "find_object": find_object, "object_at": object_at, "ray": ray,
+              "is_blocked": is_blocked, "translate": translate, "slide": slide, "recolour": recolour,
+              "swap": swap, "unchanged": unchanged}
+
+CARD = """Helpers you may call (already defined; tested). They never change their inputs, and
+return None or an unchanged board with nothing claimed when an object is missing, so
+check for None where it matters. An object has .colour, .size, .box = (top, bottom,
+left, right) inclusive, and .mask (64x64 bool, True on its cells).
+
+  objects(board, api, colour=None) -> objects (4-connected one-colour areas, not the
+      background or ticker cells), largest first; only `colour` if given
+  find_object(board, api, colour) -> the largest object of that colour, or None
+  object_at(board, api, (row, col)) -> the object under that cell, or None
+  ray(board, api, (row, col), dy, dx) -> (steps, colour) of the first non-background
+      cell in that direction, or (None, None) at the screen edge
+  is_blocked(board, api, obj, dy, dx, blockers=None) -> True if moving obj by (dy, dx)
+      would leave the screen or land on a non-background cell (or on a colour in the
+      list `blockers`)
+  translate(board, api, obj, dy, dx, behind=None) -> (next_board, claimed): obj moved
+      by (dy, dx), its old cells set to `behind` (default api.background); claims old
+      and new cells
+  slide(board, api, obj, dy, dx, blockers=None, behind=None) -> (next_board, claimed):
+      obj moved by (dy, dx) again and again until blocked
+  recolour(board, api, cells, colour) -> (next_board, claimed): an object or mask painted
+  swap(board, api, a, b) -> (next_board, claimed): two same-sized objects or masks
+      exchange contents
+  unchanged(board, cells) -> (board, claimed): "these cells stay as they are"
+
+Each (next_board, claimed) result can be returned from predict() as it is.
+
+    def predict(board, act, api, p):
+        me = find_object(board, api, p["agent"])
+        if is_blocked(board, api, me, -p["step"], 0):
+            return unchanged(board, me)
+        return translate(board, api, me, -p["step"], 0)"""
+
+
+SANDBOX = {"features": features, **PRIMITIVES}
