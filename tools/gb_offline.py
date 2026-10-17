@@ -14,9 +14,11 @@ added here as they are built (plan section 4.3).
               registered one (custom_agents/gb/cp1_import.py). Exit status 1 if
               any differs.
 --stage mask  S0 MASK (custom_agents/gb/s0_mask.py): rebuild each game's evidence
-              from CP1's recordings and levels with the bars in the decoration
+              from CP1's recordings and levels (another game: A0's seed-0 run in
+              the manifest, with CP1's level rule) with the bars in the decoration
               mask run to the screen's edges; --from <run> copies that run's
-              candidates and groups (S2's files) into the new run.
+              candidates and groups (S2's files) into the new run, --from cp1
+              copies none.
 --stage see   S1 SEE: objects, what happened to them, closure (custom_agents/gb/s1_see.py),
               for every evidence split of each game in the run.
 --stage write S2 WRITE (custom_agents/gb/s2_write.py): the local LLM writes rules for
@@ -56,6 +58,7 @@ from gb import artifacts as A  # noqa: E402
 from gb import cp1_import  # noqa: E402
 from gb import s0_mask, s1_see, s2_write, s3_check, s3_guards, s4_carry  # noqa: E402
 from gb.core.llm import ChatClient  # noqa: E402
+from manifest import read_manifest  # noqa: E402
 from gb import s6_show  # noqa: E402
 
 
@@ -79,13 +82,24 @@ def import_cp1(a):
 
 
 def seed_from(run, src, game):
-    """S0's inputs for one game: CP1's recording and levels, and the source
-    run's S2 files (candidates, LLM use, groups called) copied into `run`."""
+    """S0's inputs for one game: the recording and levels (CP1's for its 8 games,
+    else A0's seed-0 recording from the manifest with CP1's level rule), and, if
+    `src` is a run, its S2 files copied into `run` (candidates, LLM use, groups)."""
+    if src is None or not os.path.exists(os.path.join(cp1_import.CP1_DIR, f"{game}.json")):
+        cfg = run.config.get("run", {})
+        rows = [r for r in read_manifest(os.path.join(ROOT, cfg["manifest"]), strict=True)
+                if r["game"] == game and int(r["seed"]) == int(cfg.get("seed", 0))]
+        if not rows:
+            raise SystemExit(f"{game}: not in CP1, and no seed-{cfg.get('seed', 0)} run in {cfg['manifest']}")
+        d = rows[0]["run_dir"]
+        corpus = os.path.join(d if os.path.isabs(d) else os.path.join(ROOT, d), "transitions")
+        return (corpus, *s0_mask.pick_levels(game, corpus))
     res = cp1_import.load_cp1(game)
-    src_s2, dst_s2 = os.path.join(src.dir, "s2_write", game), os.path.join(run.stage_dir("s2_write"), game)
-    os.makedirs(dst_s2, exist_ok=True)
-    for f in ("candidates.jsonl", "llm.json", "groups.json"):
-        shutil.copyfile(os.path.join(src_s2, f), os.path.join(dst_s2, f))
+    if src is not None:
+        src_s2, dst_s2 = os.path.join(src.dir, "s2_write", game), os.path.join(run.stage_dir("s2_write"), game)
+        os.makedirs(dst_s2, exist_ok=True)
+        for f in ("candidates.jsonl", "llm.json", "groups.json"):
+            shutil.copyfile(os.path.join(src_s2, f), os.path.join(dst_s2, f))
     return res["corpus"], res["train"]["level"], res.get("transfer_level")
 
 
@@ -111,7 +125,9 @@ def main():
     ap.add_argument("--workers", type=int, default=cp1_import.WORKERS)
     ap.add_argument("--stage", choices=["mask", "see", "write", "check", "carry", "guards", "show"],
                     help="run one stage on --run (more are added as they are built)")
-    ap.add_argument("--from", dest="src", default="cp1_import", help="--stage mask: the run to take candidates from")
+    ap.add_argument("--from", dest="src", default="cp1_import",
+                    help="--stage mask: a run to copy candidates from, or cp1 (CP1's levels and recordings, no "
+                         "candidates; any other game from the manifest)")
     ap.add_argument("--config", default=A.DEFAULT_CONFIG, help="the settings file")
     ap.add_argument("--set", action="append", default=[], help="override one setting: section.key=value (TOML value)")
     ap.add_argument("--compare-cp1", action="store_true", help="does --run give CP1's results? (cp1_import.matches)")
@@ -145,8 +161,9 @@ def main():
         print("ALL EQUAL TO CP1" if not bad else f"DIFFER on {', '.join(bad)}")
         sys.exit(1 if bad else 0)
     if a.stage == "mask":
-        src = A.Run(a.src)
-        for game in (a.games.split(",") if a.games else games_of(src)):
+        src = None if a.src in ("cp1", "manifest") else A.Run(a.src)
+        games = a.games.split(",") if a.games else (games_of(src) if src else cp1_import.cp1_games(a.cp1))
+        for game in games:
             s0_mask.run_game(run, game, *seed_from(run, src, game), log=log, force=a.force)
         return
     if a.stage == "write":
@@ -168,7 +185,8 @@ def main():
         return
     stage = {"see": s1_see.run_game, "check": s3_check.run_game, "carry": s4_carry.run_game,
              "guards": lambda run, game, log, force: s3_guards.run_game(run, game, g0=a.g0, log=log, force=force)}
-    for game in (a.games.split(",") if a.games else games_of(run)):
+    default = games_with_evidence(run) if a.stage == "see" else games_of(run)
+    for game in (a.games.split(",") if a.games else default):
         stage[a.stage](run, game, log=log, force=a.force)
 
 

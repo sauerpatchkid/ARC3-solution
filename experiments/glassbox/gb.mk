@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -35,6 +35,9 @@ gb-help:
 	@echo "  make gb-g0b        G0b (prereg section 3b): S0 -> S1 -> S3 -> S4 -> guards into"
 	@echo "                     results/glassbox/g0b_bars/, from CP1's candidates (CPU)"
 	@echo "  make gb-g0b-control the same with S0's bars off (S0 -> S3 -> S4): must equal CP1 exactly"
+	@echo "  make gb-g1         G1 (prereg section 4): S0 -> S1 -> S2 (the LLM: start experiments/llm/serve.sh"
+	@echo "                     first; ~10-16 GPU hours) -> S3 -> S4 -> guards into results/glassbox/g1/, then"
+	@echo "                     the verdict against G0b (tools/gb_gate.py)"
 	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
@@ -85,6 +88,17 @@ G0B_OFF = --set mask.complete_bars=false
 gb-g0b-control:
 	for st in mask check carry; do uv run python tools/gb_offline.py --stage $$st --run g0b_control --from cp1_import $(G0B_OFF) || exit 1; done
 	uv run python tools/gb_offline.py --compare-cp1 --run g0b_control
+
+# G1, as registered in docs/3-glassbox/glassbox-prereg.md section 4: new rules written by the LLM (S2) on
+# evidence with S0 on, then CP1's book and T1 procedure and the guards, judged against G0b's numbers.
+gb-g1:
+	uv run python tools/gb_offline.py --stage mask --run g1 --from cp1
+	uv run python tools/gb_offline.py --stage see --run g1
+	uv run python tools/gb_offline.py --stage write --run g1
+	uv run python tools/gb_offline.py --stage check --run g1
+	uv run python tools/gb_offline.py --stage carry --run g1
+	uv run python tools/gb_offline.py --stage guards --run g1
+	uv run python tools/gb_gate.py g1 --run g1 --base g0b_bars
 
 gb-guards:
 	uv run python tools/gb_offline.py --stage guards --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force) $(if $(G0),--g0)

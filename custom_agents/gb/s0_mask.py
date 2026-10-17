@@ -65,6 +65,27 @@ def complete_bars(mask, settings=DEFAULTS):
     return out
 
 
+def pick_levels(game, corpus, min_train_moves=500, min_transfer_cases=50):
+    """CP1's levels for a game it did not run (legacy/rulebook/tools/wm_tier0a_v2.py,
+    pick_levels): the training level is the first with >= 500 recorded moves, the
+    transfer level the next with >= 50 distinct cases. 1-based, as files are named."""
+    import collections
+    import glob
+    counts = collections.Counter()
+    for p in sorted(glob.glob(os.path.join(corpus, "shard_*.npz"))):
+        with np.load(p) as z:
+            for lv, c in zip(*np.unique(z["levels"], return_counts=True)):
+                counts[int(lv)] += int(c)
+    train = next((lv for lv in sorted(counts) if counts[lv] >= min_train_moves), min(counts))
+    transfer = None
+    for lv in sorted(x for x in counts if x > train):
+        cand = LevelEvidence.from_corpus(game, corpus, lv)
+        if cand is not None and len(cand.actions) >= min_transfer_cases:
+            transfer = lv
+            break
+    return train + 1, None if transfer is None else transfer + 1
+
+
 def conflicts(ev):
     return int((ev.n_variants > 1).sum())
 
