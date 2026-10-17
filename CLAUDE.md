@@ -64,7 +64,7 @@ uv run python compute_metrics.py results/runs/<ts>/ls20/transitions \
     --game ls20 --agent mb_gated_att --seed 0 --suite results/local_suite.csv
 uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--rule adopt|dev|confirm] [--expect N]
-uv run python -m pytest tests -q              # live tests (~20 s)
+uv run python -m pytest tests -q              # live tests (~85 s)
 uv run python -m pytest legacy/rulebook/tests -q   # frozen Rulebook tests (~40 s)
 make gb-config                                # Glassbox's settings and their hashes
 ```
@@ -214,12 +214,19 @@ before the run each judges).
   were never tried. Two notes in prereg section 11 (the submodule makes the
   manifest say `+dirty`; tu93's T1 was missing from the summary, a
   transfer-level bug fixed after the run, no G0 number affected).
-- **Next, in order (plan §7.4):** (1) **Matt decides how G0 steers week 1**
-  (the write-up's options: complete the bar mask in a Glassbox step; a
-  move-counter fact graded move by move; claim-aware conflicts in the tiers;
-  the fitter waits for G1's near-misses); (2) Matt registers sections 1, 2, 8–10 and confirms S1's
-  "explained" as perception coverage; (3) H1's primitives, S3's priorities and
-  tiers, S2, S4.
+- **After G0, Matt chose (16 Oct): complete the bar mask, registered as G0b;
+  the guard fitter waits for G1's near-misses.** Built: `gb/s0_mask.py` (S0:
+  each bar in the decoration mask run to the screen's edges, `[mask]
+  complete_bars`), `gb/s3_check.py` (S3 grading v0, CP1's procedure) and
+  `gb/s4_carry.py` (S4 v0: CP1's re-binding by search, T0, T1);
+  `cp1_import.py` and the guard fitter use their functions. With the bars off,
+  S0 → S3 → S4 gives CP1's book, T0, T1 and every re-binding on all 8 games
+  (`make gb-g0b-control`). **Prereg section 3b (G0b) REGISTERED 16 Oct**
+  (config `2f789d8dca149dfe`, code `78c461c`); run it with `make gb-g0b`.
+- **Next, in order (plan §7.4):** (1) G0b and its write-up; (2) Matt registers
+  sections 1, 2, 8–10 and confirms S1's "explained" as perception coverage;
+  (3) H1's primitives, S3's priorities and tiers, S2, then G1 (section 4
+  decides whether G1 runs with S0 on).
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
   tu93 rule); the hold-out seed is 0; S1's tie fixed before G0. **Still OPEN,
   Matt's:** registering sections 1, 2, 8–10; plan §10 (a), (b).

@@ -16,6 +16,7 @@ before the run they affect.
 | 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
+| 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games |
 | 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
@@ -162,6 +163,86 @@ draft named "tu93 or m0r0", but no tu93 rule meets the admission bar). 3b: the
 hold-out seed is 0, as written in step 3. 3c (at registration): S1's tie rule
 is fixed before G0 (step 1); the as-built details of the fitter (steps 3–7)
 are registered as written here.
+
+## 3b. G0b: the bar mask (a diagnostic, not a gate)
+
+*REGISTERED 16 Oct 2026 (Matt: "follow your recommendation"), before any G0b
+run: the commit that marks this section registered in the table above is its
+timestamp. It follows from G0's result (section 3; `g0-guard-rescue.md`).*
+
+**Question.** G0 found that m0r0's 11 near-miss rules are right on every case
+they apply to and miss trust only because some cases were seen to end two ways,
+and traced those to the decoration mask stopping 6 cells short of m0r0's
+move-budget bar. If S0 runs each bar in the mask to the screen's edges, and
+nothing else changes, do those rules become trusted, and what do the book and
+T1 become?
+
+**Known before registration** (evidence only: no rule has been run on S0's
+evidence). With S0 on, per game (training / fit / score split): conflicting
+cases m0r0 13 → 0 / 0 / 758 → 0; tu93 11 → 0 / 0 / 96 → 0; ft09 0 / 0 / 33 → 0;
+g50t 93 / 10 / 1,826, unchanged; dc22, vc33, cd82, tr87 none either way. Mask
+cells on the training level: m0r0 122 → 128, tu93 60 → 64, vc33, cd82, tr87
+63 → 64; dc22, g50t 64 and ft09 0 unchanged. Cases on the training level:
+m0r0 1,385 → 1,275, tu93 124 → 112, the others unchanged.
+
+**The control, run before registration** (`make gb-g0b-control`, code
+`78c461c`). With S0's bars off, S0 → S3 → S4 gives CP1's book members and
+numbers, T0, T1 and every T1 re-binding (found again by S4's own search) on
+all 8 dev games, and S0 rebuilds CP1's evidence array for array. So whatever
+G0b changes, the mask changed.
+
+**What runs.** No LLM, no GPU. `make gb-g0b`, once, on a commit where the code
+it runs is unchanged since `78c461c` (`git diff 78c461c -- custom_agents/gb
+tools/gb_offline.py experiments/glassbox` prints nothing), into
+`results/glassbox/g0b_bars/`, for the 8 dev games:
+
+1. **S0** (`s0_mask.py` VERSION 1): each game's evidence rebuilt from the
+   recording CP1 used, at CP1's training and transfer levels and splits (the
+   transfer level's first 300 moves are its fit split), with each bar in the
+   decoration mask run to the screen's edges: a run of at least 8 masked cells
+   along a row within 4 cells of the top or bottom edge (or a column within 4
+   of the left or right) is masked in full. The candidates are CP1's, as
+   imported (`cp1_import/s2_write/`), unchanged.
+2. **S1** (VERSION 3) on every split.
+3. **S3 grading** (`s3_check.py` VERSION 1): every candidate replayed on the
+   training level with the binding CP1 gave it, graded by v2's trust; the book
+   composed as CP1 composed it.
+4. **S4** (`s4_carry.py` VERSION 1): each book rule re-bound on the fit split by
+   CP1's procedure (`bind.search`, `bind.choose`; in T1 if trusted on both
+   levels and lint-clean); T0 and T1 on the score split, per move, with the
+   registered interval (2,000 resamples, seed 0).
+5. **The guard fitter**, section 3's procedure unchanged, on the rules that are
+   still admitted but not trusted.
+
+**Settings.** `experiments/glassbox/glassbox.toml` config hash
+`2f789d8dca149dfe`; `[mask]` `5561d138585be439` (`complete_bars = true`,
+`bar_min_length = 8`, `band = 4`, `fit_moves = 300`); `[see]`
+`a31392fb68e47122`; `[check]` `635ce93f9ee63cd1`.
+
+**Reported per game, beside CP1's numbers** (section 3's "before"). S0's report
+(mask cells, cases and conflicting cases per split); the admitted and trusted
+rules, naming which of m0r0's 11 near-misses become trusted, with claimed
+exactness and moves; the book's members, cell coverage and case coverage on
+the training level; T0 and T1 (the per-move rate, the differences from
+"nothing" and "memory" with their intervals, the wrong share); each book rule's
+re-binding and flag; the guard fitter's result. S0 masks more cells for every
+arm, so "nothing" and "memory" are scored on the same evidence: within G0b the
+book is compared with them; CP1's T1 is shown beside, with its own baselines.
+
+**Expectation, written before running.** m0r0: all 11 near-miss rules become
+trusted, and its book's cell coverage on the training level rises above 0%
+(it is 0% in CP1); its T1 is uncertain (the fit split is 300 moves). tu93: no
+newly trusted rule (CP1 admitted none; its best was 77%, which conflicting
+cases did not cause). The other six: the same books as CP1 and T1 within 1
+percentage point. No game's T1 wrong share above 0%.
+
+**Void.** The run is void if the control does not give CP1's results at the
+run's commit (`make gb-g0b-control` prints "ALL EQUAL TO CP1"), or if the run's
+code, inputs or settings differ from the above.
+
+**What it decides.** Nothing passes or fails. It informs whether G1 runs with
+S0 on, which section 4 decides before G1, naming the mask as a difference from
+CP1 if it does.
 
 ## 4. G1: the offline rule test
 
