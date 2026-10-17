@@ -176,6 +176,29 @@
     "results/rulebook/v2/tier0a_v2/vc33_score.npz": "cf9c4f54e34298d99b92924781c086d6989f88b92544df11a120c57a7db21124",
     "results/rulebook/v2/tier0a_v2/vc33_train.npz": "681a56bcaa7072515816885852df70d12db722c82c95a1a88b5507e836301d02"
    }
+  },
+  {
+   "name": "glassbox_vocab_v1",
+   "kind": "artifact",
+   "frozen": "2026-10-17",
+   "source_games": [
+    "cd82",
+    "dc22",
+    "ft09",
+    "g50t",
+    "lp85",
+    "ls20",
+    "m0r0",
+    "tr87",
+    "tu93",
+    "vc33"
+   ],
+   "note": "H1 VOCAB v1: the ten primitives, features() and CARD (S1's relation code is in the same file); registered before G1, prereg section 4; a change after this is version 2",
+   "n_files": 1,
+   "sha256": "91ca44efa1a938cd54ee99447f7eea5cd667b96d714e4e1cf333c6c7689a6a26",
+   "files": {
+    "custom_agents/gb/h1_vocab.py": "c19a56e98485811d634756ceb901959607b45430bb501df59a65d0790546668e"
+   }
   }
  ],
  "events": []

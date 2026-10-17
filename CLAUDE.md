@@ -231,7 +231,14 @@ before the run each judges).
   two blue objects jump 24–40 rows on level 2, which the 300-move fit split
   showed twice; re-binding flagged "ambiguous"). vc33 gains a trusted rule
   (same book). The other games are unchanged (T1 within 0.5 points).
-- **Next, in order (plan §7.4):** (1) section 4 (G1) should run with S0 on;
+- **17 Oct: H1's ten primitives (`h1_vocab.py`, registered as `glassbox_vocab_v1`),
+  S2 v1 (`s2_write.py`: v2's procedure with S1's facts, H1's card, one mechanism
+  per rule, guards before a near-miss call; no exception or two-level prompts),
+  `tools/gb_gate.py`, `make gb-g1`.** lp85 smoke passed (45.9% cell coverage,
+  0% wrong, ~45 min). **Prereg section 4 (G1) REGISTERED 17 Oct** (Matt: mask
+  on, judged against G0b; config `5b7a7b2684e37ce5`, code `bd0552b`). The LLM
+  server must be up (`experiments/llm/serve.sh`); G1 ~6-12 h.
+- **Next, in order (plan §7.4):** (1) G1's run and write-up;
   (2) Matt registers
   sections 1, 2, 8–10 and confirms S1's "explained" as perception coverage;
   (3) H1's primitives, S3's priorities and tiers, S2, then G1 (section 4

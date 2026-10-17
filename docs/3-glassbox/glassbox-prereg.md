@@ -17,7 +17,7 @@ before the run they affect.
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
-| 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
+| 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1` |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
@@ -246,10 +246,107 @@ CP1 if it does.
 
 ## 4. G1: the offline rule test
 
-*To be written before G1 runs. Content (plan §6.3): what is held equal to CP1;
-primary (training-level cell coverage above CP1's on ≥ 5 of 8 dev games);
-safety (T1 wrong ≤ 5% of the transfer level's changing cases on every game);
-reported numbers; ablations; per-game expectations; the config hash.*
+*REGISTERED 17 Oct 2026 (Matt: "run G1 with the mask on and judge it against
+G0b"), before any G1 run: the commit that marks this section registered in the
+table above is its timestamp. S2 was built and tested with a mock LLM and on
+one seen game (lp85, the smoke test below); it has not written a rule for a dev
+game.*
+
+**Question.** With S1's facts in the prompt, H1's vocabulary, one mechanism per
+rule and the guard fitter, does the local LLM write rules that explain more of
+each game's training level than CP1's rules did on the same evidence?
+
+**The baseline is G0b, not CP1** (Matt, 17 Oct). G1 runs with S0 on. G0b
+(section 3b) is CP1's candidates on that same evidence, so it already holds the
+mask's effect (m0r0: 0% to 53.5% of changed cells). Judged against G0b, a gain
+is the new rule writing's, not the mask's.
+
+**Held equal to CP1** (and so to G0b): the 8 dev games; the seed-0 recordings
+of A0's confirm (CP1's corpora); the same training level (the first with
+>= 500 moves), transfer level (the next with >= 50 distinct cases) and fit split
+(the transfer level's first 300 moves); the same model
+(`cyankiwi/Qwen3.8-27B-AWQ-INT4`, served as `rulebook`) with thinking on,
+20,480-token answers, one code-only retry and one repair, Qwen's sampling and
+CP1's seeds (1 for the first round, 100 + step for later calls, + 50 for a
+retry); 4 first-round candidates and up to 8 more calls per group, chosen by
+CP0's bandit on claimed-cell exactness, residual prompts once a group has a
+trusted lint-clean rule; at most 12 groups per game, those whose moves ever
+change the board (under S0 m0r0's ACTION5 and orange-click groups change only
+bar cells, so they get no calls); every candidate's PARAMS fitted by
+`bind.search` and graded by v2's trust; the book composed as CP1 composed it;
+T1 by CP1's re-binding (S4 v0, shown to reproduce CP1 exactly).
+
+**What is new in G1** (what it tests): S2 v1 (`gb/s2_write.py`): S1's facts
+under every move shown, H1's card in the instructions (`glassbox_vocab_v1`,
+registered with this section), the one-mechanism instruction, and the guard
+fitter tried once on a near-miss (>= 95% claimed-exact) before a call is spent
+on it. After S2, the guard fitter (section 3's procedure) runs once more on the
+rules still admitted but not trusted. **Not in G1** (the plan's cut lines):
+exception prompts, two-level prompts and T2, priority composition, trust tiers.
+
+**What runs.** `make gb-g1`, once, with the server up
+(`experiments/llm/serve.sh`), on a commit where the code it runs is unchanged
+since `bd0552b` (`git diff bd0552b -- custom_agents/gb tools/gb_offline.py
+tools/gb_gate.py experiments/glassbox` prints nothing), into
+`results/glassbox/g1/`: S0 (`--from cp1`) -> S1 -> S2 -> S3 grading -> S4 ->
+the guard fitter -> `tools/gb_gate.py g1 --run g1 --base g0b_bars`. Answers are
+cached (`s2_write/llm_cache.jsonl`); if the run stops (a power cut, a server
+crash), it is restarted with the same command and the cached answers are
+reused, so it continues where it stopped. A group that fails for a machine or
+server reason is rerun the same way before the verdict; one that fails for its
+rules' own reasons is a result.
+
+**Settings.** `experiments/glassbox/glassbox.toml` config hash `5b7a7b2684e37ce5`;
+`[write]` `75d996c8d133b7a9`; `[mask]` `5561d138585be439`; `[see]`
+`a31392fb68e47122`; `[check]` `635ce93f9ee63cd1`; `[vocab]` `7ec1234e7b9c566b`.
+
+**The smoke test, run before registration** (lp85, a seen game, 17 Oct; code
+`bd0552b`; `results/glassbox/smoke_lp85/`). S0 -> S1 -> S2 -> S3 -> S4 -> the
+guard fitter ran end to end on lp85's 2 groups with the server: 24 candidates,
+2 trusted, a book of 1 rule explaining 45.9% of the training level's changed
+cells, T1 34.0% per move (equal to "nothing"), 0% wrong; 391,501 tokens in about
+45 minutes. 6 of the 8 first-round answers finished (the code-only retry wrote
+the other 2), and every answer called an H1 primitive.
+
+**Primary.** On at least 5 of the 8 dev games, the training level's composed
+book (S3's book from S2's candidates plus every narrowed rule the guard fitter
+rescues) has a **higher cell coverage than G0b's** (`g0b_bars`, its guard
+fitter's "after" book; G0b's write-up, per game: tu93 0.0%, tr87 0.0%, dc22
+11.8%, g50t 17.7%, vc33 10.6%, ft09 97.7%, m0r0 53.5%, cd82 5.2%). Higher means
+strictly, at the 4 decimals stored.
+
+**Safety.** On every one of the 8 games, T1 (the same book re-bound on the fit
+split, scored on the score split) is wrong on at most 5% of the score split's
+changing cases.
+
+**Pass = primary and safety.** `tools/gb_gate.py` computes both and writes
+`g1/g1_verdict.{json,md}`.
+
+**Reported, not gating.** CP1's own criterion per game (T1 beats "nothing" and
+"memory" with both 95% intervals above zero; G0b: dc22 and ft09); case
+coverage; trusted rules per game; T1 per move beside G0b's; LLM calls, tokens,
+answers that ran out of room; H1 use (the share of graded candidates that call a
+primitive, and of trusted rules); guard rescues, in the loop and after.
+
+**Ablations** (reported later, cannot change the verdict): GB−facts and
+GB−vocab (first-round calls only), and GB−guards (re-scored from the cache),
+run after G1 if GPU time allows.
+
+**Expectation, written before running.** Per game, against G0b: tu93 gains a
+trusted movement rule and coverage above 0% (likely); g50t and cd82 gain a
+little (likely); dc22, ft09 and m0r0 stay about where they are (ft09 at 97.7%
+and m0r0 at 53.5% leave little room; strictly higher is uncertain); tr87 may
+stay at 0%; vc33 is uncertain. So the primary is uncertain: about 45% (the
+plan's 55% was against CP1, before G0b gave m0r0 its 53.5%). Safety is expected
+to hold, with m0r0 the risk (4.3% wrong in G0b).
+
+**Void.** If the model, the code or the settings differ from the above, or if
+the verdict is computed while a group's failure for a machine or server reason
+has not been rerun.
+
+**What it decides.** Pass: G1's book goes on to G2 (the online gate). Fail: as
+the plan's §6.3 says, M2 still goes ahead with whatever trusted rules exist, and
+G1 is reported as a diagnosis with its funnel.
 
 ## 5. The offline counterfactual and G2
 
