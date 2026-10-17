@@ -10,6 +10,12 @@ tier = "dev"                      # dev | seen | ab_offline | untouched (untouch
 manifest = "results/confirm_upgrade/20260927_221915/manifest.tsv"
 seed = 0
 
+[mask]                            # S0
+complete_bars = true              # run each bar in the decoration mask to the screen's edges (false: CP1's mask)
+bar_min_length = 8                # a run of masked cells along an edge row or column at least this long is a bar
+band = 4                          # how near an edge a bar's row or column lies (gridtools.BAR_BORDER)
+fit_moves = 300                   # the transfer level's fit split, as CP1's
+
 [see]                             # S1
 version = 1
 connectivity = 4

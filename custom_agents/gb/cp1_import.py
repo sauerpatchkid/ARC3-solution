@@ -24,6 +24,7 @@ Writes results/glassbox/<run>/:
   evidence/<game>_L<k>_{train,fit,score}.npz   copies of CP1's evidence
   s2_write/<game>/candidates.jsonl             CP1's candidates, as recorded
   s2_write/<game>/llm.json                     CP1's LLM use for the game (answers, tokens, model)
+  s2_write/<game>/groups.json                  the action groups CP1 called the LLM on, in order
   s3_check/<game>/rules.jsonl                  every candidate re-graded on its training level
   s3_check/<game>/rule_cases.npz               per rule and case: applies, claimed cells right, cells right
   s3_check/<game>_L<k>.book.json               the book: members, notes, numbers
@@ -33,6 +34,7 @@ Writes results/glassbox/<run>/:
   cp1_check/<game>.json                        every recomputed number beside CP1's, and whether they match
 """
 import collections
+import glob
 import json
 import os
 import shutil
@@ -41,10 +43,11 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from gb import artifacts as A
-from gb.core import bind as B
+from gb.artifacts import plain  # noqa: F401 (others import it from here too)
 from gb.core import book as K
 from gb.core.evidence import LevelEvidence
-from gb.core.metrics import gate_interval, memory_hash, moves_right, nothing_hash
+from gb.s3_check import compose_book, member, offered, regrade, status_arrays
+from gb.s4_carry import baselines, score_book
 
 CP1_DIR = os.path.join(A.ROOT, "results", "rulebook", "v2", "tier0a_v2")
 VERSION = 2                     # of what the imported files mean (artifacts.py); 2 adds rule_cases.npz,
@@ -68,22 +71,12 @@ def cp1_model(src=CP1_DIR):
         return json.loads(f.readline())["model"]
 
 
-def is_trusted(c):
-    return c.get("stage") == "checked" and c["trust"]["trusted"]
-
-
-def member(c, layout_path, binding=None, **kw):
-    """One rule as book.compose takes it (CP1's as_member)."""
-    return dict(src=c["code"], binding=c["binding"] if binding is None else binding,
-                layout_path=layout_path, group=c["group"], **kw)
+def cp1_trust(c):
+    """A candidate's trust as CP1 recorded it (None if it was never checked)."""
+    return c["trust"] if c.get("stage") == "checked" else None
 
 
 # ---- comparing ------------------------------------------------------------------------------
-def plain(x):
-    """Numbers as JSON holds them, so a recomputed dict and a stored one compare equal."""
-    return json.loads(json.dumps(x, default=lambda o: o.item() if isinstance(o, np.generic) else list(o)))
-
-
 class Check:
     """Recomputed numbers beside CP1's registered ones."""
 
@@ -104,31 +97,28 @@ class Check:
                 "mismatches": bad, "ok": not bad}
 
 
+def matches(run, game, src=CP1_DIR):
+    """Does a run made by the stages (S0 -> S3 -> S4) give CP1's results for one
+    game? {what: bool} for the book's members and numbers, T0, T1, and each
+    rule's re-binding. With S0's complete_bars off, every one must be true."""
+    res = load_cp1(game, src)
+    with open(glob.glob(os.path.join(run.dir, "s3_check", f"{game}_L*.book.json"))[0]) as f:
+        book = json.load(f)
+    out = {"members": book["members"] == res["book"], "book numbers": plain(book["numbers"]) == plain(res["book_train"])}
+    carries = glob.glob(os.path.join(run.dir, "s4_carry", f"{game}_L*.carry.json"))
+    if res.get("transfer") and carries:
+        with open(carries[0]) as f:
+            carry = json.load(f)
+        drop = ("flags", "repair_calls", "repaired")
+        for t in ("t0", "t1"):
+            out[t] = plain(carry[t]) == plain({k: v for k, v in res["transfer"][t].items() if k not in drop})
+        by_id = {c["id"]: c for c in res["candidates"]}
+        out["re-bindings"] = all(plain(r["binding"]) == plain(by_id[r["id"]]["t1"]["binding"])
+                                 and r["in_t1"] == by_id[r["id"]]["t1"]["in_t1"] for r in carry["rules"])
+    return out
+
+
 # ---- one game -------------------------------------------------------------------------------
-def regrade(c, p_train, train):
-    """One candidate on its training level, with the binding CP1 graded it with."""
-    res = B.run_rule(c["code"], p_train, binding=c.get("binding") or {})
-    if res.get("stage") != "checked":
-        return None, res.get("reason")
-    return res, K.trust([(res, train)])
-
-
-def score_book(members, p_score, score, base):
-    """A book on the score split: its numbers, per-move rates and interval (CP1's score_book)."""
-    comp = K.compose(members, p_score)
-    if comp["stage"] != "checked":
-        raise RuntimeError(f"the book could not be composed: {comp.get('reason')}")
-    nums = K.numbers(comp, score)
-    gate = gate_interval(score, dict(base, book=moves_right(score, comp["hash"])))
-    return dict(nums, per_move=gate, rules_in=len(members),
-                clashing_rules=[i for i, c in enumerate(comp["clashes"]) if c]), comp
-
-
-def _status_arrays(comp):
-    return {k: np.asarray(comp[k]) for k in ("status", "hash", "n_rules", "cells_right", "cells_wrong",
-                                             "cells_clash", "claimed_n")}
-
-
 def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
     """Re-run one game of CP1 into `run` (an artifacts.Run). Returns its Check."""
     res = load_cp1(game, src)
@@ -162,7 +152,11 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
     p_llm = os.path.join(s2, "llm.json")
     with open(p_llm, "w") as f:
         json.dump(dict(res["llm"], seconds=res["seconds"], model=cp1_model(src), source="cp1"), f, indent=1)
-    run.write_header("s2_write", game, VERSION, settings, inputs, {"candidates": p_cands, "llm": p_llm})
+    p_groups = os.path.join(s2, "groups.json")
+    with open(p_groups, "w") as f:
+        json.dump([g["group"] for g in res["groups"]], f)
+    run.write_header("s2_write", game, VERSION, settings, inputs,
+                     {"candidates": p_cands, "llm": p_llm, "groups": p_groups})
 
     # -- S3: every candidate re-graded on the training level ---------------------------------------
     gradable = [c for c in cands if c.get("stage") == "checked" and "trust" in c]
@@ -188,14 +182,9 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
         f"{sum(i['match'] for i in check.items)} match CP1")
 
     # -- S3: the book on the training level, composed again (CP1's finish_game) ------------------
-    order = {g["group"]: i for i, g in enumerate(res["groups"])}
-    built = [c for c in cands if c.get("origin") != "two-level"]          # repairs came after the book
-    trusted = sorted((c for c in built if is_trusted(c) and not c.get("duplicate")),
-                     key=lambda c: (order[c["group"]], bool(c["lint"]), -c["trust"]["gain_cells"], c["order"]))
-    comp = K.compose([member(c, paths["train"]) for c in trusted], paths["train"], select=True)
-    if comp["stage"] != "checked":
-        raise RuntimeError(f"{game}: the book could not be composed: {comp.get('reason')}")
-    book = [trusted[i] for i in comp["book"]]
+    groups = [g["group"] for g in res["groups"]]
+    trusted = offered(cands, cp1_trust, groups)          # not two-level repairs: they came after the book
+    book, comp = compose_book(trusted, paths["train"])
     check.same("book members (candidate ids)", [c["id"] for c in book], res["book"])
     book_train = K.numbers(comp, train)
     check.same("book on the training level", book_train, res["book_train"])
@@ -213,15 +202,14 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
                          "notes": {str(c["id"]): n for c, n in zip(trusted, comp["notes"]) if n},
                          "numbers": book_train, "source": "cp1"}), f, indent=1)
     p_status = os.path.join(s3, f"{game}_L{k_train}.status.npz")
-    np.savez_compressed(p_status, **_status_arrays(comp), members=np.array([c["id"] for c in book]))
+    np.savez_compressed(p_status, **status_arrays(comp), members=np.array([c["id"] for c in book]))
     run.write_header("s3_check", game, VERSION, settings, inputs,
                      {"rules": p_rules, "rule_cases": p_rule_cases, "book": p_book, "status": p_status})
 
     # -- S4: transfer, scored again with CP1's bindings -------------------------------------------
     if res.get("transfer") and "score" in paths:
         fit, score = LevelEvidence.load(paths["fit"]), LevelEvidence.load(paths["score"])
-        base = {"nothing": moves_right(score, nothing_hash(score)),
-                "memory": moves_right(score, memory_hash([train, fit], score))}
+        base = baselines(train, fit, score)
         tr = res["transfer"]
         t0, _ = score_book([member(c, paths["train"]) for c in book], paths["score"], score, base)
         kept = [c for c in book if c["t1"]["in_t1"]]
@@ -247,7 +235,7 @@ def import_game(game, run, src=CP1_DIR, workers=WORKERS, log=print):
                              "t0": t0, "t1": t1, "t1_without_untested": t1u, "t2": t2,
                              "t2_rules": [c["id"] for c in t2_rules], "source": "cp1"}), f, indent=1)
         p_t1 = os.path.join(s4, f"{game}_L{k_next}.t1_status.npz")
-        np.savez_compressed(p_t1, **_status_arrays(comp1), members=np.array([c["id"] for c in kept]))
+        np.savez_compressed(p_t1, **status_arrays(comp1), members=np.array([c["id"] for c in kept]))
         run.write_header("s4_carry", game, VERSION, settings, inputs, {"carry": p_carry, "t1_status": p_t1})
         log(f"[{game}] transfer level {k_next}: T1 {t1['per_move']['rate']}, wrong {t1['wrong']:.1%}")
 

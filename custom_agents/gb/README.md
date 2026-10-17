@@ -13,6 +13,7 @@ and the stages after it, without touching the ones before.
 
 | Step | File | The problem it fixes | What it does | LLM? | Judged by |
 |---|---|---|---|---|---|
+| **S0 MASK** | `s0_mask.py` | The decoration mask misses the last cells of a bar (they change once per attempt, late), so the same screen seems to end two ways and every rule there is refused trust (G0, m0r0) | Rebuilds each level's evidence from the recording with each bar in the mask run to the screen's edges; off, it is CP1's evidence exactly | no | G0b |
 | **S1 SEE** | `s1_see.py` | The LLM must work out from pictures what moved and what blocked it, and we can't tell "couldn't see it" from "couldn't write it" | Finds objects, matches them before and after, lists relations (touching, what's ahead), and checks whether that description rebuilds the after-screen (**closure**) | no | G1 |
 | **H1 VOCAB** | `h1_vocab.py` | Rules are long raw numpy with boundary bugs; 44% of CP1's answers ran out of room | Up to 16 tested grid primitives (`translate`, `is_blocked`, `recolour`…) the rules may call | no | G1 |
 | **S2 WRITE** | `s2_write.py` | One rule tried to explain several mechanisms at once | Asks the LLM for one mechanism per rule, with S1's facts and H1's primitives in the prompt | **yes** | G1 |
@@ -51,4 +52,7 @@ S6's first data.
 | S1 SEE | built 16 Oct, all 8 steps (VERSION 3 the same day: a tie in what an object sits on goes to the background) (`s1_see.py`, `make gb-see`): objects, correspondence, closure and "explained"; relations, feature bits, roles, the exploration matrix and the facts text (pinned by a golden test); `tests/test_gb_see.py` (21 tests) |
 | H1 VOCAB | started 16 Oct (`h1_vocab.py`): S1's objects, subject, relations and feature bits moved here (S1's outputs identical before and after on CP1's 8 games), plus `features()`, which works the same facts out inside the rule sandbox; `gb/core/contract.py` hands it to every rule. `tests/test_gb_vocab.py`. The other primitives (`translate`, `slide`, ...) come with H1 proper |
 | S3 guard fitter | built 16 Oct (`s3_guards.py`, `make gb-guards`): near-miss rules split by a guard learned from S1's facts into a narrowed rule and an exception, replayed; the book and T1 before and after. Tested on synthetic games only (`tests/test_gb_guards.py`): its first run on CP1's candidates IS G0, so it refuses them without `G0=1` |
-| S2, S3's grading, priorities and tiers, S4, S5, H2, H3 | not built yet (plan section 7) |
+| S0 MASK | built 16 Oct (`s0_mask.py`, `make gb-mask`), after G0: `[mask] complete_bars`. Off, it rebuilds CP1's evidence array for array (`tests/test_gb_mask.py`); on, m0r0's conflicting cases go 13 → 0 and tu93's 11 → 0 |
+| S3 CHECK, grading v0 | built 16 Oct (`s3_check.py`, `make gb-check`): CP1's procedure (each candidate with its binding; the book as CP1 composed it). `cp1_import.py` uses the same functions |
+| S4 CARRY v0 | built 16 Oct (`s4_carry.py`, `make gb-carry`): CP1's re-binding by search on the fit split; T0, T1. With S0 off, S0 → S3 → S4 gives CP1's book, T0, T1 and every re-binding on all 8 games (`make gb-g0b-control`; dc22 in `tests/test_gb_regression.py`) |
+| S2, S3's priorities and tiers, S4's online wait and repairs, S5, H2, H3 | not built yet (plan section 7) |

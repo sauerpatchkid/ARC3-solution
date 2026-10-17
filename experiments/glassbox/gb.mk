@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-see gb-guards
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-check gb-carry gb-guards gb-g0b gb-g0b-control
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -21,11 +21,18 @@ gb-help:
 	@echo "  make gb-test       Glassbox's tests"
 	@echo "  make gb-import-cp1 re-run Rulebook v2's CP1 with gb/core into results/glassbox/cp1_import/;"
 	@echo "                     every number is checked against CP1's registered one (~80 s, CPU)"
+	@echo "  make gb-mask RUN=<new> [FROM=cp1_import]   S0: evidence rebuilt from CP1's recordings with each"
+	@echo "                     bar in the decoration mask run to the screen's edges; FROM's candidates copied"
 	@echo "  make gb-see RUN=<name> [GAMES=a,b] [FORCE=1]   S1: objects, what happened to them, closure (CPU)"
+	@echo "  make gb-check RUN=<name>    S3: every candidate graded on its level; the book (CPU)"
+	@echo "  make gb-carry RUN=<name>    S4: the book's rules re-bound on the next level; T0, T1 (CPU)"
 	@echo "  make gb-guards RUN=<name> [GAMES=a,b] [FORCE=1]   S3's guard fitter: near-miss rules split by a"
 	@echo "                     guard from S1's facts, re-graded; book and T1 before and after (CPU). On"
 	@echo "                     CP1's candidates (RUN=cp1_import) this IS G0: it refuses without G0=1, which"
 	@echo "                     is for after pre-registration section 3 is registered"
+	@echo "  make gb-g0b        G0b (prereg section 3b): S0 -> S1 -> S3 -> S4 -> guards into"
+	@echo "                     results/glassbox/g0b_bars/, from CP1's candidates (CPU)"
+	@echo "  make gb-g0b-control the same with S0's bars off (S0 -> S3 -> S4): must equal CP1 exactly"
 	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
@@ -47,6 +54,32 @@ GB_GAMES = $(if $(filter command line environment,$(origin GAMES)),--games $(GAM
 
 gb-see:
 	uv run python tools/gb_offline.py --stage see --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force)
+
+FROM ?= cp1_import
+gb-mask:
+	uv run python tools/gb_offline.py --stage mask --run $(RUN) --from $(FROM) $(GB_GAMES) $(if $(FORCE),--force)
+
+gb-check:
+	uv run python tools/gb_offline.py --stage check --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force)
+
+gb-carry:
+	uv run python tools/gb_offline.py --stage carry --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force)
+
+# G0b, as registered in docs/3-glassbox/glassbox-prereg.md section 3b: CP1's candidates on evidence whose
+# decoration mask has its bars run to the screen's edges, then CP1's book and T1 procedure, then the guards.
+gb-g0b:
+	$(MAKE) gb-mask RUN=g0b_bars FROM=cp1_import
+	$(MAKE) gb-see RUN=g0b_bars
+	$(MAKE) gb-check RUN=g0b_bars
+	$(MAKE) gb-carry RUN=g0b_bars
+	$(MAKE) gb-guards RUN=g0b_bars G0=1
+
+# G0b's control: S0 with the bars off must rebuild CP1's evidence, and S3 and S4 must then give CP1's book,
+# T0, T1 and re-bindings on every game (cp1_import.matches).
+G0B_OFF = --set mask.complete_bars=false
+gb-g0b-control:
+	for st in mask check carry; do uv run python tools/gb_offline.py --stage $$st --run g0b_control --from cp1_import $(G0B_OFF) || exit 1; done
+	uv run python tools/gb_offline.py --compare-cp1 --run g0b_control
 
 gb-guards:
 	uv run python tools/gb_offline.py --stage guards --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force) $(if $(G0),--g0)

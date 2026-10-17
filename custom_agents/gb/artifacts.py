@@ -6,7 +6,7 @@ Every stage reads files and writes files (plan section 4). One run is one folder
       manifest.json            when it was made, and every session that wrote to it
                                (time, git commit, config hash)
       config.toml              the settings the latest session used (a copy)
-      s1_see/ ... s6_show/     one folder per stage
+      s0_mask/ ... s6_show/    one folder per stage
         _headers/<game>.json   what produced that stage's files for one game
 
 A header records the stage, its VERSION, the settings it read, and the hash of
@@ -28,15 +28,23 @@ import subprocess
 import tomllib
 from datetime import datetime
 
+import numpy as np
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # the repo
 DEFAULT_CONFIG = os.path.join(ROOT, "experiments", "glassbox", "glassbox.toml")
-STAGES = ("s1_see", "s2_write", "s3_check", "s4_carry", "s5_act", "s6_show")
+STAGES = ("s0_mask", "s1_see", "s2_write", "s3_check", "s4_carry", "s5_act", "s6_show")
 
 
 def results_dir():
     """results/glassbox, under EVAL_RESULTS_DIR like every other run output."""
     base = os.getenv("EVAL_RESULTS_DIR", "results")
     return os.path.join(base if os.path.isabs(base) else os.path.join(ROOT, base), "glassbox")
+
+
+# ---- JSON ------------------------------------------------------------------------------
+def plain(x):
+    """Numbers as JSON holds them, so a recomputed dict and a stored one compare equal."""
+    return json.loads(json.dumps(x, default=lambda o: o.item() if isinstance(o, np.generic) else list(o)))
 
 
 # ---- hashes ---------------------------------------------------------------------------

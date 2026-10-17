@@ -12,6 +12,7 @@ Run this before every commit that touches custom_agents/gb/core/. It needs
 CP1's registered results (results/ is not in git), so it is skipped without them.
 """
 import os
+import shutil
 import sys
 
 import pytest
@@ -48,3 +49,22 @@ def test_the_import_writes_glassbox_artifacts_and_never_touches_cp1(checks):
     assert set(h["outputs"]) == {"rules", "rule_cases", "book", "status"}
     assert run.require("s4_carry", "ft09", cp1_import.VERSION)["inputs"]["cp1_result"]["sha256"]
     assert registry.verify("rulebook_v2_cp1_tier0a") == []          # CP1's registered files are unchanged
+
+
+def test_the_stages_with_s0_off_give_cp1s_book_and_transfer(tmp_path):
+    # S0 (bars off) -> S3 -> S4 on dc22, whose book has 3 rules that all carry: CP1's book, T0, T1 and
+    # re-bindings, the last found again by S4's own search (make gb-g0b-control checks all 8 games).
+    from gb import s0_mask, s3_check, s4_carry
+    src = A.Run("cp1_src", root=str(tmp_path))
+    cp1_import.import_game("dc22", src, log=lambda m: None)
+    run = A.Run("control", root=str(tmp_path))
+    run.config.setdefault("mask", {})["complete_bars"] = False
+    res = cp1_import.load_cp1("dc22")
+    os.makedirs(os.path.join(run.stage_dir("s2_write"), "dc22"))
+    for f in ("candidates.jsonl", "llm.json", "groups.json"):
+        shutil.copyfile(os.path.join(src.dir, "s2_write", "dc22", f), os.path.join(run.dir, "s2_write", "dc22", f))
+    s0_mask.run_game(run, "dc22", res["corpus"], res["train"]["level"], res["transfer_level"], log=lambda m: None)
+    s3_check.run_game(run, "dc22", log=lambda m: None)
+    s4_carry.run_game(run, "dc22", log=lambda m: None)
+    got = cp1_import.matches(run, "dc22")
+    assert set(got) == {"members", "book numbers", "t0", "t1", "re-bindings"} and all(got.values()), got

@@ -57,6 +57,8 @@ For each rule that is admitted but not trusted on its level:
 For the game, the composed book on the training level and T1 on the next level
 are worked out before and after, the way CP1 did them (cp1_import.py): before =
 the trusted rules; after = the same plus every narrowed rule the replay trusts.
+The book's rules keep the T1 re-binding S4 gave them (s4_carry/...carry.json;
+for CP1's import, CP1's); a new rule is re-bound by s4_carry.rebind.
 "Before" must equal what the import recorded (the book's numbers in
 s3_check/<game>_L<k>.book.json, T1 in s4_carry/<game>_L<j>.carry.json, both
 equal to CP1's registered ones); the summary says whether it does
@@ -101,8 +103,9 @@ from gb.core import contract as C
 from gb.core.check import ADMIT
 from gb.core.evidence import LevelEvidence
 from gb.core.lint import lint
-from gb.core.metrics import memory_hash, moves_right, nothing_hash
-from gb.cp1_import import member, plain, score_book
+from gb.artifacts import plain
+from gb.s3_check import compose_book, member, offered
+from gb.s4_carry import baselines, rebind, score_book
 
 VERSION = 1                     # bump when what the output means changes (artifacts.py)
 DEFAULTS = {"guard_max_literals": 2, "guard_holdout": 0.30, "guard_min_wrong": 3,
@@ -411,24 +414,6 @@ def noop_exact(t):
     return bool(t and t["exact_everywhere"] and t["moves"] >= ADMIT["min_moves"] and not t["conflict_cases"])
 
 
-def carry(c, res_train, train, fit, p_fit):
-    """A new rule re-bound on the next level's fit split, as CP1 re-bound its
-    rules (legacy/rulebook/tools/wm_tier0a_v2.py, rebind): in T1 if a binding is
-    exact there, the rule is trusted over both levels, and lint finds nothing."""
-    found = B.search(c["code"], p_fit, family=B.family_of(c["group"]), prefer=c["binding"])
-    if found["stage"] != "checked":
-        return {"in_t1": False, "flag": "binding failed", "why": found.get("reason"), "binding": None}
-    best, flag = B.choose(found)
-    out = {"in_t1": False, "flag": flag, "binding": None, "untried": found["untried"]}
-    if best is None:
-        return dict(out, why="no binding is exact on the fit split")
-    t = K.trust([(res_train, train), (best["res"], fit)])
-    out.update(binding=best["binding"], trust={k: v for k, v in t.items() if k != "levels"})
-    if c["lint"]:
-        return dict(out, flag="level-bound rule", why="the lint finds level facts in its code")
-    return dict(out, in_t1=t["trusted"], why=None if t["trusted"] else f"not trusted across both levels: {t['reason']}")
-
-
 # ---- one game -----------------------------------------------------------------------------------------------
 def _jsonl(path):
     with open(path) as f:
@@ -509,28 +494,26 @@ def run_game(run, game, g0=False, log=print, force=False):
                                      "reason": c["reason"]} for c in kids}
 
     # -- the book on the training level, before and after (CP1's order: cp1_import.py) ------------------------
-    order = {g: i for i, g in enumerate(book_before["groups_called"])}
-    in_book = lambda c: c.get("origin") != "two-level" and not c.get("duplicate")
-    key = lambda c: (order.get(c["group"], len(order)), bool(c["lint"]), -c["trust"]["gain_cells"], c["order"])
-    old = sorted((by_id[i] for i, r in rules.items() if r["v2_trusted"] and in_book(by_id[i])), key=key)
+    trust_of = lambda c: c["trust"] if c.get("source") == "s3_guards" else (rules.get(c["id"]) or {}).get("trust")
     rescued = [c for c in new if c["kind"] == "narrowed" and c.get("trusted")]
-    offered = {"before": old, "after": sorted(old + [c for c in rescued if in_book(c)], key=key)}
     books_out = {}
-    for when, cs in offered.items():
-        comp = K.compose([member(c, p_train) for c in cs], p_train, select=True)
-        if comp["stage"] != "checked":
-            raise RuntimeError(f"{game}: the book {when} could not be composed: {comp.get('reason')}")
-        books_out[when] = {"rules": [cs[i] for i in comp["book"]], "numbers": K.numbers(comp, train)}
+    for when, pool in (("before", cands), ("after", cands + rescued)):
+        book, comp = compose_book(offered(pool, trust_of, book_before["groups_called"]), p_train)
+        books_out[when] = {"rules": book, "numbers": K.numbers(comp, train)}
 
     # -- T1 on the next level, before and after ------------------------------------------------------------------
     t1 = {}
     if os.path.exists(p_score):
         fit, score = LevelEvidence.load(p_fit), LevelEvidence.load(p_score)
-        base = {"nothing": moves_right(score, nothing_hash(score)),
-                "memory": moves_right(score, memory_hash([train, fit], score))}
+        base = baselines(train, fit, score)
+        if os.path.exists(p_carry):          # the book's rules as S4 (or CP1's import) carried them
+            with open(p_carry) as f:
+                carried = {r["id"]: r for r in json.load(f)["rules"]}
+            for c in books_out["before"]["rules"]:
+                c["t1"] = carried.get(c["id"], c.get("t1"))
         fresh = [c for c in books_out["after"]["rules"] if c["id"] in res_of]
         with ThreadPoolExecutor(WORKERS) as ex:
-            for c, got in zip(fresh, ex.map(lambda c: carry(c, res_of[c["id"]], train, fit, p_fit), fresh)):
+            for c, got in zip(fresh, ex.map(lambda c: rebind(c, res_of[c["id"]], train, fit, p_fit), fresh)):
                 c["t1"] = got
         for when in ("before", "after"):
             kept = [c for c in books_out[when]["rules"] if (c.get("t1") or {}).get("in_t1")]

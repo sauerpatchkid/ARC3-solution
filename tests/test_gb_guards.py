@@ -24,15 +24,12 @@ sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 
 from gb import artifacts as A  # noqa: E402
-from gb import s1_see  # noqa: E402
+from gb import s1_see, s3_check, s4_carry  # noqa: E402
 from gb import s3_guards as G  # noqa: E402
 from gb.core import bind as B  # noqa: E402
-from gb.core import book as K  # noqa: E402
 from gb.core import contract as C  # noqa: E402
 from gb.core.evidence import LevelEvidence  # noqa: E402
 from gb.core.lint import lint  # noqa: E402
-from gb.core.metrics import memory_hash, moves_right, nothing_hash  # noqa: E402
-from gb.cp1_import import member, score_book  # noqa: E402
 from test_gb_see import BG, board  # noqa: E402
 
 ZERO = np.zeros((64, 64), bool)
@@ -294,11 +291,10 @@ def quiet(_):
 
 
 def make_run(root, source="test", record=True):
-    """A run folder in the shape cp1_import.py writes: evidence (a training level,
-    and a later level's fit and score splits, where the mover is another colour;
-    level 2, not 1, as when CP1 skipped a level with too few cases),
-    S1's facts, candidates, their grades and per-case results, and the book's
-    group order."""
+    """A run folder made by the stages: evidence (a training level, and a later
+    level's fit and score splits, where the mover is another colour; level 2, not
+    1, as when CP1 skipped a level with too few cases), S1's facts, candidates and
+    the groups called, S3's grades and book, and (with `record`) S4's T1."""
     run = A.Run("synthetic", root=str(root))
     ev_dir = os.path.join(run.dir, "evidence")
     os.makedirs(ev_dir, exist_ok=True)
@@ -314,39 +310,25 @@ def make_run(root, source="test", record=True):
     fit.save(p_fit)
     score.save(p_score)
     s1_see.run_game(run, "maze", log=quiet)
-    cands, rules, per_case = [], [], []
-    for order, (rid, (group, code)) in enumerate(RULES.items()):
-        res = B.run_rule(code, p_train, binding={"agent": 9})
-        t = K.trust([(res, train)])
-        c = {"id": rid, "group": group, "code": code, "binding": {"agent": 9}, "order": order, "lint": lint(code),
-             "origin": "first round", "duplicate": False, "stage": "checked", "trust": t, "source": source}
-        if t["trusted"]:
-            c["t1"] = G.carry(c, res, train, fit, p_fit)
-        cands.append(c)
-        rules.append({"id": rid, "group": group, "v2_admitted": t["admitted"], "v2_trusted": t["trusted"], "trust": t})
-        per_case.append(res)
-    s2, s3 = os.path.join(run.stage_dir("s2_write"), "maze"), os.path.join(run.stage_dir("s3_check"), "maze")
+    s2 = os.path.join(run.stage_dir("s2_write"), "maze")
     os.makedirs(s2, exist_ok=True)
-    os.makedirs(s3, exist_ok=True)
-    for path, rows in ((os.path.join(s2, "candidates.jsonl"), cands), (os.path.join(s3, "rules.jsonl"), rules)):
-        with open(path, "w") as fh:
-            fh.writelines(json.dumps(G.plain(r)) + "\n" for r in rows)
-    np.savez_compressed(os.path.join(s3, "rule_cases.npz"), ids=np.array(list(RULES)),
-                        applies=np.array([r["applies"] for r in per_case]),
-                        claimed_ok=np.array([r["claimed_ok"] for r in per_case]))
-    book = {"game": "maze", "level": 0, "groups_called": ["ACTION3", "ACTION4", "ACTION1"]}
-    if record:                     # the book and T1 as cp1_import records them (only rule 9 is trusted)
-        trusted = [c for c in cands if c["trust"]["trusted"]]
-        book["numbers"] = K.numbers(K.compose([member(c, p_train) for c in trusted], p_train, select=True), train)
-        base = {"nothing": moves_right(score, nothing_hash(score)),
-                "memory": moves_right(score, memory_hash([train, fit], score))}
-        t1, _ = score_book([member(c, p_fit, c["t1"]["binding"]) for c in trusted if c["t1"]["in_t1"]],
-                           p_score, score, base)
-        os.makedirs(run.stage_dir("s4_carry"), exist_ok=True)
-        with open(os.path.join(run.stage_dir("s4_carry"), "maze_L2.carry.json"), "w") as fh:
-            json.dump(G.plain({"t1": t1}), fh)
-    with open(os.path.join(run.stage_dir("s3_check"), "maze_L0.book.json"), "w") as fh:
-        json.dump(G.plain(book), fh)
+    with open(os.path.join(s2, "candidates.jsonl"), "w") as fh:
+        for order, (rid, (group, code)) in enumerate(RULES.items()):
+            fh.write(json.dumps({"id": rid, "group": group, "code": code, "binding": {"agent": 9}, "order": order,
+                                 "lint": lint(code), "origin": "first round", "duplicate": False,
+                                 "stage": "checked", "source": source}) + "\n")
+    with open(os.path.join(s2, "groups.json"), "w") as fh:
+        json.dump(["ACTION3", "ACTION4", "ACTION1"], fh)
+    s3_check.run_game(run, "maze", log=quiet)                 # grades, rules.jsonl, the book and its numbers
+    if record:
+        s4_carry.run_game(run, "maze", log=quiet)             # T1 of the book (rule 9 only), in carry.json
+    else:                                                     # a run folder that recorded neither
+        p_book = os.path.join(run.stage_dir("s3_check"), "maze_L0.book.json")
+        book = json.load(open(p_book))
+        del book["numbers"]
+        json.dump(book, open(p_book, "w"))
+    with open(os.path.join(run.stage_dir("s3_check"), "maze", "rules.jsonl")) as fh:
+        rules = [json.loads(line) for line in fh]
     return run, rules
 
 
