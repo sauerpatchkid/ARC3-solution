@@ -178,22 +178,33 @@ before the run each judges).
     hand-made bits, the wrapper, a click game whose colour guard re-binds, a
     maze run folder end to end). It refuses CP1's candidates without `G0=1`
     / `--g0`, and has NOT been run on them.
-  - **Known S1 limit found doing it** (pinned in `tests/test_gb_vocab.py`):
-    `sits_on` takes a tie by the lower colour number, so a mover between two
-    walls numbered below the floor "sits on" the walls and touches nothing.
-    On CP1's training levels: dc22 87 of 408 button cases; m0r0 none (its
-    mover is on the background in all 1,187).
-- **Next, in order (plan §7.4):** (1) Matt registers the pre-registration
-  draft (sections 1–3, 8–10) and confirms S1's "explained" as perception
-  coverage; (2) **G0**: `make gb-guards RUN=cp1_import G0=1` (CPU, minutes);
-  (3) H1's primitives, S3's priorities and tiers, S2, S4.
+  - **S1 flaw found doing it, fixed 16 Oct (Matt's call; S1 VERSION 3):**
+    `sits_on` took a tie by the lower colour number, so a mover between two
+    walls numbered below the floor "sat on" the walls and touched nothing. A
+    tie now goes to the background. Re-running S1 on the 8 games changed the
+    feature bits of 398 of 109,402 cases: dc22 (88 of 1,069 training cases,
+    275 on the transfer level), vc33 (4 of 2,890; 27), ft09 (2; 2). Every
+    flip is a tie now on the background, mostly gaining a `touch`. tu93's
+    bits are unchanged, but 54 of its 124 training texts now say the white
+    object that moved is touching grey. m0r0, g50t, tr87, cd82: unchanged.
+    "Explained", the summaries, roles and matrices are unchanged. Remaining limit, pinned in
+    `tests/test_gb_vocab.py`: in a dead end (walls on three sides) the mover
+    still sits on the walls.
+  - **`gb.mk` fix:** the root Makefile's `GAMES ?= ft09,dc22,ls20` leaked into
+    `make gb-see` / `gb-guards`, which then ran 2 games. They now take `GAMES`
+    only when it is given.
+  - S3 now checks its own "before" (book and T1) against what the import
+    recorded (`before_matches_import` in its summary); a mismatch voids G0.
+- **Pre-registration section 3 (G0) REGISTERED 16 Oct** (Matt), with the
+  as-built procedure, the config hash and the code commit. Sections 1, 2 and
+  8–10 are still drafts.
+- **Next, in order (plan §7.4):** (1) **G0**: `make gb-guards RUN=cp1_import
+  G0=1` (CPU, minutes), reported as section 3 says; (2) Matt registers sections
+  1, 2, 8–10 and confirms S1's "explained" as perception coverage; (3) H1's
+  primitives, S3's priorities and tiers, S2, S4.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
-  tu93 rule); the hold-out seed is 0. **Still OPEN, Matt's:** registering the
-  pre-registration draft (sections 1–3, 8–10) before G0 runs (section 3 should
-  name the as-built details above: the split, the replay binding, T1's
-  re-binding, the exception's bar, the config hash); whether to fix the
-  `sits_on` tie in S1 before G0 (an S1 VERSION bump; it changes dc22's facts);
-  plan §10 (a), (b).
+  tu93 rule); the hold-out seed is 0; S1's tie fixed before G0. **Still OPEN,
+  Matt's:** registering sections 1, 2, 8–10; plan §10 (a), (b).
 - **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
   (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
   (ft09, 1,970 moves) and `mb_gated_att` (tu93, 1,960 moves). Agent files

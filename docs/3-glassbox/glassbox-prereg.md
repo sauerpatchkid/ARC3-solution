@@ -15,7 +15,7 @@ before the run they affect.
 |---|---|---|
 | 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
-| 3 | G0: guard rescue (a diagnostic) | DRAFT (16 Oct); its two OPEN items settled by Matt on 16 Oct; must be registered before G0 runs (target Tue 20 Oct) |
+| 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50` |
 | 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
@@ -65,30 +65,87 @@ seen games only (`tiers.BUILD_FROM`).
 
 ## 3. G0: guard rescue (a diagnostic, not a gate)
 
+*REGISTERED 16 Oct 2026 (Matt), before any G0 run: the commit that marks this
+section registered in the table above is its timestamp. The code it judges was
+built and tested on synthetic games only; it has never run on CP1's candidates.*
+
 **Question.** CP1 left rules that are right on almost every move but never
 exact. Can S3's guard fitter, with S1's relation features and no LLM, learn the
 condition under which such a rule fails, and so make it trusted?
 
-**What runs.** No LLM, no GPU. On CP1's registered candidates
-(`results/rulebook/v2/tier0a_v2/<game>.json`, read only) and its evidence
-splits, for the 8 dev games:
+**What runs.** No LLM, no GPU. `make gb-guards RUN=cp1_import G0=1`, once,
+with a clean tree, on a commit where the code G0 runs is unchanged since commit
+`c051e50` (`git diff c051e50 -- custom_agents/gb tools/gb_offline.py
+experiments/glassbox` prints nothing): `custom_agents/gb/s3_guards.py` VERSION
+1, `s1_see.py` VERSION 3, `h1_vocab.py`, `gb/core`. The run's manifest records
+the commit. Its inputs are CP1's registered candidates and evidence splits
+(`results/rulebook/v2/tier0a_v2/`, read only) as imported into
+`results/glassbox/cp1_import/` by `make gb-import-cp1` (437 of 437 recomputed
+numbers equal CP1's), for the 8 dev games:
 
-1. S1 on the training level's cases (feature bits).
-2. S3's guard fitter on every **admitted-but-not-trusted** rule: v2's admission
-   bar met (≥ 20 moves, ≥ 95% claimed-exact, gain > 0, ≥ 20 changed cells
-   right), not exact on every applicable case. Settings: `glassbox.toml` `[check]`
-   as committed at registration (`guard_max_literals = 2`, `guard_holdout = 0.30`,
-   `guard_min_wrong = 3`, `auto_exception = true`); the config hash goes here
-   when this section is registered. The 70/30 hold-out split of a rule's cases
-   is drawn with `random.Random(0)` over the cases sorted by key, so G0 reruns
-   exactly.
-3. Every narrowed rule and automatic exception is re-graded on every case,
-   exactly like any candidate, and re-tiered.
+1. **S1** (VERSION 3) on the training level's cases: its feature bits and the
+   level's mover. (VERSION 3, 16 Oct: on a tie, an object sits on the
+   background; before, a tie went to the lower colour number. On the 8 games
+   this changed the feature bits of 398 of 109,402 cases: dc22 88 of 1,069
+   training cases, vc33 4 of 2,890, ft09 2 of 581, and some of their transfer
+   cases; m0r0's are unchanged. "Explained" is unchanged. See
+   `tests/test_gb_vocab.py`.)
+2. **Scope:** every **admitted-but-not-trusted** rule, as re-graded on the
+   training level with CP1's binding (`s3_check/<game>/rules.jsonl`): v2's
+   admission bar met (≥ 20 moves, ≥ 95% claimed-exact, gain > 0, ≥ 20 changed
+   cells right, ≤ 5 ms per move) and not trusted.
+3. **The guard.** R = the distinct applicable cases with every claimed cell
+   right, W = the others; fewer than 3 W cases: no guard. W and R are each
+   sorted by case number and shuffled by one `random.Random(0)`, W first; the
+   first 30% of each (rounded half up) is held out. A literal is one of S1's
+   facts or its negation; a guard is one literal or two joined by AND, and fits
+   if it is true on every fit W case and false on every fit R case. The guards
+   that fit are tried in order (fewer literals; geometry, then the subject and
+   the action, then colour, by the worse literal and then the sum; then S1's
+   order of the facts, a fact before its negation), and the first that also
+   separates the held-out cases is the guard. Directions are the screen's. The
+   mover and any colour in a guard are PARAMS slots: the rule's own `Colour()`
+   slot when it is bound to that colour, else a new one.
+4. **Two new rules** per guard, as source wrapping the original: the
+   **narrowed** rule (base ∧ ¬guard) and the **exception** (base ∧ guard,
+   predicting that the base's claimed cells stay as they are; `PRIORITY = 1`).
+5. **Replay.** Each new rule is graded on every case of the training level with
+   CP1's binding plus the new slots' values (`bind.run_rule`, `book.trust`). A
+   rule **becomes trusted** when its narrowed rule is v2-trusted there. An
+   exception claims no changed cell, so v2's bar (gain > 0) never admits it; it
+   is reported as **exact** when it is exact on ≥ 20 moves with no conflicting
+   case (v1's known-no-op bar).
+6. **The book**, composed as CP1 composed it (`cp1_import.py`: group order,
+   lint, gain, order; `book.compose` selecting): before, from the trusted rules;
+   after, from those plus every narrowed rule that becomes trusted.
+7. **T1.** The rules of CP1's book keep CP1's T1 bindings. A new rule in the
+   book after is re-bound on the transfer level's fit split as CP1 re-bound its
+   rules (`bind.search` preferring the training binding, `bind.choose`; in T1 if
+   trusted on both levels and lint-clean). Both books are scored on the score
+   split with the registered interval (2,000 resamples, seed 0).
 
-**Reported per game.** Rules that become trusted (with each rule's claimed
-exactness before and after); the composed book's cell coverage and case coverage
-on the training level, before and after; T1 on the transfer level, before and
-after, with the registered interval; every guard found, in words.
+**Settings.** `experiments/glassbox/glassbox.toml` config hash
+`44a9ce1b5ebe03ad`; `[see]` `a31392fb68e47122`; `[check]` `635ce93f9ee63cd1`
+(`guard_max_literals = 2`, `guard_holdout = 0.30`, `guard_min_wrong = 3`,
+`guard_seed = 0`, `guard_colour_features = "params"`, `auto_exception = true`).
+
+**Void.** A game's G0 numbers are void if its "before" (the book's numbers on
+the training level, and T1) differs from what the import recorded (the run's
+summary's `before_matches_import`: neither may be false; a game without a
+transfer level has no T1 to compare), or if the run's code,
+inputs or settings differ from the above. A void game is rerun after the cause
+is found, and the rerun is entered in section 11.
+
+**Reported per game** (from `s3_check/<game>_L<k>.guards.json` and its two
+`.jsonl` files). The rules looked at; every guard found, in words, with its R
+and W counts, and why none for the rest; the rules that become trusted, each
+with its claimed exactness and moves before and after and whether it is in the
+book and in T1; the exact exceptions; the composed book's cell coverage and
+case coverage on the training level, before and after; T1 on the transfer level
+(the per-move rate, the differences from "nothing" and "memory" with their
+intervals, and the wrong share), before and after; each new rule's T1
+re-binding and its outcome (a guard that fails on the next level is flagged
+"guard overfit", section 9).
 
 **Expectation, written before running.** m0r0 gains at least one trusted rule
 (it has 11 admitted rules, the best at 99.8% claimed-exact). tu93 is not
@@ -102,7 +159,9 @@ means guards are central (the exception prompts get it).
 **Settled (Matt, 16 Oct, before any G0 code or run).** 3a: the scope stays
 "admitted-but-not-trusted" and tu93 is dropped from the expectation (the plan's
 draft named "tu93 or m0r0", but no tu93 rule meets the admission bar). 3b: the
-hold-out seed is 0, as written in step 2.
+hold-out seed is 0, as written in step 3. 3c (at registration): S1's tie rule
+is fixed before G0 (step 1); the as-built details of the fitter (steps 3–7)
+are registered as written here.
 
 ## 4. G1: the offline rule test
 
