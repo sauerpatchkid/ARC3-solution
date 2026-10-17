@@ -9,8 +9,11 @@
 gains a trusted rule) is not met.** The guard fitter never had a case to fit:
 m0r0's 11 near-misses are right on every case they apply to, and miss trust only
 because 8 of those cases (on ACTION1; 1 on ACTION2) were seen to end two ways.
-Most of those second endings happen at move 137 of an attempt: a timed event
-the screen does not show, which no screen fact can guard.
+They are a gap in the decoration mask: m0r0's move-budget bar runs along the
+bottom row, the mask stops 6 cells short of its end, and when one of those
+cells empties (move 137 of an attempt, then 139, ...) the same masked screen
+ends two ways. Masking the whole bar row removes all 13 of m0r0's conflicting
+cases (and all 11 of tu93's).
 
 ## The run
 
@@ -66,11 +69,30 @@ Those other endings are not at the end of an attempt (none is the attempt's
 last move). They cluster at a fixed time: of the 14 minority moves on m0r0's 13
 conflicting cases (all actions), 9 are at move 137 of their attempt, in 2 more
 the majority ending is the one at move 137, and the other 3 are at moves 139,
-144 and 145. So something happens at move 137 of every
-attempt that the screen does not show beforehand. The same screen and action
-then end two ways, and S1's facts (all read off the screen) cannot tell them
-apart. The plan's risk table names this case ("hidden state ... can't be
-guarded by what's on the screen").
+144 and 145.
+
+*Added after the first version of this write-up (same day):* what happens then
+is one cell. Every move at move 137 changes exactly one more live cell than
+usual (1, 51 or 101 cells instead of 0, 50 or 100), whatever the action: cell
+(63, 58), which goes from black to white; at move 139 it is (63, 59). m0r0's
+attempts are 150 recorded moves long, and its move-budget bar runs along rows
+0 and 63. The decoration mask (`gb/core/evidence.py`'s ticker scan) covers row
+63 only up to column 57: the bar's last cells change once per attempt, late,
+too rarely to be detected. So the counter that predicts the change is on the
+screen, but in masked cells, and the evidence sees two endings of one screen.
+Recomputing the training level's cases with every masked row and bar column
+masked in full (evidence only, no rule run):
+
+| Game | Mask cells | Conflicting cases | Cases |
+|---|---|---|---|
+| m0r0 | 122 → 128 | 13 → **0** | 1,385 → 1,275 |
+| tu93 | 60 → 64 | 11 → **0** | 124 → 112 |
+| g50t | 64 → 64 | 93 → 93 | 571 → 571 |
+| dc22, ft09, vc33, cd82, tr87 | unchanged or +1 | 0 → 0 | unchanged |
+
+So m0r0's (and tu93's) conflicts are a mask gap, not hidden state; g50t's are
+something else. Whether m0r0's 11 rules would then be trusted is untested:
+that means running CP1's rules on new evidence, a new experiment.
 
 ## What it means for week 1
 
@@ -78,15 +100,17 @@ The registered reading is: *"no rescues means the features are the problem
 (S1 gets the remaining time)"*. The data do not support that reading: the
 features were never tried, because no rule in scope had wrong cases to
 separate. G0 measured something else: **on CP1's candidates, every near-miss
-but one is a near-miss because of hidden state, not because of a missing
-condition.** Which way week 1 goes is Matt's call. What the data point to:
+but one is a near-miss because of a gap in the decoration mask (the end of
+m0r0's move-budget bar), not because of a missing condition.** Which way week 1
+goes is Matt's call. The options:
 
+- **Complete the bar mask** (a Glassbox step with its own knob; `gb/core`
+  stays as it is). It removes the cause on m0r0 and tu93.
 - **A move-counter fact** (moves since the attempt started), the plan's cut-line
-  option in §5.3. It would need S3 to grade such rules move by move (`api.t` is
-  None when rules are checked on cases, which merge moves made at different
-  times).
-- **The trust bar's treatment of conflicting cases.** m0r0's rules are exact
-  wherever the screen decides the outcome; the tiers (§5.3 step 4) could say
-  what such a rule may do.
+  option in §5.3. On m0r0 it would only patch over the mask gap; it needs S3
+  to grade move by move (`api.t` is None when rules are checked on cases).
+- **Count a conflict against a rule only where its endings differ on cells the
+  rule claims**, in S3's tiers. Principled, but it needs the other endings
+  stored, and it loosens the safety bar.
 - **The guard fitter is still untested on real data.** Its first real inputs
   will be G1's candidates, where near-misses with wrong cases may appear.

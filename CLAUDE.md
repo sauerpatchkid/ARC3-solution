@@ -203,18 +203,21 @@ before the run each judges).
   12 rules in scope (m0r0 11, cd82 1), 0 guards, nothing changed; the
   expectation (m0r0 gains a trusted rule) is not met. Why: m0r0's 11 rules
   are right on EVERY case they apply to (W = 0); they miss trust only on
-  conflicting cases (ACTION1 8 cases, 9 of 606 moves; ACTION2 1, 1 of 575),
-  and those cluster at move 137 of an attempt (9 of 14 minority endings at
-  t = 137, 2 more with the majority there): a timed event the screen does not
-  show. cd82's rule has 1 wrong case (needs 3). The registered reading ("no
+  conflicting cases (ACTION1 8 cases, 9 of 606 moves; ACTION2 1, 1 of 575).
+  Cause, found after the write-up's first version: a DECORATION-MASK GAP. The
+  move-budget bar runs along row 63; the mask stops at column 57; cells
+  (63, 58), (63, 59), ... empty at moves 137, 139, ... of each attempt. Masking
+  whole bar rows removes all conflicting cases on m0r0 (13 → 0) and tu93
+  (11 → 0); g50t's 93 stay (real hidden state). cd82's rule has 1 wrong case
+  (needs 3). The registered reading ("no
   rescues means the features are the problem") does not fit: the features
   were never tried. Two notes in prereg section 11 (the submodule makes the
   manifest say `+dirty`; tu93's T1 was missing from the summary, a
   transfer-level bug fixed after the run, no G0 number affected).
 - **Next, in order (plan §7.4):** (1) **Matt decides how G0 steers week 1**
-  (the write-up's options: a move-counter fact graded move by move; the
-  tiers' treatment of conflicting cases; the fitter waits for G1's
-  near-misses); (2) Matt registers sections 1, 2, 8–10 and confirms S1's
+  (the write-up's options: complete the bar mask in a Glassbox step; a
+  move-counter fact graded move by move; claim-aware conflicts in the tiers;
+  the fitter waits for G1's near-misses); (2) Matt registers sections 1, 2, 8–10 and confirms S1's
   "explained" as perception coverage; (3) H1's primitives, S3's priorities and
   tiers, S2, S4.
 - **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
