@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-check gb-carry gb-guards gb-g0b gb-g0b-control
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -24,6 +24,8 @@ gb-help:
 	@echo "  make gb-mask RUN=<new> [FROM=cp1_import]   S0: evidence rebuilt from CP1's recordings with each"
 	@echo "                     bar in the decoration mask run to the screen's edges; FROM's candidates copied"
 	@echo "  make gb-see RUN=<name> [GAMES=a,b] [FORCE=1]   S1: objects, what happened to them, closure (CPU)"
+	@echo "  make gb-write RUN=<name> [DRY=1] [FROM_CACHE=1]   S2: the LLM writes rules (needs the server:"
+	@echo "                     experiments/llm/serve.sh; DRY=1 renders prompts only; FROM_CACHE=1 replays)"
 	@echo "  make gb-check RUN=<name>    S3: every candidate graded on its level; the book (CPU)"
 	@echo "  make gb-carry RUN=<name>    S4: the book's rules re-bound on the next level; T0, T1 (CPU)"
 	@echo "  make gb-guards RUN=<name> [GAMES=a,b] [FORCE=1]   S3's guard fitter: near-miss rules split by a"
@@ -58,6 +60,9 @@ gb-see:
 FROM ?= cp1_import
 gb-mask:
 	uv run python tools/gb_offline.py --stage mask --run $(RUN) --from $(FROM) $(GB_GAMES) $(if $(FORCE),--force)
+
+gb-write:
+	uv run python tools/gb_offline.py --stage write --run $(RUN) $(GB_GAMES) $(if $(DRY),--dry) $(if $(FROM_CACHE),--from-cache)
 
 gb-check:
 	uv run python tools/gb_offline.py --stage check --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force)
