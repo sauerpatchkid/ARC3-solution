@@ -31,6 +31,8 @@ from gb.core import book as K  # noqa: E402
 from gb.core import contract as C  # noqa: E402
 from gb.core.evidence import LevelEvidence  # noqa: E402
 from gb.core.lint import lint  # noqa: E402
+from gb.core.metrics import memory_hash, moves_right, nothing_hash  # noqa: E402
+from gb.cp1_import import member, score_book  # noqa: E402
 from test_gb_see import BG, board  # noqa: E402
 
 ZERO = np.zeros((64, 64), bool)
@@ -221,17 +223,17 @@ STEP = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 
 def maze(seed, mover, n):
-    """A 2x2 mover in a red frame with red 2x2 pillars. ACTION1-4 move it a cell
-    up, down, left, right, unless something is in the way. Red (8), not grey:
-    in a corner the mover touches as much wall as floor, and S1 takes the tie as
-    what it sits on by the lower colour number (test_gb_vocab's known limit)."""
+    """A 2x2 mover in a grey frame with grey 2x2 pillars. ACTION1-4 move it a cell
+    up, down, left, right, unless something is in the way. The pillars are spaced
+    so there is no dead end (test_gb_vocab's known limit); in a corner the mover
+    touches as much wall as floor, and sits on the floor."""
     rng = np.random.default_rng(seed)
     b = board()
-    b[14, 14:51] = b[50, 14:51] = b[14:51, 14] = b[14:51, 50] = 8
+    b[14, 14:51] = b[50, 14:51] = b[14:51, 14] = b[14:51, 50] = 4
     spots = [(y, x) for y in range(19, 45, 7) for x in range(19, 45, 7) if abs(y - 32) > 3 or abs(x - 32) > 3]
     for i in rng.choice(len(spots), 8, replace=False):
         y, x = spots[i]
-        b[y:y + 2, x:x + 2] = 8
+        b[y:y + 2, x:x + 2] = 4
     b[32:34, 32:34] = mover
     F, N, acts = [], [], []
     for _ in range(n):
@@ -291,7 +293,7 @@ def quiet(_):
     pass
 
 
-def make_run(root, source="test"):
+def make_run(root, source="test", record=True):
     """A run folder in the shape cp1_import.py writes: evidence (a training level,
     and the next level's fit and score splits, where the mover is another colour),
     S1's facts, candidates, their grades and per-case results, and the book's
@@ -331,8 +333,19 @@ def make_run(root, source="test"):
     np.savez_compressed(os.path.join(s3, "rule_cases.npz"), ids=np.array(list(RULES)),
                         applies=np.array([r["applies"] for r in per_case]),
                         claimed_ok=np.array([r["claimed_ok"] for r in per_case]))
+    book = {"game": "maze", "level": 0, "groups_called": ["ACTION3", "ACTION4", "ACTION1"]}
+    if record:                     # the book and T1 as cp1_import records them (only rule 9 is trusted)
+        trusted = [c for c in cands if c["trust"]["trusted"]]
+        book["numbers"] = K.numbers(K.compose([member(c, p_train) for c in trusted], p_train, select=True), train)
+        base = {"nothing": moves_right(score, nothing_hash(score)),
+                "memory": moves_right(score, memory_hash([train, fit], score))}
+        t1, _ = score_book([member(c, p_fit, c["t1"]["binding"]) for c in trusted if c["t1"]["in_t1"]],
+                           p_score, score, base)
+        os.makedirs(run.stage_dir("s4_carry"), exist_ok=True)
+        with open(os.path.join(run.stage_dir("s4_carry"), "maze_L1.carry.json"), "w") as fh:
+            json.dump(G.plain({"t1": t1}), fh)
     with open(os.path.join(run.stage_dir("s3_check"), "maze_L0.book.json"), "w") as fh:
-        json.dump({"game": "maze", "level": 0, "groups_called": ["ACTION3", "ACTION4", "ACTION1"]}, fh)
+        json.dump(G.plain(book), fh)
     return run, rules
 
 
@@ -375,6 +388,13 @@ def test_t1_rebinds_the_narrowed_rules_to_the_new_mover(maze_run):
     assert 'features(board, act, api, p["agent"])' in new["7.narrowed"]["code"]
     assert new["7.narrowed"]["t1"]["binding"] == {"agent": 12}
     assert set(new) == {"7.narrowed", "7.exception", "8.narrowed", "8.exception"}
+
+
+def test_before_is_checked_against_what_the_import_recorded(maze_run, tmp_path):
+    _, _, s = maze_run
+    assert s["before_matches_import"] == {"book": True, "t1": True}
+    run, _ = make_run(tmp_path, record=False)
+    assert G.run_game(run, "maze", log=quiet)["before_matches_import"] == {"book": None, "t1": None}
 
 
 def test_the_stage_is_skipped_when_current(maze_run):

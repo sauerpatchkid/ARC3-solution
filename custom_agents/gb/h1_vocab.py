@@ -143,7 +143,11 @@ def subject(board, action, live, background, mover, large_cells=LARGE_CELLS):
 # ---- relations -----------------------------------------------------------------------------------
 def sits_on(board, obj, live, background):
     """The colour an object sits on: the commonest colour of the live cells
-    around it (4-neighbours outside it), else the background."""
+    around it (4-neighbours outside it), the background on a tie or when there
+    are none. (Until 16 Oct a tie went to the lower colour number, so a mover
+    between two walls numbered below the floor "sat on" the walls and touched
+    nothing; S1 VERSION 3. Still a limit: in a dead end the walls outnumber the
+    floor around it, and it sits on them.)"""
     m = np.zeros(GRID * GRID, bool)
     m[obj.cells] = True
     m = m.reshape(GRID, GRID)
@@ -153,7 +157,10 @@ def sits_on(board, obj, live, background):
     ring[:, 1:] |= m[:, :-1]
     ring[:, :-1] |= m[:, 1:]
     ring &= ~m & live
-    return int(np.bincount(board[ring], minlength=16).argmax()) if ring.any() else background
+    if not ring.any():
+        return background
+    counts = np.bincount(board[ring], minlength=16)
+    return background if counts[background] == counts.max() else int(counts.argmax())
 
 
 def relations(board, obj, live, background, ray_max=RAY_MAX):

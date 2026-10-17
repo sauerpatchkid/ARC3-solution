@@ -40,11 +40,16 @@ gb-import-cp1:
 	uv run python tools/gb_offline.py --import-cp1
 
 RUN ?= cp1_import
+# The root Makefile gives GAMES a default (ft09,dc22,ls20) for its own targets.
+# Glassbox's commands take GAMES only when it is given (command line or
+# environment); otherwise they run every game in the run.
+GB_GAMES = $(if $(filter command line environment,$(origin GAMES)),--games $(GAMES))
+
 gb-see:
-	uv run python tools/gb_offline.py --stage see --run $(RUN) $(if $(GAMES),--games $(GAMES)) $(if $(FORCE),--force)
+	uv run python tools/gb_offline.py --stage see --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force)
 
 gb-guards:
-	uv run python tools/gb_offline.py --stage guards --run $(RUN) $(if $(GAMES),--games $(GAMES)) $(if $(FORCE),--force) $(if $(G0),--g0)
+	uv run python tools/gb_offline.py --stage guards --run $(RUN) $(GB_GAMES) $(if $(FORCE),--force) $(if $(G0),--g0)
 
 gb-report:
 	uv run python tools/gb_offline.py --stage show --run $(RUN)

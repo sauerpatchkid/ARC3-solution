@@ -57,6 +57,10 @@ For each rule that is admitted but not trusted on its level:
 For the game, the composed book on the training level and T1 on the next level
 are worked out before and after, the way CP1 did them (cp1_import.py): before =
 the trusted rules; after = the same plus every narrowed rule the replay trusts.
+"Before" must equal what the import recorded (the book's numbers in
+s3_check/<game>_L<k>.book.json, T1 in s4_carry/<game>_L<k+1>.carry.json, both
+equal to CP1's registered ones); the summary says whether it does
+(`before_matches_import`), and a mismatch is logged as one.
 A rule that was in the book keeps its own T1 binding; a new one is re-bound on
 the fit split by bind.search, as CP1 re-bound its rules (trusted on both levels,
 no lint warning). An exception claims no changed cell, so it never passes v2's
@@ -457,9 +461,10 @@ def run_game(run, game, g0=False, log=print, force=False):
     p_facts = os.path.join(run.dir, "s1_see", split_name + ".facts.npz")
     p_roles = os.path.join(run.dir, "s1_see", split_name + ".roles.json")
     p_rules, p_cases = (os.path.join(s3, game, f) for f in ("rules.jsonl", "rule_cases.npz"))
+    p_carry = os.path.join(run.dir, "s4_carry", f"{game}_L{k + 1}.carry.json")
     inputs = {"evidence": p_train, "facts": p_facts, "roles": p_roles, "candidates": p_cands,
               "rules": p_rules, "rule_cases": p_cases, "book": books[0],
-              **{s: p for s, p in (("fit", p_fit), ("score", p_score)) if os.path.exists(p)}}
+              **{s: p for s, p in (("fit", p_fit), ("score", p_score), ("carry", p_carry)) if os.path.exists(p)}}
     name = f"{game}.guards"
     if not force and run.is_current("s3_check", name, VERSION, settings, inputs):
         log(f"[{game}] the guard fitter is current; skipped")
@@ -528,6 +533,16 @@ def run_game(run, game, g0=False, log=print, force=False):
             t1[when], _ = score_book([member(c, p_fit, c["t1"]["binding"]) for c in kept], p_score, score, base)
             t1[when]["members"] = [c["id"] for c in kept]
 
+    # -- "before" must be what the import recorded ---------------------------------------------------------------
+    matches = {"book": plain(books_out["before"]["numbers"]) == plain(book_before["numbers"])
+               if "numbers" in book_before else None, "t1": None}
+    if t1 and os.path.exists(p_carry):
+        with open(p_carry) as f:
+            recorded = json.load(f)["t1"]
+        matches["t1"] = plain({x: v for x, v in t1["before"].items() if x != "members"}) == plain(recorded)
+    if False in matches.values():
+        log(f"[{game}] MISMATCH: 'before' differs from what the import recorded: {matches}")
+
     # -- files -------------------------------------------------------------------------------------------------
     os.makedirs(os.path.join(s3, game), exist_ok=True)
     p_guards, p_new = os.path.join(s3, game, "guards.jsonl"), os.path.join(s3, game, "guarded.jsonl")
@@ -551,7 +566,7 @@ def run_game(run, game, g0=False, log=print, force=False):
                      "in_t1": bool((c.get("t1") or {}).get("in_t1"))} for c in rescued],
         "exceptions_exact": [c["id"] for c in new if c["kind"] == "exception" and c.get("noop_exact")],
         "book": {w: {"members": [c["id"] for c in b["rules"]], **b["numbers"]} for w, b in books_out.items()},
-        "t1": t1}
+        "t1": t1, "before_matches_import": matches}
     p_sum = os.path.join(s3, f"{game}_L{k}.guards.json")
     with open(p_sum, "w") as f:
         json.dump(plain(summary), f, indent=1)

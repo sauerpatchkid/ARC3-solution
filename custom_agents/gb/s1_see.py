@@ -48,7 +48,8 @@ All eight steps of the plan, built 16 Oct (1-3 first, then 4-8):
 
   4. RELATIONS, for the SUBJECT of each move: the mover for a button (step 6),
      the clicked object for a click. In each direction: the distance from its
-     edge to the first cell that is neither it nor what it sits on, that cell's
+     edge to the first cell that is neither it nor what it sits on (the
+     commonest colour around it, the background on a tie), that cell's
      colour (touching = 1 cell away), and the distance to the screen edge. Also
      whether it is inside a larger object. A moved object also gets the same
      facts AHEAD of it, in the direction it moved: these explain blocked moves.
@@ -94,7 +95,8 @@ from gb.h1_vocab import (DIRS, Obj, feature_names, feature_row, inside, objects,
                          relations, sits_on, subject as find_subject)
 from gridtools import GRID, border_band
 
-VERSION = 2                     # bump when what the output means changes (artifacts.py); 2 adds steps 4-8
+VERSION = 3                     # bump when what the output means changes (artifacts.py); 2 adds steps 4-8;
+                                # 3: what an object sits on goes to the background on a tie (h1_vocab.sits_on)
 KINDS = ("moved", "recoloured", "grew", "shrank", "vanished", "appeared", "reshaped")
 UNIT_KINDS = ("moved", "recoloured", "grew", "shrank", "vanished", "appeared")     # all but free-form reshapes
 ERASE = ("moved", "grew", "shrank", "reshaped", "vanished")                       # the before-object goes
