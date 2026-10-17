@@ -223,7 +223,16 @@ before the run each judges).
   S0 → S3 → S4 gives CP1's book, T0, T1 and every re-binding on all 8 games
   (`make gb-g0b-control`). **Prereg section 3b (G0b) REGISTERED 16 Oct**
   (config `2f789d8dca149dfe`, code `78c461c`); run it with `make gb-g0b`.
-- **Next, in order (plan §7.4):** (1) G0b and its write-up; (2) Matt registers
+- **G0b RUN 16 Oct** (`763d253`, ~6.5 min, control equal to CP1 at the same
+  commit). Write-up: `docs/3-glassbox/g0b-bar-mask.md`. m0r0: all 11
+  near-misses trusted; book 0 → 2 rules, cell coverage 0% → 53.5%, case
+  coverage 0% → 53.0%; T1 6.2% → 51.7% per move (nothing 6.8%, memory 53.9%:
+  beats nothing, not memory), wrong 4.3% (the one expectation not met: the
+  two blue objects jump 24–40 rows on level 2, which the 300-move fit split
+  showed twice; re-binding flagged "ambiguous"). vc33 gains a trusted rule
+  (same book). The other games are unchanged (T1 within 0.5 points).
+- **Next, in order (plan §7.4):** (1) section 4 (G1) should run with S0 on;
+  (2) Matt registers
   sections 1, 2, 8–10 and confirms S1's "explained" as perception coverage;
   (3) H1's primitives, S3's priorities and tiers, S2, then G1 (section 4
   decides whether G1 runs with S0 on).

@@ -16,7 +16,7 @@ before the run they affect.
 | 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
-| 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games |
+| 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | to be written before G1 runs (target Thu 22 Oct) |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
@@ -341,3 +341,7 @@ started.)*
    number). Fixed after the run (the code now takes the first later level
    with a fit split; `tests/test_gb_guards.py` uses level 2). G0 was not
    rerun: no G0 number depends on it.
+3. **16 Oct 2026, section 3b, after G0b ran (no change to its text or
+   numbers).** As in entry 1, the manifest records `763d253+dirty` only because
+   of the `ARC-AGI-3-Agents` submodule's local edits; the control was rerun at
+   `763d253` just before G0b and printed "ALL EQUAL TO CP1".

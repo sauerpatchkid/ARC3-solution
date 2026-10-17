@@ -70,6 +70,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [The plan](3-glassbox/glassbox-plan.md): what each stage does, why, and how it's tested.
 - [The pre-registration](3-glassbox/glassbox-prereg.md): the gates, fixed before each run.
 - [G0, guard rescue](3-glassbox/g0-guard-rescue.md) (16 Oct): no rescue; m0r0's near-misses come from a gap in the decoration mask (the end of its move-budget bar), not missing conditions.
+- [G0b, the bar mask](3-glassbox/g0b-bar-mask.md) (16 Oct): masking the whole bar makes all 11 of m0r0's near-misses trusted; its book goes from 0% to 53.5% of changed cells; T1 51.7% (memory 53.9%), wrong 4.3%.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes
