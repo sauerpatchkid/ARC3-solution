@@ -295,7 +295,8 @@ def quiet(_):
 
 def make_run(root, source="test", record=True):
     """A run folder in the shape cp1_import.py writes: evidence (a training level,
-    and the next level's fit and score splits, where the mover is another colour),
+    and a later level's fit and score splits, where the mover is another colour;
+    level 2, not 1, as when CP1 skipped a level with too few cases),
     S1's facts, candidates, their grades and per-case results, and the book's
     group order."""
     run = A.Run("synthetic", root=str(root))
@@ -307,9 +308,9 @@ def make_run(root, source="test", record=True):
     train.save(p_train)
     f, n, a, o = maze(1, 12, 1500)
     part = lambda s: {k: v[s] for k, v in o.items()}
-    fit = LevelEvidence.from_moves("maze", 1, f[:300], n[:300], a[:300], mask=ZERO, order=part(slice(None, 300)))
-    score = LevelEvidence.from_moves("maze", 1, f[300:], n[300:], a[300:], mask=ZERO, order=part(slice(300, None)))
-    p_fit, p_score = os.path.join(ev_dir, "maze_L1_fit.npz"), os.path.join(ev_dir, "maze_L1_score.npz")
+    fit = LevelEvidence.from_moves("maze", 2, f[:300], n[:300], a[:300], mask=ZERO, order=part(slice(None, 300)))
+    score = LevelEvidence.from_moves("maze", 2, f[300:], n[300:], a[300:], mask=ZERO, order=part(slice(300, None)))
+    p_fit, p_score = os.path.join(ev_dir, "maze_L2_fit.npz"), os.path.join(ev_dir, "maze_L2_score.npz")
     fit.save(p_fit)
     score.save(p_score)
     s1_see.run_game(run, "maze", log=quiet)
@@ -342,7 +343,7 @@ def make_run(root, source="test", record=True):
         t1, _ = score_book([member(c, p_fit, c["t1"]["binding"]) for c in trusted if c["t1"]["in_t1"]],
                            p_score, score, base)
         os.makedirs(run.stage_dir("s4_carry"), exist_ok=True)
-        with open(os.path.join(run.stage_dir("s4_carry"), "maze_L1.carry.json"), "w") as fh:
+        with open(os.path.join(run.stage_dir("s4_carry"), "maze_L2.carry.json"), "w") as fh:
             json.dump(G.plain({"t1": t1}), fh)
     with open(os.path.join(run.stage_dir("s3_check"), "maze_L0.book.json"), "w") as fh:
         json.dump(G.plain(book), fh)
@@ -379,7 +380,7 @@ def test_the_book_covers_more_after(maze_run):
 
 def test_t1_rebinds_the_narrowed_rules_to_the_new_mover(maze_run):
     run, _, s = maze_run
-    assert s["t1"]["before"]["members"] == [9]
+    assert s["transfer_level"] == 2 and s["t1"]["before"]["members"] == [9]
     assert set(s["t1"]["after"]["members"]) == {9, "7.narrowed", "8.narrowed"}
     assert s["t1"]["after"]["per_move"]["rate"]["book"] > s["t1"]["before"]["per_move"]["rate"]["book"]
     with open(os.path.join(run.dir, "s3_check", "maze", "guarded.jsonl")) as fh:

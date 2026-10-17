@@ -58,7 +58,7 @@ For the game, the composed book on the training level and T1 on the next level
 are worked out before and after, the way CP1 did them (cp1_import.py): before =
 the trusted rules; after = the same plus every narrowed rule the replay trusts.
 "Before" must equal what the import recorded (the book's numbers in
-s3_check/<game>_L<k>.book.json, T1 in s4_carry/<game>_L<k+1>.carry.json, both
+s3_check/<game>_L<k>.book.json, T1 in s4_carry/<game>_L<j>.carry.json, both
 equal to CP1's registered ones); the summary says whether it does
 (`before_matches_import`), and a mismatch is logged as one.
 A rule that was in the book keeps its own T1 binding; a new one is re-bound on
@@ -72,7 +72,7 @@ Run on CP1's candidates, this IS G0 (pre-registration section 3), so run_game
 refuses CP1's candidates unless given g0=True (make gb-guards ... G0=1): that is
 for after section 3 is registered.
 
-Reads  <run>/evidence/<game>_L<k>_train.npz, <game>_L<k+1>_{fit,score}.npz
+Reads  <run>/evidence/<game>_L<k>_train.npz, <game>_L<j>_{fit,score}.npz (j: the next level with a fit split)
        <run>/s1_see/<game>_L<k>_train.facts.npz and .roles.json
        <run>/s2_write/<game>/candidates.jsonl       code, group, order, binding, origin, lint, t1
        <run>/s3_check/<game>/rules.jsonl            each rule's grade on level k (v2_admitted, v2_trusted)
@@ -452,7 +452,11 @@ def run_game(run, game, g0=False, log=print, force=False):
         book_before = json.load(f)
     k = book_before["level"]
     p_train = os.path.join(ev_dir, f"{game}_L{k}_train.npz")
-    p_fit, p_score = (os.path.join(ev_dir, f"{game}_L{k + 1}_{s}.npz") for s in ("fit", "score"))
+    # the transfer level: the first later level with a fit split (CP1 skipped levels with < 50 cases)
+    later = sorted(int(os.path.basename(p)[len(game) + 2:].split("_")[0])
+                   for p in glob.glob(os.path.join(ev_dir, f"{game}_L*_fit.npz")))
+    k_next = next((x for x in later if x > k), k + 1)
+    p_fit, p_score = (os.path.join(ev_dir, f"{game}_L{k_next}_{s}.npz") for s in ("fit", "score"))
     split_name = f"{game}_L{k}_train"
     s1 = run.require("s1_see", split_name, s1_see.VERSION)
     if (s1["settings"]["large_cells"], s1["settings"]["ray_max"]) != (H.LARGE_CELLS, H.RAY_MAX):
@@ -461,7 +465,7 @@ def run_game(run, game, g0=False, log=print, force=False):
     p_facts = os.path.join(run.dir, "s1_see", split_name + ".facts.npz")
     p_roles = os.path.join(run.dir, "s1_see", split_name + ".roles.json")
     p_rules, p_cases = (os.path.join(s3, game, f) for f in ("rules.jsonl", "rule_cases.npz"))
-    p_carry = os.path.join(run.dir, "s4_carry", f"{game}_L{k + 1}.carry.json")
+    p_carry = os.path.join(run.dir, "s4_carry", f"{game}_L{k_next}.carry.json")
     inputs = {"evidence": p_train, "facts": p_facts, "roles": p_roles, "candidates": p_cands,
               "rules": p_rules, "rule_cases": p_cases, "book": books[0],
               **{s: p for s, p in (("fit", p_fit), ("score", p_score), ("carry", p_carry)) if os.path.exists(p)}}
@@ -554,7 +558,7 @@ def run_game(run, game, g0=False, log=print, force=False):
             f.write(json.dumps(plain(c)) + "\n")
     before_ex = {r["id"]: r["trust"]["claimed_exactness"] for r in rules.values()}
     summary = {
-        "game": game, "level": k, "transfer_level": k + 1 if t1 else None, "settings": settings,
+        "game": game, "level": k, "transfer_level": k_next if t1 else None, "settings": settings,
         "looked_at": len(records), "guards": sum(r["guard"] is not None for r in records),
         "why_none": dict(collections.Counter(r["why"] for r in records if r["guard"] is None)),
         "guards_found": [{"id": r["id"], "group": r["group"], "guard": r["words"], "right": r["right"],
