@@ -72,6 +72,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [G0, guard rescue](3-glassbox/g0-guard-rescue.md) (16 Oct): no rescue; m0r0's near-misses come from a gap in the decoration mask (the end of its move-budget bar), not missing conditions.
 - [G0b, the bar mask](3-glassbox/g0b-bar-mask.md) (16 Oct): masking the whole bar makes all 11 of m0r0's near-misses trusted; its book goes from 0% to 53.5% of changed cells; T1 51.7% (memory 53.9%), wrong 4.3%.
 - [G1, the offline rule test](3-glassbox/g1-offline-rules.md) (17 Oct): FAIL, 3 of 8 above G0b (5 needed), safety met. tu93 (0% → 59.0%) and tr87 (0% → 35.5%) get their first trusted rules; ft09, g50t, vc33, cd82 lose ground; the new books carry worse.
+- [A pooled book, G0b + G1](3-glassbox/pool-g0b-g1.md) (18 Oct, exploratory): both runs' rules in one book, no LLM; never below the better source, above both on dc22, g50t, cd82; T1 the better source's on every game. Also S4's role tie-break: m0r0's G1 rules 6.8% → 26.5% at T1.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes
