@@ -238,7 +238,19 @@ before the run each judges).
   0% wrong, ~45 min). **Prereg section 4 (G1) REGISTERED 17 Oct** (Matt: mask
   on, judged against G0b; config `5b7a7b2684e37ce5`, code `bd0552b`). The LLM
   server must be up (`experiments/llm/serve.sh`); G1 ~6-12 h.
-- **Next, in order (plan §7.4):** (1) G1's run and write-up;
+- **G1 RUN 17 Oct** (`af208c7`, 7 h 42 min, valid): **FAIL**, primary 3 of 8
+  (tu93 0% → 59.0%, tr87 0% → 35.5%, dc22 11.8% → 29.3% of changed cells;
+  ft09 97.7% → 59.2%, g50t 17.7% → 9.0%, vc33 10.6% → 6.1%, cd82 5.2% → 4.2%,
+  m0r0 equal 53.5%); safety met (max 0.15% wrong). No game beats both baselines
+  at T1 (G0b: dc22, ft09): ft09's rules are *binding untested* on the fit split,
+  m0r0's *ambiguous*. 6.27M tokens (CP1 9.66M), 35% of answers ran out of room
+  (CP1 44%), 304 of 309 graded rules use H1. Write-up:
+  `docs/3-glassbox/g1-offline-rules.md`; page `results/glassbox/g1/s6_show/`.
+  Server stopped after the run.
+- **Next, in order (plan §7.4):** (1) Matt decides what G1 steers: keep rules
+  across runs (a CP1+G1 book, exploratory), S4's role hints and online wait,
+  pointing S2 at groups CP1 lacked; per the plan M2 (S5, H2, G2) goes ahead with
+  the trusted rules that exist;
   (2) Matt registers
   sections 1, 2, 8–10 and confirms S1's "explained" as perception coverage;
   (3) H1's primitives, S3's priorities and tiers, S2, then G1 (section 4

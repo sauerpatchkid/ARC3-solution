@@ -17,7 +17,7 @@ before the run they affect.
 | 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
-| 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1` |
+| 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
