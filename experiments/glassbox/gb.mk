@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -45,6 +45,12 @@ gb-help:
 	@echo "                     avoidable waste and masking risk in each new level's first 2,000 actions (CPU);"
 	@echo "                     BOOK's no-op rules carried (none: GB-free). On a dev game this IS the offline"
 	@echo "                     counterfactual: it refuses dev games without CF=1 (after prereg section 5a)"
+	@echo "  make gb-cf BOOK=<run> CF=1  the offline counterfactual (prereg 5a; CF=1 only after it is registered):"
+	@echo "                     A0's 24 dev recordings replayed with BOOK (cf_gb) and without (cf_free) (CPU)"
+	@echo "  make gb-online RUN=<new> GAMES=lp85 [SEEDS=0] [CAP=2000] [BOOK=<run>]   online GB / GB-free runs"
+	@echo "                     of mb_gated_att with S5 (tools/gb_sweep.py; GPU, 4 at a time); seen games only"
+	@echo "  make gb-g2 BOOK=<run> G2=1  G2 (prereg 5b; G2=1 only after it is registered): GB and GB-free,"
+	@echo "                     8 dev games x seeds 0-1 x 100k, then paired_compare --rule dev --expect 16 (GPU)"
 	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
@@ -130,3 +136,23 @@ gb-pool:
 SEEDS ?= 0
 gb-replay:
 	uv run python tools/gb_offline.py --stage replay --run $(RUN) $(GB_GAMES) --seeds $(SEEDS) $(if $(BOOK),--book $(BOOK)) $(if $(CF),--cf)
+
+# The offline counterfactual, pre-registration section 5a: GB (BOOK's no-op rules) and GB-free on A0's 24 dev
+# recordings. CF=1 only after that section is registered.
+DEV_GAMES = tu93,tr87,dc22,g50t,vc33,ft09,m0r0,cd82
+gb-cf:
+	uv run python tools/gb_offline.py --stage replay --run cf_gb --book $(BOOK) --games $(DEV_GAMES) --seeds 0,1,2 $(if $(CF),--cf)
+	uv run python tools/gb_offline.py --stage replay --run cf_free --games $(DEV_GAMES) --seeds 0,1,2 $(if $(CF),--cf)
+
+# Online runs with S5 (tools/gb_sweep.py): GB and GB-free arms of mb_gated_att, verdicts against A0's runs.
+# CAP comes from the root Makefile (2000 unless given); RUN must be given (its default is CP1's import).
+gb-online:
+	$(if $(filter command line environment,$(origin RUN)),,$(error give RUN=<a new run name>))
+	uv run python tools/gb_sweep.py --run $(RUN) --games $(GAMES) --seeds $(SEEDS) --cap $(CAP) $(if $(BOOK),--book $(BOOK),--arms GB-free)
+
+# G2, pre-registration section 5b. G2=1 only after that section is registered. Backgrounded: ~6 h on the GPU.
+gb-g2:
+	mkdir -p results/glassbox/g2
+	setsid nohup uv run python tools/gb_sweep.py --run g2 --games dev --seeds 0,1 --cap 100000 --book $(BOOK) $(if $(G2),--g2) \
+	  >> results/glassbox/g2/g2_log.txt 2>&1 < /dev/null &
+	@echo "started detached; log: results/glassbox/g2/g2_log.txt   pause: touch results/glassbox/g2/online/STOP"

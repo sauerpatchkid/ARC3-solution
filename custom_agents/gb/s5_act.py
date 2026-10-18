@@ -28,9 +28,13 @@ contact goals come later (the plan's cut line keeps prune and hints first).
             training binding is checked on the level's own moves first.)
   HINTS  At each level-up, the 2 colours that vanished or shrank most between the
          level's first board and the board before the winning move (Rulebook v2's
-         design, after BDR-Pro). On the next level a click on a hint colour gets
-         x (1 + `gamma`); a hint is dropped after `hint_drop_moves` moves in which
-         no cell of that colour changed.
+         design, after BDR-Pro), never the first board's background (its most
+         common live colour: it "shrinks" whenever anything appears, and touches
+         every change, so it would never be dropped; the g50t and cd82 smoke runs
+         showed both). On the next level a click on a hint colour gets
+         x (1 + `gamma`), only on screens where such a click is possible; a hint
+         is dropped after `hint_drop_moves` moves in which no cell of that colour
+         changed.
   MAP    GbMap (a ReturnMap subclass; return_map.py is never edited): on levels after
          the training level (where a rule has then been exact on two levels: the
          plan's axiom), a button that a re-bound no-op rule covers on a screen
@@ -373,7 +377,11 @@ class Guide:
         """Online: Goose's sampled move, accepted with probability w / w_max, else drawn
         again from Goose's distribution with the guide's generator (module doc)."""
         a = action_idx if action_idx < CLICKS else CLICKS + coord_idx
-        w_max = 1.0 + self.s["gamma"] if self.hints else 1.0
+        w_max = 1.0
+        if self.hints:                              # a boost only where a hint-coloured click is possible
+            clicks = np.asarray(all_probs[CLICKS:]).reshape(GRID, GRID)
+            if (clicks[np.isin(board, list(self.hints))] > 0).any():
+                w_max = 1.0 + self.s["gamma"]
         p, first = None, a
         for _ in range(MAX_DRAWS):
             w = self.weight(board, a)
@@ -409,11 +417,13 @@ def screen_key(board):
 
 def goal_colours(first, before_win, mask, n=2):
     """The `n` colours that vanished or shrank most from a level's first board to the
-    board before its winning move (cells outside the decoration mask)."""
+    board before its winning move (cells outside the decoration mask), never the first
+    board's background (its most common live colour)."""
     live = ~np.asarray(mask, bool)
     a = np.bincount(np.asarray(first)[live].ravel(), minlength=16)
     b = np.bincount(np.asarray(before_win)[live].ravel(), minlength=16)
     drop = a - b
+    drop[int(a.argmax())] = 0
     order = sorted((c for c in range(16) if drop[c] > 0), key=lambda c: (b[c] > 0, -drop[c], c))
     return order[:n]
 

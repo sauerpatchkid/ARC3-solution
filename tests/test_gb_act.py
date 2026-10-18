@@ -78,6 +78,19 @@ def test_goal_colours_are_the_ones_that_vanished_or_shrank_most():
     before_win = board(0, [(9, 9, 8), (3, 3, 7)])           # 5 vanished (2 cells), 7 shrank by 2, 8 kept
     assert S.goal_colours(first, before_win, NO_MASK) == [5, 7]
     assert S.goal_colours(first, first, NO_MASK) == []
+    assert S.goal_colours(board(3), board(0, [(0, 0, 3)]), NO_MASK) == []    # the background is never a hint
+
+
+def test_a_hint_boosts_nothing_on_a_screen_with_no_hint_coloured_click():
+    g = S.Guide("toy", seed=0)
+    b = board(0, [(1, 1, 5)])
+    g.new_level(1, b, NO_MASK)
+    g.hints = {5: 0}
+    probs = np.zeros(4101)
+    probs[0] = probs[1] = 1.0                                # buttons only: no click is possible
+    for _ in range(200):
+        g.override(0, None, None, probs, b)
+    assert g.stats["changed_move"] == 0
 
 
 def test_a_hint_boosts_clicks_on_its_colour_and_is_dropped_after_quiet_moves():
