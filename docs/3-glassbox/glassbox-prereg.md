@@ -18,7 +18,7 @@ before the run they affect.
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
-| 5 | The offline counterfactual and G2 | to be written before they run (target Tue 27 Oct) |
+| 5 | The offline counterfactual and G2 | DRAFT (18 Oct): Matt to settle the OPEN items, then register 5a before the counterfactual runs and 5b before G2 runs (target Tue 27 Oct) |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
@@ -350,7 +350,127 @@ G1 is reported as a diagnosis with its funnel.
 
 ## 5. The offline counterfactual and G2
 
-*To be written before they run.*
+*DRAFT, 18 Oct 2026: written before either runs; not registered. Items marked
+OPEN are Matt's to settle, here, before registration. 5a and 5b can be
+registered separately (5a first: it runs on the CPU in about an hour, and its
+result is reported before G2 starts). Code, config hash and commit are filled in
+on registration (`make gb-config`).*
+
+**What is built (18 Oct).** S5 ACT v1 (`custom_agents/gb/s5_act.py`): PRUNE
+(carried colour no-ops, no LLM; the book's no-op rules, re-bound on every level
+after S4's online wait), goal HINTS, and GbMap (buttons a re-bound no-op rule
+covers count as tried). The hook is `EVAL_GB=1` in `custom_agents/action.py`
+(16 lines tagged `# [gb]`; `sed -i '/\[gb\]/d'` restores the file byte for
+byte), and `EVAL_GB_BOOK=<run>` names the book. With `EVAL_GB` unset the agent
+is unchanged: `tools/cpu_check.py`, 2,000 CPU moves before and after, for
+`goose` (ft09) and `mb_gated_att` (tu93): **identical on every move** (1,970
+and 1,960 recorded moves; 18 Oct, `bde037e` against the hook as committed). **Not
+built:** PROBE (matrix and disagreement probes), IMAGINE, contact goals, H2
+(online LLM calls), H3. So in v1 the book steers Goose **only through its
+no-op rules**; its changing rules (tu93's 59%, tr87's 35.5%) are not used
+online until probes or IMAGINE exist. This is stated with every result.
+
+### 5a. The offline counterfactual (no GPU, no LLM)
+
+**Question.** On A0's own recordings, how many of the moves Goose made in the
+first actions of each new level would S5's carried no-ops have covered, and how
+many of those did nothing (avoidable waste) against something (masking risk)?
+
+**What runs.** `uv run python tools/gb_offline.py --stage replay --run cf_gb
+--book <BOOK> --games <the 8 dev games> --seeds 0,1,2 --cf`, and the same with
+`--run cf_free` and no `--book` (the GB-free arm), on the 24 recordings of A0's
+confirm (`results/confirm_upgrade/20260927_221915/manifest.tsv`, arm
+`mb_gated_att`; all 24 are logged). For each recording, level by level, the
+guide sees every recorded move in order (`s5_act.replay`): colour no-ops carried
+at each level-up (>= 20 clicks on the level, none changing anything), the
+book's no-op rules re-bound on each level's own moves once S4's wait ends
+(>= 10 distinct changing cases of the rule's family, or 1,000 moves), goal
+hints. "Changed" is judged under the level's decoration mask as S0 builds it.
+
+**Measured** (Rulebook v2's definitions, kept): in the first 2,000 actions of
+each level from level 2 up (action numbers counted from the level's first
+recorded move), AVOIDABLE WASTE = covered moves that changed nothing, MASKING
+RISK = covered moves that changed something, each as a share of the window's
+recorded moves, pooled over seeds and levels per game; also what covered them
+(colour or rule) and the guide's events (carried, dropped, re-bound).
+
+**Expectation, kept from v2 (plan §6.2), written before running.** Avoidable
+waste >= 10% on the games with carried click no-ops (ft09, vc33, m0r0), and
+masking risk <= 1% on every game, for the GB arm. Also expected: GB-free covers
+most of what GB covers (the book's no-op rules are mostly "clicking colour X
+does nothing", which the colour rule finds without the LLM).
+
+**Known before registration.** The replay was smoke-tested on lp85 (a seen
+game) with the lp85 smoke run's book, seed 0: levels 2-6, 9,902 moves in the
+windows, 1,066 covered (10.8%), all avoidable waste, masking 0, all from colour
+no-ops; its one no-op rule was re-bound on levels 1 and 3. No dev game has been
+replayed; the tool refuses dev games without `--cf`. Also run before
+registration, online and not a replay: two ft09 smoke runs (`EVAL_GB=1
+EVAL_GB_BOOK=pool_g0b_g1 --agent mb_gated_att`, seed 0, 20,000 actions, GPU;
+`results/runs/20261018_125714/` and `20261018_130128/`): no errors; the
+guide changed 21.5% and 13.3% of Goose's moves (covered no-ops and goal
+hints); no contradiction; the first run showed a re-binding refused for too few
+cases and never retried, fixed before the second (retry at twice the moves, up
+to 4,000). Their levels are not evidence of anything (one GPU run each).
+
+**What it decides.** Nothing passes or fails. It is reported before G2, and
+no S5 setting is changed after it (alpha, the 20-click rule, the wait and the
+2,000-action window are fixed above).
+
+**OPEN (a): the book.** Recommended: **`pool_g0b_g1`**, G0b's (CP1's) and G1's
+candidates pooled on their shared evidence, chosen and carried by CP1's
+procedure (`docs/3-glassbox/pool-g0b-g1.md`; exploratory, not a gate). Its
+no-op rules are, per group, the known no-op with the most moves. Alternatives:
+G1's book alone (what the plan's text says: "G1's books"), or G0b's alone.
+
+### 5b. G2: the online dev gate
+
+**Question.** Does Goose guided by S5 complete at least as many levels as A0
+on the dev games?
+
+**Arms.** A0: `mb_gated_att`'s 16 confirm runs on the 8 dev games, seeds 0-1,
+reused (manifest above). GB: `EVAL_GB=1 EVAL_GB_BOOK=<BOOK>
+--agent mb_gated_att`, 8 dev games x seeds 0-1 x 100,000 actions. GB-free:
+the same with `EVAL_GB_BOOK` unset (no LLM anywhere: colour no-ops, goal hints).
+
+**Pass** (v2's dev rule, as the plan's §6.3): GB levels >= A0's; 16 of 16 GB
+runs complete; paired wins >= losses; no game worse on both seeds.
+`uv run python tools/paired_compare.py --base <A0 manifest>:mb_gated_att
+--new <G2 manifest>:GB --rule dev --expect 16`.
+
+**Reported, not gating.** GB against GB-free (a tie is reported plainly as "the
+book adds nothing at this stage"); GB-free against A0; avoidable waste and
+masking risk online (from `s5_stats.json` and `events.jsonl`); colour no-ops
+dropped and rules demoted (rule survival); moves the guide changed; levels 2
+and up; actions per second against A0's.
+
+**Caveats, stated with the result.** A0's runs are from 27-28 Sep and GPU runs
+are not reproducible past the first training step, so the comparison is of
+distributions (CLAUDE.md); A0's recordings are the older kind (levels are
+unaffected). The book was written from A0's seed-0 recordings of these same
+games: G2 is a dev-game result, labelled as tuned.
+
+**OPEN (b): the LLM online.** Recommended for G2 on schedule: **no online LLM
+calls** (H2 is not built; the book is fixed before the run, built offline from
+A0's seed-0 recordings), so GB runs can share the GPU 4 at a time (about 6 h
+for GB and GB-free together). The alternative is to build H2 (online S2 calls,
+plan §5.8) first and run GB one at a time beside the server (12-20 h), which
+moves G2 past 29 Oct.
+
+**OPEN (c): S4's role tie-break** (`[carry] roles_in_bind`). Default off
+(CP1's choice). Its exploratory test (`pool-g0b-g1.md`, tuned on dev games):
+m0r0's G1 rules 6.8% → 26.5% at T1, the pooled book unchanged. It only matters
+for G2 if S5's online re-binding uses it (it does not yet): recommended to
+leave S5 as built for G2.
+
+**OPEN (d): probes before G2.** The plan's cut line keeps disagreement probes
+with prune and hints. Recommended: run G2 with v1 as built (prune, hints, map)
+and add probes for dev sweep 2, so G2 stays on its dates; the alternative is
+1-2 days of building first.
+
+**Void.** If a GB run uses a different book, code or settings than registered;
+if `cpu_check` with `EVAL_GB` unset does not match move for move; if a run
+ends on an error and is not rerun before the verdict.
 
 ## 6. G3: templates on held-out games
 
