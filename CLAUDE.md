@@ -96,21 +96,23 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_RETURN_MAP` | off | `custom_agents/return_map.py` |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | `200` / `20` / `100` / `1` | map tuning (`docs/1-goose-upgrades/option-1-return-map.md`) |
 | `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick` |
-| `EVAL_GB` | (planned, off) | Glassbox's guide in the agent (plan §5.5); hooks tagged `# [gb]` |
+| `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (18 Oct 2026)
+## Where things stand (18 Oct 2026, evening)
 
 **Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
-(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is in week 1 and ahead of
-its calendar:** G0, G0b and G1 have run (G1 was due Thu 22 Oct). Plan:
+(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is ahead of its calendar:**
+G0, G0b, G1 run (M1 done); M2's pieces built and smoke-tested; **waiting on Matt
+to settle prereg §5's OPEN items and register 5a, then 5b**. Plan:
 `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log). Gates:
-`docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b) and 4 (G1)
-registered and run; 1, 2, 8–10 still drafts; 5–7 not written.
+`docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1)
+registered and run; **5 (counterfactual + G2) DRAFTED 18 Oct, not registered**;
+1, 2, 8–10 still drafts; 6–7 not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -124,59 +126,74 @@ registered and run; 1, 2, 8–10 still drafts; 5–7 not written.
     "explained" (S1's measure; the plan's "closure" cannot fail), relations,
     feature bits, roles, exploration matrix, facts text (golden test).
   - **H1 VOCAB** `h1_vocab.py`, **registered `glassbox_vocab_v1`, frozen**: S1's
-    relation code (one copy for S1, guards and rules), `features()`, ten
-    primitives (`objects`, `find_object`, `object_at`, `ray`, `is_blocked`,
-    `translate`, `slide`, `recolour`, `swap`, `unchanged`), and `CARD` (their
-    prompt text). Rules get them through `gb/core/contract.py`.
-  - **S2 WRITE v1** `s2_write.py`: CP1's procedure and budget held equal, plus
-    S1's facts under each move, H1's card, one mechanism per rule, and the guard
-    fitter tried before a call is spent on a near-miss. Not built (cut line):
-    exception prompts, two-level prompts, KIND/PRIORITY.
-  - **S3 CHECK**: grading v0 `s3_check.py` (CP1's procedure) and the guard
-    fitter `s3_guards.py`. Not built: priority composition, trust tiers.
-  - **S4 CARRY v0** `s4_carry.py`: CP1's re-binding by search on the fit split;
-    T0, T1. Not built: role hints in `bind()`, the online wait, repair calls.
+    relation code, `features()`, ten primitives, `CARD`. Rules get them through
+    `gb/core/contract.py`.
+  - **S2 WRITE v1** `s2_write.py`: CP1's procedure and budget, plus S1's facts,
+    H1's card, one mechanism per rule, guards before near-miss calls. **S2 POOL**
+    `s2_pool.py` (18 Oct): finished runs' candidates on the same evidence pooled
+    into a new run, no LLM (one source = a clean copy, to re-run S3/S4).
+  - **S3 CHECK**: grading `s3_check.py` (CP1's procedure), guard fitter
+    `s3_guards.py`. Not built: priority composition, trust tiers.
+  - **S4 CARRY v1** `s4_carry.py`: CP1's re-binding; plus (18 Oct) a role
+    tie-break among the exact bindings applying to the most fit cases
+    (`[carry] roles_in_bind`, **off by default**, so `make gb-g0b-control` still
+    equals CP1) and the online wait `ready()`. Not built: repair calls.
+  - **S5 ACT v1** `s5_act.py` (18 Oct): prune (carried colour no-ops, no LLM:
+    >= 20 clicks on a level, none changing; the book's no-op rules, per group
+    the known no-op with most moves, re-bound on EVERY level's own moves after
+    the wait, retried at twice the moves up to 4,000), goal hints (never the
+    background; boost only where a hint click is possible), `GbMap(UpgradedReturnMap)`
+    (buttons a re-bound no-op rule covers count as tried). Weights reach Goose by
+    rejection sampling with the guide's own generator (exactly p*w; Goose's
+    stream untouched). Rules run in one spawned child (`RuleWorker`, timeout ->
+    rules off). The book's CHANGING rules are not used online yet (no probes,
+    no IMAGINE). **Hook:** `EVAL_GB=1` (+ `EVAL_GB_BOOK=<run>`; unset = GB-free),
+    16 lines tagged `# [gb]` in `action.py`; **`cpu_check` with it unset:
+    identical on every move** (goose/ft09 1,970, mb_gated_att/tu93 1,960; 18 Oct).
+    Replay = the offline counterfactual (`--stage replay`, `make gb-replay`,
+    `make gb-cf`), refused on dev games without `--cf`/`CF=1`.
+  - **H3 TEMPLATES v0** `h3_templates.py`: the plan's smoke test only (seen
+    games only): 0 of 21 templates adopted on lp85/ls20.
   - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
-  - **Not built:** S5 ACT, H2 SCHEDULER, H3 TEMPLATES, IMAGINE/contact goals.
-  - Driver `tools/gb_offline.py` (`--stage mask|see|write|check|carry|guards|
-    show`); verdicts `tools/gb_gate.py`; whole gates `make gb-g0b`,
-    `make gb-g0b-control`, `make gb-g1`.
-- **Proven equal to CP1:** `make gb-import-cp1` (437 of 437 numbers, ~80 s);
-  `make gb-g0b-control` (bars off: S0 → S3 → S4 give CP1's book, T0, T1 and
-  every re-binding on all 8 games, ~2 min). 200 live tests.
+  - **Not built:** H2 SCHEDULER (online LLM), S5 probes, IMAGINE, contact goals.
+  - Drivers: `tools/gb_offline.py` (`--stage mask|see|pool|write|check|carry|
+    guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB and
+    GB-free arms, 4 at a time, verdicts vs A0 with a 16-run A0 manifest;
+    `make gb-online` seen games, `make gb-g2 BOOK=.. G2=1` dev games only after
+    §5b is registered); verdicts `tools/gb_gate.py`.
+- **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
+  gb-g0b-control`. 226 live tests.
 - **Results** (each written up in `docs/3-glassbox/`):
-  - **G0** (16 Oct, `g0-guard-rescue.md`): the guard fitter on CP1's
-    near-misses rescued nothing. m0r0's 11 near-misses had no wrong case; they
-    missed trust because the decoration mask stopped 6 cells short of m0r0's
-    move-budget bar (row 63), so one screen seemed to end two ways.
-  - **G0b** (16 Oct, `g0b-bar-mask.md`): with S0, all 11 trusted; m0r0's book
-    0% → 53.5% of changed cells; T1 51.7% (nothing 6.8%, memory 53.9%), wrong
-    4.3%. Other games unchanged.
-  - **G1** (17 Oct, `g1-offline-rules.md`): **FAIL**, 3 of 8 games above G0b
-    (5 needed), safety met (≤ 0.15% wrong). Cell coverage G0b → G1: tu93 0 →
-    59.0%, tr87 0 → 35.5% (their first trusted rules ever), dc22 11.8 → 29.3%;
-    m0r0 53.5 = 53.5%; ft09 97.7 → 59.2%, g50t 17.7 → 9.0%, vc33 10.6 → 6.1%,
-    cd82 5.2 → 4.2%. No game beats both baselines at T1 (G0b: dc22, ft09):
-    ft09's new rules apply to nothing in the 300-move fit split, m0r0's
-    re-binding is ambiguous. 6.27M tokens (CP1 9.66M); 35% of answers ran out
-    of room (CP1 44%); 304 of 309 graded rules call H1.
-- **Next (open, Matt's call):** what G1 steers. (a) A book from CP1's (G0b's)
-  and G1's trusted rules together: no LLM, exploratory, the likely book for
-  G2. (b) S4's role hints and online wait (G1's transfer losses). (c) S2 aimed
-  at the groups and games CP1 lacked. Then **M2** per plan §7.2: offline
-  counterfactual, S5 ACT and H2, `cpu_check` with `EVAL_GB` off, ft09 online
-  smoke, H3 smoke on lp85/ls20, register section 5, **G2 Tue 27 – Thu 29 Oct**.
+  - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
+    a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
+    trusted; m0r0 0% → 53.5% of changed cells; T1 51.7% (memory 53.9%).
+  - **G1** (17 Oct, `g1-offline-rules.md`): **FAIL**, 3 of 8 above G0b, safety
+    met. tu93 0 → 59.0%, tr87 0 → 35.5% (first trusted rules ever), dc22 11.8 →
+    29.3%; ft09, g50t, vc33, cd82 lost ground; the new books carry worse.
+  - **Pooled book** (18 Oct, `pool-g0b-g1.md`, exploratory, `pool_g0b_g1`):
+    never below the better of G0b/G1, above both on dc22 40.4%, g50t 18.1%,
+    cd82 6.6%; T1 equals the better source's on every game (beats both
+    baselines on dc22, ft09). Role tie-break: m0r0's G1 rules 6.8% → 26.5% at
+    T1, pooled book unchanged (tuned on dev games, labelled).
+  - **Smoke runs** (18 Oct, online, pooled book, 20k actions each): ft09 x2,
+    g50t, cd82, lp85 runner; no errors, ~85-128 act/s, re-binding pauses 1-3 s.
+    Not evidence of levels.
+- **Next = Matt's checkpoint (prereg §5, OPEN items, recommendations first):**
+  (a) the book: **`pool_g0b_g1`** (alt. G1's or G0b's alone); (b) LLM online in
+  G2: **none** (H2 not built; GB runs 4 at a time, ~6 h) vs build H2 first;
+  (c) roles in S5's re-binding: **leave as built**; (d) probes: **G2 without
+  them**, add for dev sweep 2. Then: register 5a → `make gb-cf BOOK=pool_g0b_g1
+  CF=1` (CPU, ~1 h) → write it up → register 5b → `make gb-g2 BOOK=pool_g0b_g1
+  G2=1` (GPU, ~6 h; check AC power) → verdict. Target G2 Tue 27 – Thu 29 Oct.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
-  the perception number; plan §10 (a) (does the advisor want a confirmed result
-  in the 30 Oct draft?) and (b) (teammates' modules in S5).
-- **Known limits:** S1's `sits_on` is read from neighbouring colours, so a mover
-  in a dead end "sits on" the walls (pinned in `tests/test_gb_vocab.py`); the
-  binding search's time budget leaves bindings untried on tr87 (CP1 too); the
-  `ARC-AGI-3-Agents` submodule's local edits make every run's manifest say
-  `+dirty` (prereg section 11 notes it; G0/G0b/G1 never import it).
-- **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
-  (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
-  (ft09) and `mb_gated_att` (tu93).
+  the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
+  (teammates' modules in S5).
+- **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
+  `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings
+  untried on tr87 when the machine is busy (run S4 on a quiet machine); the
+  `ARC-AGI-3-Agents` submodule's local edits make manifests say `+dirty`
+  (prereg §11). `--set` overrides are recorded in stage headers, not in the
+  run's copied `config.toml`.
 - **Frontier models:** everything is the local model. The only frontier use is
   an optional showcase in late November (plan §6.5, limits in prereg §10).
 
@@ -200,7 +217,7 @@ registered and run; 1, 2, 8–10 still drafts; 5–7 not written.
 - **The agent hook** (`EVAL_GB=1`, plan §5.5) goes in `action.py` on lines
   tagged `# [gb]` only, removable with `sed -i '/\[gb\]/d'`, like
   `[return-map]` (25 lines) and `[upgrades]` (26). The map extension subclasses
-  `ReturnMap` (`GbMap`); never edit `return_map.py` or `canon.py` for it.
+  `ReturnMap` (`GbMap`, via `upgrades.UpgradedReturnMap`); never edit `return_map.py` or `canon.py` for it.
 - **Pre-registration:** nothing in a registered section is edited after its run
   starts (corrections go in section 11). Tiers are in `tiers.py`; the
   untouched tier is only ever run inside the confirm; cross-game artifacts are

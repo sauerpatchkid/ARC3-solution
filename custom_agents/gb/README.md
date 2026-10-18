@@ -37,7 +37,8 @@ S6's first data.
 |---|---|
 | Settings, one section per stage | `experiments/glassbox/glassbox.toml` |
 | Commands, one per stage | `experiments/glassbox/gb.mk` (included by the root Makefile: `make gb-help`) |
-| The offline driver | `tools/gb_offline.py` (`--import-cp1` now; `--stage <s>` as stages are built) |
+| The offline driver | `tools/gb_offline.py` (`--import-cp1`; `--stage mask|see|pool|write|check|carry|guards|replay|templates|show`) |
+| Online runs (GB, GB-free) | `tools/gb_sweep.py` (`make gb-online`, `make gb-g2`); the agent hook is `EVAL_GB=1` in `custom_agents/action.py` |
 | A run's files | `results/glassbox/<run>/` (offline), `results/runs/<ts>/<game>/glassbox/` (online) |
 | Tests | `tests/test_gb_*.py` |
 | Gates, registered before each run | `docs/3-glassbox/glassbox-prereg.md` |
