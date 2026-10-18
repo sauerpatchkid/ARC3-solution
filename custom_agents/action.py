@@ -186,6 +186,13 @@ class Action(Agent):
                 self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [upgrades]
             if getattr(self, "return_map", None) is not None:  # [upgrades]
                 self.return_map = self.upgrades.wrap_map(self.return_map)  # [upgrades]
+        # Glassbox S5 ACT (custom_agents/gb/s5_act.py): off unless EVAL_GB=1.  # [gb]
+        self.gb = None  # [gb]
+        if env_flag("EVAL_GB", False):  # [gb]
+            from gb import s5_act  # [gb]
+            self.gb = s5_act.from_env(self.game_id, self.seed, os.path.join(env_dir, "glassbox"))  # [gb]
+            if self.return_map is not None:  # [gb] buttons the book's no-op rules cover count as tried
+                self.return_map = self.gb.wrap_map(self.return_map)  # [gb]
         self._label_n = 0      # experiences stored, and how many were positive,
         self._label_pos = 0    # under whichever label is active (TensorBoard)
         self._degenerate_samples = 0   # times the sampler had to fall back to uniform
@@ -246,6 +253,7 @@ class Action(Agent):
             canon_refresh=self.canon_refresh,
             **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
             **(self.upgrades.config() if self.upgrades is not None else {}),  # [upgrades]
+            **(self.gb.config() if self.gb is not None else {}),  # [gb]
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -261,6 +269,8 @@ class Action(Agent):
             atexit.register(self.return_map.dump, os.path.join(env_dir, 'return_map_stats.json'))  # [return-map]
         if self.upgrades is not None:  # [upgrades]
             atexit.register(self.upgrades.dump, os.path.join(env_dir, 'upgrades_stats.json'))  # [upgrades]
+        if self.gb is not None:  # [gb]
+            atexit.register(self.gb.dump, os.path.join(env_dir, 'glassbox', 's5_stats.json'))  # [gb]
         
         print(f"Action agent logging to: {tensorboard_dir}")
         self.logger.info(f"Action agent initialized for game_id: {self.game_id}")
@@ -591,6 +601,9 @@ class Action(Agent):
                 self.canon.update(self.prev_frame_raw, current_frame_raw)
             cur_key = self.canon.key(current_frame_raw)
             novel = self.memory.observe(cur_key)
+        if self.gb is not None:  # [gb] S5: the last move, or a new level's first screen (before the map sees it)
+            self.gb.step(self.prev_frame_raw if self.prev_frame is not None else None, self.prev_action_idx,  # [gb]
+                         current_frame_raw, self.current_score, self.canon.mask if self.canon is not None else None)  # [gb]
         if self.return_map is not None:  # [return-map]
             if not self.memory_on and self.prev_frame_raw is not None:  # [return-map] keep the mask current
                 self.canon.update(self.prev_frame_raw, current_frame_raw)  # [return-map]
@@ -667,6 +680,9 @@ class Action(Agent):
             if self.upgrades is not None:  # [upgrades] dead-click filter, before any map override
                 action_idx, coords, coord_idx = self.upgrades.override(  # [upgrades]
                     action_idx, coords, coord_idx, all_probs, current_frame_raw)  # [upgrades]
+            if self.gb is not None:  # [gb] S5: covered no-ops x alpha, goal-hint clicks x (1 + gamma)
+                action_idx, coords, coord_idx = self.gb.override(  # [gb]
+                    action_idx, coords, coord_idx, all_probs, current_frame_raw)  # [gb]
             if self.return_map is not None:  # [return-map] a route step or an untried button
                 action_idx, coords, coord_idx = self.return_map.override(action_idx, coords, coord_idx)  # [return-map]
             

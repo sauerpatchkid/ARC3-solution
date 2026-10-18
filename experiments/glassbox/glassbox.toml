@@ -64,7 +64,7 @@ fit_moves_offline = 300
 online_min_cases = 10
 online_max_wait = 1000
 noop_min_clicks = 20
-roles_in_bind = true
+roles_in_bind = false             # S4 v1: break ties between exact bindings by S1's roles (false: CP1's choice)
 repair_calls = 1
 
 [act]                             # S5 (online)

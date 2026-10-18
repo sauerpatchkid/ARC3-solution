@@ -8,6 +8,9 @@ added here as they are built (plan section 4.3).
     uv run python tools/gb_offline.py --import-cp1 [--games ft09,dc22] [--run cp1_import]
     uv run python tools/gb_offline.py --stage mask --run <new> --from cp1_import
     uv run python tools/gb_offline.py --stage see|check|carry|guards|show --run <name> [--games a,b]
+    uv run python tools/gb_offline.py --stage pool --run <new> --from g0b_bars,g1 [--report]
+    uv run python tools/gb_offline.py --stage replay --run <new> [--book <run>] --games lp85 [--seeds 0,1,2]
+    uv run python tools/gb_offline.py --stage templates --run <run with S0 on lp85,ls20> --book <run>
 
 --import-cp1  re-run Rulebook v2's CP1 with gb/core (no LLM, no search) and write
               it as Glassbox artifacts; every number is checked against CP1's
@@ -21,6 +24,22 @@ added here as they are built (plan section 4.3).
               copies none.
 --stage see   S1 SEE: objects, what happened to them, closure (custom_agents/gb/s1_see.py),
               for every evidence split of each game in the run.
+--stage pool  S2 POOL (custom_agents/gb/s2_pool.py): the candidates of the runs in
+              --from (comma-separated, same evidence) pooled into a new run, no
+              LLM; S3 and S4 then choose and carry its book. One run: a copy of
+              its candidates, to re-run S3 and S4 with other settings without
+              touching it. --report sets the pool's book beside each source's.
+--stage replay  S5 ACT's replay (custom_agents/gb/s5_act.py): A0's recorded runs
+              (the [run] manifest) fed through S5's guide level by level; avoidable
+              waste and masking risk in each level's first actions, level 2 up.
+              --book <run>: that run's no-op rules are carried (none: GB-free).
+              On a dev game this IS the offline counterfactual (prereg section 5):
+              it refuses dev games without --cf, which is for after section 5 is
+              registered.
+--stage templates  H3 TEMPLATES' smoke test (custom_agents/gb/h3_templates.py): a
+              throwaway catalog from --book's trusted rules on the dev games,
+              each template re-bound on the seen games' training levels (S0's
+              evidence in --run); seen games only.
 --stage write S2 WRITE (custom_agents/gb/s2_write.py): the local LLM writes rules for
               each action group of the training level (the server must be up:
               experiments/llm/serve.sh). --dry renders the first-round prompts
@@ -49,6 +68,7 @@ import shutil
 import sys
 import time
 import tomllib
+from types import SimpleNamespace
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -56,7 +76,9 @@ sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 
 from gb import artifacts as A  # noqa: E402
 from gb import cp1_import  # noqa: E402
-from gb import s0_mask, s1_see, s2_write, s3_check, s3_guards, s4_carry  # noqa: E402
+from gb import s0_mask, s1_see, s2_pool, s2_write, s3_check, s3_guards, s4_carry, s5_act  # noqa: E402
+from gb import h3_templates  # noqa: E402
+import tiers  # noqa: E402
 from gb.core.llm import ChatClient  # noqa: E402
 from manifest import read_manifest  # noqa: E402
 from gb import s6_show  # noqa: E402
@@ -123,17 +145,24 @@ def main():
     ap.add_argument("--run", default="cp1_import", help="run folder name under results/glassbox/")
     ap.add_argument("--cp1", default=cp1_import.CP1_DIR, help="CP1's registered result folder (read only)")
     ap.add_argument("--workers", type=int, default=cp1_import.WORKERS)
-    ap.add_argument("--stage", choices=["mask", "see", "write", "check", "carry", "guards", "show"],
+    ap.add_argument("--stage", choices=["mask", "see", "pool", "write", "check", "carry", "guards", "replay", "templates",
+                                        "show"],
                     help="run one stage on --run (more are added as they are built)")
     ap.add_argument("--from", dest="src", default="cp1_import",
                     help="--stage mask: a run to copy candidates from, or cp1 (CP1's levels and recordings, no "
-                         "candidates; any other game from the manifest)")
+                         "candidates; any other game from the manifest); --stage pool: the runs to pool, "
+                         "comma-separated")
     ap.add_argument("--config", default=A.DEFAULT_CONFIG, help="the settings file")
     ap.add_argument("--set", action="append", default=[], help="override one setting: section.key=value (TOML value)")
     ap.add_argument("--compare-cp1", action="store_true", help="does --run give CP1's results? (cp1_import.matches)")
     ap.add_argument("--force", action="store_true", help="re-run a stage even if its files are current")
     ap.add_argument("--dry", action="store_true", help="--stage write: render prompts only, no server")
     ap.add_argument("--from-cache", action="store_true", help="--stage write: answers from the run's cache only")
+    ap.add_argument("--report", action="store_true", help="--stage pool: the pool's book beside its sources'")
+    ap.add_argument("--book", default="", help="--stage replay: the offline run whose no-op rules are carried")
+    ap.add_argument("--seeds", default="0", help="--stage replay: A0 seeds to replay, comma-separated")
+    ap.add_argument("--cf", action="store_true",
+                    help="--stage replay on dev games: only after prereg section 5 is registered")
     ap.add_argument("--url", default="http://127.0.0.1:8018/v1", help="--stage write: the LLM server")
     ap.add_argument("--g0", action="store_true",
                     help="allow --stage guards on CP1's candidates: only in a registered run (G0, G0b)")
@@ -165,6 +194,50 @@ def main():
         games = a.games.split(",") if a.games else (games_of(src) if src else cp1_import.cp1_games(a.cp1))
         for game in games:
             s0_mask.run_game(run, game, *seed_from(run, src, game), log=log, force=a.force)
+        return
+    if a.stage == "pool":
+        names = a.src.split(",")
+        if run.name in names:
+            sys.exit("--stage pool: --run must be a new run, not one of the --from runs")
+        # read only: opening an artifacts.Run would record a session in the source's manifest
+        sources = [SimpleNamespace(name=n, dir=os.path.join(A.results_dir(), n)) for n in names]
+        if missing := [s.name for s in sources if not os.path.isdir(s.dir)]:
+            sys.exit(f"no such run: {', '.join(missing)}")
+        games = a.games.split(",") if a.games else games_of(sources[0])
+        if a.report:
+            s2_pool.report(run, sources, games, log=log)
+            return
+        for game in games:
+            s2_pool.run_game(run, game, sources, log=log, force=a.force)
+        return
+    if a.stage == "replay":
+        games = a.games.split(",") if a.games else []
+        if not games:
+            sys.exit("--stage replay needs --games")
+        if (dev := [g for g in games if g in tiers.DEV]) and not a.cf:
+            sys.exit(f"{', '.join(dev)}: on a dev game the replay IS the offline counterfactual; it needs --cf, "
+                     "which is for after pre-registration section 5 is registered")
+        book_dir = os.path.join(A.results_dir(), a.book) if a.book else None
+        cfg = run.config.get("run", {})
+        rows = read_manifest(os.path.join(ROOT, cfg["manifest"]), strict=True)
+        for game in games:
+            for seed in map(int, a.seeds.split(",")):
+                hit = [r for r in rows if r["game"] == game and int(r["seed"]) == seed]
+                if not hit:
+                    sys.exit(f"{game}: no seed-{seed} run in {cfg['manifest']}")
+                d = hit[0]["run_dir"]
+                corpus = os.path.join(d if os.path.isabs(d) else os.path.join(ROOT, d), "transitions")
+                s5_act.replay_run(run, game, seed, corpus, book_dir, log=log)
+        s5_act.replay_table(run, games, log=log)
+        return
+    if a.stage == "templates":
+        if not a.book:
+            sys.exit("--stage templates needs --book <run> (the catalog's source)")
+        catalog = h3_templates.build_catalog(os.path.join(A.results_dir(), a.book), tiers.DEV)
+        h3_templates.write_catalog(run, catalog)
+        log(f"catalog: {len(catalog)} templates from {a.book}'s books on the dev games")
+        for game in (a.games.split(",") if a.games else games_with_evidence(run)):
+            h3_templates.try_game(run, game, catalog, log=log)
         return
     if a.stage == "write":
         games = a.games.split(",") if a.games else games_with_evidence(run)
