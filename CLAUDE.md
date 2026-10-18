@@ -102,172 +102,87 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (16 Oct 2026)
+## Where things stand (18 Oct 2026)
 
-**Part 1 is done:** `mb_gated_att` adopted 28 Sep. **Part 2 is closed:** Coach
-NO-GO (at chance); Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
-(15 Oct: gate FAIL 2 of 8, but 0.0% wrong at T1 on all 8). CP1's diagnosis
-drives Glassbox: rules now carry between levels; the model writes too few exact
-rules (none trusted on tu93, tr87, m0r0).
-
-**Part 3, Glassbox, is in week 0.** Plan: `docs/3-glassbox/glassbox-plan.md`.
-Gates: `docs/3-glassbox/glassbox-prereg.md` (registered section by section,
-before the run each judges).
+**Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
+closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
+(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is in week 1 and ahead of
+its calendar:** G0, G0b and G1 have run (G1 was due Thu 22 Oct). Plan:
+`docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log). Gates:
+`docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b) and 4 (G1)
+registered and run; 1, 2, 8–10 still drafts; 5–7 not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
   Oct full draft, Mon 2 Nov idea statement, Mon 7 Dec final. Plan §7.
-- **Done 16 Oct (the refactor):** v2 closed in its pre-registration; tag
-  `rulebook-v2`; v1/v2 code frozen in `legacy/rulebook/` (its tests pass there;
-  v2's lp85 smoke re-scores from cache to the same report); reusable modules
-  copied to `custom_agents/gb/core/` (51 tests); `tiers.py` and `registry.py` at
-  the repo root; finished Goose launchers in `legacy/goose_experiments/`; docs
-  in three numbered folders; `gb/artifacts.py` (run folders, stage headers,
-  cache keys); `experiments/glassbox/glassbox.toml` and `gb.mk`;
-  `experiments/llm/` (server and environment); pre-registration draft.
-- **Done 16 Oct, CP1 import:** `gb/cp1_import.py` (`make gb-import-cp1`)
-  re-runs CP1 with `gb/core` (CP1's bindings, no LLM, no search) into
-  `results/glassbox/cp1_import/` (evidence, candidates, re-graded rules, books,
-  per-case statuses, T0/T1/T2). All 437 recomputed numbers on the 8 games equal
-  CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games
-  in ~15 s, and fails with the names of the numbers that moved (checked by
-  changing the interval's seed).
-- **Done 16 Oct, S6 v0:** `make gb-report RUN=cp1_import` writes
-  `results/glassbox/cp1_import/s6_show/index.html` (offline, ~0.4 MB): CP1's
-  gate recomputed, the funnel per game, and the case viewer. Every case it
-  draws is re-run in the sandbox and must match S3's stored status.
-  `figures/funnel.png` is for the written report. Diff marks are blue (right) /
-  red (wrong) / grey hatch (unclaimed), checked with the dataviz validator.
-- **Done 16 Oct, S1 skeleton:** `gb/s1_see.py` (`make gb-see RUN=cp1_import`)
-  describes each change as whole objects (moved, recoloured, grew, shrank,
-  vanished, appeared; reshaped when none fits). The plan's "closure" cannot fail
-  as written (100% everywhere), so S1's measure is "explained": a short list
-  of whole-object items that rebuilds the screen. On CP1's training levels:
-  ft09, m0r0, tu93, vc33 100%; dc22 89%; g50t 88%; tr87 61%; cd82 30%. S6 shows
-  it as the funnel's first stage.
-- **Done 16 Oct, S1 steps 4–8:** relations for each move's subject (mover or
-  clicked object) and ahead of moved objects; feature bits per direction for
-  the guard fitter; roles (mover, static, click-changers/no-ops, counters);
-  the exploration matrix; the facts text (pinned by a golden test). The
-  viewer shows the text and the roles.
-- **Done 16 Oct, H1 start + the S3 guard fitter** (plan §5.3 "As built"):
-  - `gb/h1_vocab.py` holds S1's objects, subject choice, relations and
-    feature bits (one copy for S1, the guards and the rules), plus
-    `features(board, act, api, mover)`: the same facts inside the rule
-    sandbox, the subject found by flood fill over row runs (0.02–0.25 ms per
-    move on the 8 games). S1 imports it and stops if the sandbox's subject is
-    not one of its own objects; its outputs on the 8 games are identical
-    before and after (104 files, 624 arrays). `gb/core/contract.py`'s `Rule`
-    hands `h1_vocab.SANDBOX` to every rule (lazy import); test_gb_regression
-    passes and `make gb-import-cp1` gives 437 of 437.
-  - `gb/s3_guards.py` (`make gb-guards`): R/W cases of every
-    admitted-but-not-trusted rule; a guard over S1's bits (single, then
-    AND-pairs, either polarity; geometry, then subject/action, then colour)
-    fitted on 70% and checked on 30% (W and R split separately, W first, one
-    `random.Random(guard_seed=0)`, rounded half up); the NARROWED rule (base ∧
-    ¬guard) and the EXCEPTION (base ∧ guard, the base's claimed cells stay;
-    `KIND = "exception"`, `PRIORITY = 1`) as source wrapping the original
-    (its own names renamed `base_*` with ast, comments kept); the mover and
-    guard colours use the rule's own `Colour()` slot when it holds that colour,
-    else a new slot; replayed with the original's binding plus the new slots;
-    the book and T1 before and after, CP1's way (new rules re-bound on the fit
-    split by `bind.search`). An exception never passes v2's bar (gain 0), so
-    it is reported against v1's known-no-op bar. Directions are the screen's
-    (one action group per rule), not re-aligned.
-  - Tested on synthetic games only (`tests/test_gb_guards.py`, 15 tests:
-    hand-made bits, the wrapper, a click game whose colour guard re-binds, a
-    maze run folder end to end). It refuses CP1's candidates without `G0=1`
-    / `--g0`, and has NOT been run on them.
-  - **S1 flaw found doing it, fixed 16 Oct (Matt's call; S1 VERSION 3):**
-    `sits_on` took a tie by the lower colour number, so a mover between two
-    walls numbered below the floor "sat on" the walls and touched nothing. A
-    tie now goes to the background. Re-running S1 on the 8 games changed the
-    feature bits of 398 of 109,402 cases: dc22 (88 of 1,069 training cases,
-    275 on the transfer level), vc33 (4 of 2,890; 27), ft09 (2; 2). Every
-    flip is a tie now on the background, mostly gaining a `touch`. tu93's
-    bits are unchanged, but 54 of its 124 training texts now say the white
-    object that moved is touching grey. m0r0, g50t, tr87, cd82: unchanged.
-    "Explained", the summaries, roles and matrices are unchanged. Remaining limit, pinned in
-    `tests/test_gb_vocab.py`: in a dead end (walls on three sides) the mover
-    still sits on the walls.
-  - **`gb.mk` fix:** the root Makefile's `GAMES ?= ft09,dc22,ls20` leaked into
-    `make gb-see` / `gb-guards`, which then ran 2 games. They now take `GAMES`
-    only when it is given.
-  - S3 now checks its own "before" (book and T1) against what the import
-    recorded (`before_matches_import` in its summary); a mismatch voids G0.
-- **Pre-registration section 3 (G0) REGISTERED 16 Oct** (Matt; `341ebec`,
-  pushed), with the as-built procedure, the config hash and the code commit.
-  Sections 1, 2 and 8–10 are still drafts.
-- **G0 RUN 16 Oct** (`341ebec`, ~20 s, valid: "before" equals the import on
-  every game). Write-up: `docs/3-glassbox/g0-guard-rescue.md`. **No rescue:**
-  12 rules in scope (m0r0 11, cd82 1), 0 guards, nothing changed; the
-  expectation (m0r0 gains a trusted rule) is not met. Why: m0r0's 11 rules
-  are right on EVERY case they apply to (W = 0); they miss trust only on
-  conflicting cases (ACTION1 8 cases, 9 of 606 moves; ACTION2 1, 1 of 575).
-  Cause, found after the write-up's first version: a DECORATION-MASK GAP. The
-  move-budget bar runs along row 63; the mask stops at column 57; cells
-  (63, 58), (63, 59), ... empty at moves 137, 139, ... of each attempt. Masking
-  whole bar rows removes all conflicting cases on m0r0 (13 → 0) and tu93
-  (11 → 0); g50t's 93 stay (real hidden state). cd82's rule has 1 wrong case
-  (needs 3). The registered reading ("no
-  rescues means the features are the problem") does not fit: the features
-  were never tried. Two notes in prereg section 11 (the submodule makes the
-  manifest say `+dirty`; tu93's T1 was missing from the summary, a
-  transfer-level bug fixed after the run, no G0 number affected).
-- **After G0, Matt chose (16 Oct): complete the bar mask, registered as G0b;
-  the guard fitter waits for G1's near-misses.** Built: `gb/s0_mask.py` (S0:
-  each bar in the decoration mask run to the screen's edges, `[mask]
-  complete_bars`), `gb/s3_check.py` (S3 grading v0, CP1's procedure) and
-  `gb/s4_carry.py` (S4 v0: CP1's re-binding by search, T0, T1);
-  `cp1_import.py` and the guard fitter use their functions. With the bars off,
-  S0 → S3 → S4 gives CP1's book, T0, T1 and every re-binding on all 8 games
-  (`make gb-g0b-control`). **Prereg section 3b (G0b) REGISTERED 16 Oct**
-  (config `2f789d8dca149dfe`, code `78c461c`); run it with `make gb-g0b`.
-- **G0b RUN 16 Oct** (`763d253`, ~6.5 min, control equal to CP1 at the same
-  commit). Write-up: `docs/3-glassbox/g0b-bar-mask.md`. m0r0: all 11
-  near-misses trusted; book 0 → 2 rules, cell coverage 0% → 53.5%, case
-  coverage 0% → 53.0%; T1 6.2% → 51.7% per move (nothing 6.8%, memory 53.9%:
-  beats nothing, not memory), wrong 4.3% (the one expectation not met: the
-  two blue objects jump 24–40 rows on level 2, which the 300-move fit split
-  showed twice; re-binding flagged "ambiguous"). vc33 gains a trusted rule
-  (same book). The other games are unchanged (T1 within 0.5 points).
-- **17 Oct: H1's ten primitives (`h1_vocab.py`, registered as `glassbox_vocab_v1`),
-  S2 v1 (`s2_write.py`: v2's procedure with S1's facts, H1's card, one mechanism
-  per rule, guards before a near-miss call; no exception or two-level prompts),
-  `tools/gb_gate.py`, `make gb-g1`.** lp85 smoke passed (45.9% cell coverage,
-  0% wrong, ~45 min). **Prereg section 4 (G1) REGISTERED 17 Oct** (Matt: mask
-  on, judged against G0b; config `5b7a7b2684e37ce5`, code `bd0552b`). The LLM
-  server must be up (`experiments/llm/serve.sh`); G1 ~6-12 h.
-- **G1 RUN 17 Oct** (`af208c7`, 7 h 42 min, valid): **FAIL**, primary 3 of 8
-  (tu93 0% → 59.0%, tr87 0% → 35.5%, dc22 11.8% → 29.3% of changed cells;
-  ft09 97.7% → 59.2%, g50t 17.7% → 9.0%, vc33 10.6% → 6.1%, cd82 5.2% → 4.2%,
-  m0r0 equal 53.5%); safety met (max 0.15% wrong). No game beats both baselines
-  at T1 (G0b: dc22, ft09): ft09's rules are *binding untested* on the fit split,
-  m0r0's *ambiguous*. 6.27M tokens (CP1 9.66M), 35% of answers ran out of room
-  (CP1 44%), 304 of 309 graded rules use H1. Write-up:
-  `docs/3-glassbox/g1-offline-rules.md`; page `results/glassbox/g1/s6_show/`.
-  Server stopped after the run.
-- **Next, in order (plan §7.4):** (1) Matt decides what G1 steers: keep rules
-  across runs (a CP1+G1 book, exploratory), S4's role hints and online wait,
-  pointing S2 at groups CP1 lacked; per the plan M2 (S5, H2, G2) goes ahead with
-  the trusted rules that exist;
-  (2) Matt registers
-  sections 1, 2, 8–10 and confirms S1's "explained" as perception coverage;
-  (3) H1's primitives, S3's priorities and tiers, S2, then G1 (section 4
-  decides whether G1 runs with S0 on).
-- **Settled 16 Oct (Matt):** G0's expectation is m0r0 only (CP1 admitted no
-  tu93 rule); the hold-out seed is 0; S1's tie fixed before G0. **Still OPEN,
-  Matt's:** registering sections 1, 2, 8–10; plan §10 (a), (b).
+- **Built** (`custom_agents/gb/`, one file per stage; `gb/README.md` has each
+  one's status, `make gb-help` its command):
+  - **S0 MASK** `s0_mask.py`: each bar in the decoration mask run to the
+    screen's edges (`[mask] complete_bars`); off, it rebuilds CP1's evidence
+    exactly. Also CP1's level rule for any game.
+  - **S1 SEE** `s1_see.py` (VERSION 3): objects, what happened to them,
+    "explained" (S1's measure; the plan's "closure" cannot fail), relations,
+    feature bits, roles, exploration matrix, facts text (golden test).
+  - **H1 VOCAB** `h1_vocab.py`, **registered `glassbox_vocab_v1`, frozen**: S1's
+    relation code (one copy for S1, guards and rules), `features()`, ten
+    primitives (`objects`, `find_object`, `object_at`, `ray`, `is_blocked`,
+    `translate`, `slide`, `recolour`, `swap`, `unchanged`), and `CARD` (their
+    prompt text). Rules get them through `gb/core/contract.py`.
+  - **S2 WRITE v1** `s2_write.py`: CP1's procedure and budget held equal, plus
+    S1's facts under each move, H1's card, one mechanism per rule, and the guard
+    fitter tried before a call is spent on a near-miss. Not built (cut line):
+    exception prompts, two-level prompts, KIND/PRIORITY.
+  - **S3 CHECK**: grading v0 `s3_check.py` (CP1's procedure) and the guard
+    fitter `s3_guards.py`. Not built: priority composition, trust tiers.
+  - **S4 CARRY v0** `s4_carry.py`: CP1's re-binding by search on the fit split;
+    T0, T1. Not built: role hints in `bind()`, the online wait, repair calls.
+  - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
+  - **Not built:** S5 ACT, H2 SCHEDULER, H3 TEMPLATES, IMAGINE/contact goals.
+  - Driver `tools/gb_offline.py` (`--stage mask|see|write|check|carry|guards|
+    show`); verdicts `tools/gb_gate.py`; whole gates `make gb-g0b`,
+    `make gb-g0b-control`, `make gb-g1`.
+- **Proven equal to CP1:** `make gb-import-cp1` (437 of 437 numbers, ~80 s);
+  `make gb-g0b-control` (bars off: S0 → S3 → S4 give CP1's book, T0, T1 and
+  every re-binding on all 8 games, ~2 min). 200 live tests.
+- **Results** (each written up in `docs/3-glassbox/`):
+  - **G0** (16 Oct, `g0-guard-rescue.md`): the guard fitter on CP1's
+    near-misses rescued nothing. m0r0's 11 near-misses had no wrong case; they
+    missed trust because the decoration mask stopped 6 cells short of m0r0's
+    move-budget bar (row 63), so one screen seemed to end two ways.
+  - **G0b** (16 Oct, `g0b-bar-mask.md`): with S0, all 11 trusted; m0r0's book
+    0% → 53.5% of changed cells; T1 51.7% (nothing 6.8%, memory 53.9%), wrong
+    4.3%. Other games unchanged.
+  - **G1** (17 Oct, `g1-offline-rules.md`): **FAIL**, 3 of 8 games above G0b
+    (5 needed), safety met (≤ 0.15% wrong). Cell coverage G0b → G1: tu93 0 →
+    59.0%, tr87 0 → 35.5% (their first trusted rules ever), dc22 11.8 → 29.3%;
+    m0r0 53.5 = 53.5%; ft09 97.7 → 59.2%, g50t 17.7 → 9.0%, vc33 10.6 → 6.1%,
+    cd82 5.2 → 4.2%. No game beats both baselines at T1 (G0b: dc22, ft09):
+    ft09's new rules apply to nothing in the 300-move fit split, m0r0's
+    re-binding is ambiguous. 6.27M tokens (CP1 9.66M); 35% of answers ran out
+    of room (CP1 44%); 304 of 309 graded rules call H1.
+- **Next (open, Matt's call):** what G1 steers. (a) A book from CP1's (G0b's)
+  and G1's trusted rules together: no LLM, exploratory, the likely book for
+  G2. (b) S4's role hints and online wait (G1's transfer losses). (c) S2 aimed
+  at the groups and games CP1 lacked. Then **M2** per plan §7.2: offline
+  counterfactual, S5 ACT and H2, `cpu_check` with `EVAL_GB` off, ft09 online
+  smoke, H3 smoke on lp85/ls20, register section 5, **G2 Tue 27 – Thu 29 Oct**.
+- **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
+  the perception number; plan §10 (a) (does the advisor want a confirmed result
+  in the 30 Oct draft?) and (b) (teammates' modules in S5).
+- **Known limits:** S1's `sits_on` is read from neighbouring colours, so a mover
+  in a dead end "sits on" the walls (pinned in `tests/test_gb_vocab.py`); the
+  binding search's time budget leaves bindings untried on tr87 (CP1 too); the
+  `ARC-AGI-3-Agents` submodule's local edits make every run's manifest say
+  `+dirty` (prereg section 11 notes it; G0/G0b/G1 never import it).
 - **Refactor checked 16 Oct with `tools/cpu_check.py`:** 2,000 CPU moves before
   (`8c42e75`) and after (`61012b0`) are identical on every move, for `goose`
-  (ft09, 1,970 moves) and `mb_gated_att` (tu93, 1,960 moves). Agent files
-  changed only in comments and docstrings.
+  (ft09) and `mb_gated_att` (tu93).
 - **Frontier models:** everything is the local model. The only frontier use is
   an optional showcase in late November (plan §6.5, limits in prereg §10).
 
 ## Glassbox rules
 
-- **Stage files are numbered in data order** (`s1_see.py` … `s6_show.py`,
+- **Stage files are numbered in data order** (`s0_mask.py` … `s6_show.py`,
   helpers `h1_vocab.py` … `h3_templates.py`). Each reads and writes files through
   `gb/artifacts.py`, has its own section in `glassbox.toml`, its own
   `tests/test_gb_<stage>.py`, and one `make gb-<stage>` target added to `gb.mk`
@@ -276,6 +191,9 @@ before the run each judges).
   registered numbers unchanged: run `tests/test_gb_regression.py` (and
   `make gb-import-cp1` for all 8 games) before committing any change to it.
   Anything that should change a result goes in a stage file, behind a knob.
+- **`h1_vocab.py` is registered** (`glassbox_vocab_v1`, artifacts/registry.json):
+  any edit makes `tools/artifacts.py verify` fail, so a change is version 2
+  with its own registration (and it holds S1's relation code too).
 - **`legacy/rulebook/` is frozen.** Never edit its prompts (`wm/rules.py`,
   `wm/rules2.py`) or tools: v1's and v2's answer caches are keyed on the
   prompts. Glassbox copies helpers from it; it never imports it.
