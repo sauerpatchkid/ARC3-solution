@@ -376,9 +376,10 @@ online until probes or IMAGINE exist. This is stated with every result.
 first actions of each new level would S5's carried no-ops have covered, and how
 many of those did nothing (avoidable waste) against something (masking risk)?
 
-**What runs.** `uv run python tools/gb_offline.py --stage replay --run cf_gb
---book <BOOK> --games <the 8 dev games> --seeds 0,1,2 --cf`, and the same with
-`--run cf_free` and no `--book` (the GB-free arm), on the 24 recordings of A0's
+**What runs.** `make gb-cf BOOK=<BOOK> CF=1`, i.e. `tools/gb_offline.py --stage
+replay --run cf_gb --book <BOOK> --games <the 8 dev games> --seeds 0,1,2 --cf`,
+and the same with `--run cf_free` and no `--book` (the GB-free arm), on the 24
+recordings of A0's
 confirm (`results/confirm_upgrade/20260927_221915/manifest.tsv`, arm
 `mb_gated_att`; all 24 are logged). For each recording, level by level, the
 guide sees every recorded move in order (`s5_act.replay`): colour no-ops carried
@@ -411,7 +412,20 @@ EVAL_GB_BOOK=pool_g0b_g1 --agent mb_gated_att`, seed 0, 20,000 actions, GPU;
 guide changed 21.5% and 13.3% of Goose's moves (covered no-ops and goal
 hints); no contradiction; the first run showed a re-binding refused for too few
 cases and never retried, fixed before the second (retry at twice the moves, up
-to 4,000). Their levels are not evidence of anything (one GPU run each).
+to 4,000). Then g50t and cd82 (same settings; `20261018_133244/`,
+`20261018_133536/`): the button path works (g50t's ACTION4 no-op rule re-bound
+on level 2; GbMap counted 802 no-op buttons; cd82's two rules re-bound after
+928 and 1,056 moves). They showed two flaws in goal hints, fixed before
+registration: a hint could be the background colour, which touches every
+change and so is never dropped (cd82: a hint from a 9-move level 1 boosted
+clicks all run, and the guide changed 37.7% of moves); and a boost was applied
+on screens with no hint-coloured click to make (g50t), drawing again for
+nothing. Now the first board's background is never a hint, and the boost
+applies only where such a click is possible. Finally `tools/gb_sweep.py` was
+smoke-tested on lp85 (2 arms x 2,000 actions; `results/glassbox/g2_smoke/`):
+runs, scoring, manifests and the three verdicts work (the one against A0 is
+BLOCKED there, as it should be: the action caps differ). Their levels are not
+evidence of anything (one GPU run each).
 
 **What it decides.** Nothing passes or fails. It is reported before G2, and
 no S5 setting is changed after it (alpha, the 20-click rule, the wait and the
@@ -433,10 +447,19 @@ reused (manifest above). GB: `EVAL_GB=1 EVAL_GB_BOOK=<BOOK>
 --agent mb_gated_att`, 8 dev games x seeds 0-1 x 100,000 actions. GB-free:
 the same with `EVAL_GB_BOOK` unset (no LLM anywhere: colour no-ops, goal hints).
 
+**What runs.** `make gb-g2 BOOK=<BOOK> G2=1` (`tools/gb_sweep.py --run g2
+--games dev --seeds 0,1 --cap 100000 --book <BOOK> --g2`): the 32 runs, 4 at a
+time on the GPU, each scored by `compute_metrics.py` and added to
+`results/glassbox/g2/online/manifest.tsv` as it finishes (pause and resume
+keep finished runs). A0's 16 rows are copied from its confirm manifest into
+`g2/online/a0.manifest.tsv` (same run folders), because `--expect 16` needs
+exactly 16 runs on each side (A0's manifest holds all 75).
+
 **Pass** (v2's dev rule, as the plan's §6.3): GB levels >= A0's; 16 of 16 GB
 runs complete; paired wins >= losses; no game worse on both seeds.
-`uv run python tools/paired_compare.py --base <A0 manifest>:mb_gated_att
---new <G2 manifest>:GB --rule dev --expect 16`.
+`uv run python tools/paired_compare.py --base g2/online/a0.manifest.tsv:mb_gated_att
+--new g2/online/manifest.tsv:GB --rule dev --expect 16` (`gb_sweep.py` runs it
+at the end, with GB-free against A0 and GB against GB-free beside it).
 
 **Reported, not gating.** GB against GB-free (a tie is reported plainly as "the
 book adds nothing at this stage"); GB-free against A0; avoidable waste and
