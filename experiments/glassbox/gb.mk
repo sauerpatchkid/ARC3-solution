@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-a0-fresh
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -51,6 +51,8 @@ gb-help:
 	@echo "                     of mb_gated_att with S5 (tools/gb_sweep.py; GPU, 4 at a time); seen games only"
 	@echo "  make gb-g2 BOOK=<run> G2=1  G2 (prereg 5b; G2=1 only after it is registered): GB and GB-free,"
 	@echo "                     8 dev games x seeds 0-1 x 100k, then paired_compare --rule dev --expect 16 (GPU)"
+	@echo "  make gb-a0-fresh [SEEDS=0,1]  A0 (mb_gated_att, no S5) run again on the 8 dev games x 100k:"
+	@echo "                     the drift and noise control, compared with A0's 27 Sep runs (GPU, ~3 h)"
 	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
@@ -156,3 +158,12 @@ gb-g2:
 	setsid nohup uv run python tools/gb_sweep.py --run g2 --games dev --seeds 0,1 --cap 100000 --book $(BOOK) $(if $(G2),--g2) \
 	  >> results/glassbox/g2/g2_log.txt 2>&1 < /dev/null &
 	@echo "started detached; log: results/glassbox/g2/g2_log.txt   pause: touch results/glassbox/g2/online/STOP"
+
+# A0 run again (mb_gated_att, EVAL_GB unset): is today's Goose A0's 27 Sep Goose, and how far do seeds spread?
+# Not a gate. Backgrounded: ~3 h on the GPU for seeds 0-1.
+gb-a0-fresh:
+	mkdir -p results/glassbox/a0_fresh
+	setsid nohup uv run python tools/gb_sweep.py --run a0_fresh --arms A0-fresh --games dev \
+	  --seeds $(if $(filter command line environment,$(origin SEEDS)),$(SEEDS),0,1) --cap 100000 \
+	  >> results/glassbox/a0_fresh/a0_log.txt 2>&1 < /dev/null &
+	@echo "started detached; log: results/glassbox/a0_fresh/a0_log.txt   pause: touch results/glassbox/a0_fresh/online/STOP"

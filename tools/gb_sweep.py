@@ -3,16 +3,20 @@
 
     uv run python tools/gb_sweep.py --run g2_smoke --games lp85 --seeds 0 --cap 3000 --jobs 2   # a smoke test
     uv run python tools/gb_sweep.py --run g2 --games dev --seeds 0,1 --book pool_g0b_g1 --g2   # G2 (prereg 5b)
+    uv run python tools/gb_sweep.py --run a0_fresh --arms A0-fresh --games dev --seeds 0,1   # A0 run again
     uv run python tools/gb_sweep.py ... --dry-run          # the plan and an ETA, nothing run
     uv run python tools/gb_sweep.py ... --resume           # skip runs already in the run's manifest
 
 Arms (all `--agent mb_gated_att`, the adopted Goose, so A0 is the reference):
   GB       EVAL_GB=1 EVAL_GB_BOOK=<--book>: S5 with the book's no-op rules
   GB-free  EVAL_GB=1 and no book: colour no-ops and goal hints, no LLM anywhere
-A0 is never re-run: its runs are rows of A0's confirm manifest ([run] manifest in
-glassbox.toml). The rows for exactly the games and seeds asked are copied into
+  A0-fresh EVAL_GB unset: the adopted Goose itself, run again today. A0's runs are
+           from 27 Sep, so this is the control for drift since then and for seed noise
+A0's own runs are rows of A0's confirm manifest ([run] manifest in glassbox.toml),
+never re-run. The rows for exactly the games and seeds asked are copied into
 <run>/online/a0.manifest.tsv (paths unchanged; nothing is moved), so
-`paired_compare --expect N` sees N runs on each side.
+`paired_compare --expect N` sees N runs on each side. No arm inherits the shell's
+EVAL_GB or EVAL_GB_BOOK.
 
 Runs go 4 at a time by default (the GPU is shared: 4 runs total ~162 act/s against
 140 for one; CLAUDE.md). Each run gets its own results folder
@@ -21,11 +25,13 @@ appended to <run>/online/manifest.tsv as soon as it finishes, so a pause or cras
 loses only the runs in progress (--resume continues). `touch <run>/online/STOP`
 pauses after the runs in progress. When every run is in, tools/paired_compare.py
 writes the verdicts: GB against A0 (--rule dev --expect N, G2's rule), and,
-reported, GB-free against A0 and GB against GB-free.
+reported, GB-free against A0, GB against GB-free, A0-fresh against A0, and GB and
+GB-free against A0-fresh.
 
-Dev games are G2 (pre-registration section 5b): they need --g2, which is for
-after that section is registered. Seen games (lp85, ls20) run without it, for
-smoke tests. Held-out games are refused.
+With S5 (GB, GB-free), dev games are G2 (pre-registration section 5b): they need
+--g2, which is for after that section is registered. A0-fresh has no S5 and runs
+on dev games without it. Seen games (lp85, ls20) run without it, for smoke tests.
+Held-out games are refused.
 
 Copied in pattern from legacy/goose_experiments/upgrade_screen/screen.py (live
 code never imports legacy/).
@@ -57,7 +63,16 @@ def arm_env(arm, book):
         return {"EVAL_GB": "1", "EVAL_GB_BOOK": os.path.join(A.results_dir(), book)}
     if arm == "GB-free":
         return {"EVAL_GB": "1"}
-    raise SystemExit(f"unknown arm {arm!r}; arms are GB, GB-free")
+    if arm == "A0-fresh":
+        return {}
+    raise SystemExit(f"unknown arm {arm!r}; arms are GB, GB-free, A0-fresh")
+
+
+def run_env(arm, book, base):
+    """The shell's environment without any EVAL_GB*, plus the arm's: nothing leaks into an arm."""
+    env = {k: v for k, v in base.items() if not k.startswith("EVAL_GB")}
+    env.update(arm_env(arm, book))
+    return env
 
 
 def done_runs(path):
@@ -85,6 +100,12 @@ def verdicts(out, a0, n, arms):
         plan.append((f"{a0}:{AGENT}", f"{m}:GB-free", ["--rule", "dev", "--expect", str(n)], "gb_free_vs_a0.md"))
     if {"GB", "GB-free"} <= set(arms):
         plan.append((f"{m}:GB-free", f"{m}:GB", ["--expect", str(n)], "gb_vs_gb_free.md"))
+    if "A0-fresh" in arms:
+        plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
+        for arm in ("GB", "GB-free"):
+            if arm in arms:
+                plan.append((f"{m}:A0-fresh", f"{m}:{arm}", ["--expect", str(n)],
+                             f"{arm.lower().replace('-', '_')}_vs_a0_fresh.md"))
     for base, new, extra, name in plan:
         print(f"=== {name}", flush=True)
         subprocess.run([sys.executable, "tools/paired_compare.py", "--base", base, "--new", new, *extra,
@@ -118,7 +139,7 @@ def main():
     if held:
         sys.exit(f"{', '.join(held)}: held-out games are never run here")
     dev = [g for g in games if g in tiers.DEV]
-    if dev and not a.g2:
+    if dev and not a.g2 and {"GB", "GB-free"} & set(arms):
         sys.exit(f"{', '.join(dev)}: dev games are G2 (pre-registration section 5b); they need --g2, which is "
                  "for after that section is registered")
 
@@ -150,7 +171,7 @@ def main():
 
     def run(job):
         g, s, arm = job
-        env = dict(os.environ, **arm_env(arm, a.book))
+        env = run_env(arm, a.book, os.environ)
         env.update(EVAL_SEED=str(s), EVAL_MAX_ACTIONS=str(a.cap), PYTHONHASHSEED="0",
                    EVAL_RESULTS_DIR=os.path.join(out, "runs", arm, f"{g}_s{s}"))
         log = os.path.join(out, "logs", f"{arm}_{g}_s{s}.log")
@@ -164,7 +185,8 @@ def main():
             print(f"!! {arm} {g} s{s}: no recording (see {log})", flush=True)
             return
         corpus = m.group(1).strip()
-        subprocess.run([sys.executable, "compute_metrics.py", corpus, "--game", g, "--agent", f"gb_{arm}",
+        label = AGENT if arm == "A0-fresh" else f"gb_{arm}"
+        subprocess.run([sys.executable, "compute_metrics.py", corpus, "--game", g, "--agent", label,
                         "--seed", str(s)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         rundir = os.path.dirname(corpus)
         if not os.path.exists(os.path.join(rundir if os.path.isabs(rundir) else os.path.join(ROOT, rundir),
