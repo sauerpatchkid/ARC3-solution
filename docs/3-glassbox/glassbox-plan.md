@@ -1117,6 +1117,7 @@ gantt
    - **ft09 online smoke** (2 runs × 20k actions, pooled book): no errors; ~85 act/s with the CPU busy; re-binding pauses Goose 1-3 s per level; the first run showed a rule refused for too few cases at 21 moves and never retried, fixed (retry at twice the moves, up to 4,000).
    - **H3 smoke** (`gb/h3_templates.py` v0, `--stage templates`): a throwaway catalog of 21 templates (the pool's trusted, lint-clean rules with PARAMS on the dev games), each re-bound on the seen games' training levels: **0 adopted** (lp85: 16 tries; ls20: 52). Nearest: dc22's ACTION4 rule on ls20, 41 moves, 97.6% claimed-exact, 320 cells, refused for one case seen to end two ways. A first test of H3, not G3.
    - **Prereg §5 drafted** (5a counterfactual, 5b G2), with four OPEN items for Matt: the book, the LLM online, roles, probes.
+10. **18 Oct evening (Matt: "go with your recommendations; push, then register 5a and run it"):** OPEN items settled (book `pool_g0b_g1`; no online LLM in G2; S5 as built; no probes in G2). **5a registered** (`d9a6c80`, pushed) and **run**: avoidable waste vc33 60.1%, ft09 22.9% (expectation met), m0r0 5.4% (missed: 9.7% of its moves are clicks), dc22 8.4%, cd82 6.3%, g50t 1.3%, tu93 and tr87 0; masking ≤ 0.05%; GB-free nearly the same (`docs/3-glassbox/cf-counterfactual.md`). Next: register 5b, run G2.
 
 ## 8. Compute
 

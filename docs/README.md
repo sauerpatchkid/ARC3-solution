@@ -73,6 +73,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [G0b, the bar mask](3-glassbox/g0b-bar-mask.md) (16 Oct): masking the whole bar makes all 11 of m0r0's near-misses trusted; its book goes from 0% to 53.5% of changed cells; T1 51.7% (memory 53.9%), wrong 4.3%.
 - [G1, the offline rule test](3-glassbox/g1-offline-rules.md) (17 Oct): FAIL, 3 of 8 above G0b (5 needed), safety met. tu93 (0% → 59.0%) and tr87 (0% → 35.5%) get their first trusted rules; ft09, g50t, vc33, cd82 lose ground; the new books carry worse.
 - [A pooled book, G0b + G1](3-glassbox/pool-g0b-g1.md) (18 Oct, exploratory): both runs' rules in one book, no LLM; never below the better source, above both on dc22, g50t, cd82; T1 the better source's on every game. Also S4's role tie-break: m0r0's G1 rules 6.8% → 26.5% at T1.
+- [The offline counterfactual](3-glassbox/cf-counterfactual.md) (18 Oct, prereg 5a): on A0's recordings S5's carried no-ops would have covered 60.1% of vc33's and 22.9% of ft09's moves in each new level's first 2,000 actions, all of them moves that did nothing; masking ≤ 0.05%; m0r0 5.4% (expectation missed: only 9.7% of its moves are clicks). GB-free covers nearly the same.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes

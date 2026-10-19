@@ -107,12 +107,13 @@ with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 **Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
 (FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is ahead of its calendar:**
-G0, G0b, G1 run (M1 done); M2's pieces built and smoke-tested; **waiting on Matt
-to settle prereg §5's OPEN items and register 5a, then 5b**. Plan:
-`docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log). Gates:
-`docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1)
-registered and run; **5 (counterfactual + G2) DRAFTED 18 Oct, not registered**;
-1, 2, 8–10 still drafts; 6–7 not written.
+G0, G0b, G1 run (M1 done); M2's pieces built and smoke-tested; **prereg 5a (the
+offline counterfactual) registered and run 18 Oct; next: register 5b and run
+G2**. Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
+5a (counterfactual) registered and run; **5b (G2) DRAFTED, its OPEN items
+settled by Matt 18 Oct, not registered**; 1, 2, 8–10 still drafts; 6–7 not
+written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -178,13 +179,16 @@ registered and run; **5 (counterfactual + G2) DRAFTED 18 Oct, not registered**;
   - **Smoke runs** (18 Oct, online, pooled book, 20k actions each): ft09 x2,
     g50t, cd82, lp85 runner; no errors, ~85-128 act/s, re-binding pauses 1-3 s.
     Not evidence of levels.
-- **Next = Matt's checkpoint (prereg §5, OPEN items, recommendations first):**
-  (a) the book: **`pool_g0b_g1`** (alt. G1's or G0b's alone); (b) LLM online in
-  G2: **none** (H2 not built; GB runs 4 at a time, ~6 h) vs build H2 first;
-  (c) roles in S5's re-binding: **leave as built**; (d) probes: **G2 without
-  them**, add for dev sweep 2. Then: register 5a → `make gb-cf BOOK=pool_g0b_g1
-  CF=1` (CPU, ~1 h) → write it up → register 5b → `make gb-g2 BOOK=pool_g0b_g1
-  G2=1` (GPU, ~6 h; check AC power) → verdict. Target G2 Tue 27 – Thu 29 Oct.
+  - **Offline counterfactual** (18 Oct, prereg 5a, `cf-counterfactual.md`):
+    carried no-ops would have covered vc33 60.1%, ft09 22.9% of A0's moves in
+    each new level's first 2,000 actions (all did nothing); m0r0 5.4% (only
+    9.7% clicks; expectation missed), dc22 8.4%, cd82 6.3%, g50t 1.3%, tu93 and
+    tr87 0; masking <= 0.05%. GB-free nearly the same (the LLM's no-op rules
+    add <= 3.6 points).
+- **Next:** register 5b (settled 18 Oct, Matt: book `pool_g0b_g1`; no online
+  LLM; S5 as built, no roles; no probes), fill its config hash and code commit,
+  then `make gb-g2 BOOK=pool_g0b_g1 G2=1` (GPU, ~6 h; check AC power; ask
+  Matt first) → verdict → write-up. Target G2 Tue 27 – Thu 29 Oct.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
