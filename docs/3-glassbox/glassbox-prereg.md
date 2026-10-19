@@ -18,7 +18,7 @@ before the run they affect.
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
-| 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172` |
+| 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
@@ -627,3 +627,9 @@ started.)*
    numbers).** As in entry 1, the manifest records `763d253+dirty` only because
    of the `ARC-AGI-3-Agents` submodule's local edits; the control was rerun at
    `763d253` just before G0b and printed "ALL EQUAL TO CP1".
+4. **19 Oct 2026, section 5b, after G2 ran (no change to its text or
+   numbers).** G2 started at `4174874`; 28 of its 32 runs record `a2cc3cf`,
+   a commit made after the start that changed only `CLAUDE.md` (`git diff
+   --stat 4174874 a2cc3cf`: 1 file, CLAUDE.md), so every run used the
+   registered code. As before, the manifests say `+dirty` only because of the
+   `ARC-AGI-3-Agents` submodule's local edits.
