@@ -18,7 +18,7 @@ before the run they affect.
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
-| 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. 5b: DRAFT, its OPEN items settled 18 Oct (Matt), to be registered before G2 runs (target Tue 27 Oct) |
+| 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172` |
 | 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
@@ -350,11 +350,10 @@ G1 is reported as a diagnosis with its funnel.
 
 ## 5. The offline counterfactual and G2
 
-*Written 18 Oct 2026 before either runs. **5a is REGISTERED** (18 Oct; the
-commit that marks it so in the table above is its timestamp). 5b is a DRAFT:
-its OPEN items were settled by Matt on 18 Oct ("go with your recommendations",
-recorded below as SETTLED); it is registered, with its own hashes, before G2
-runs.*
+*Written 18 Oct 2026 before either runs. **5a and 5b are REGISTERED** (18 Oct,
+5a before the counterfactual, 5b before G2; the commit that marks each so in
+the table above is its timestamp). 5b's OPEN items were settled by Matt on 18
+Oct ("go with your recommendations"), recorded below as SETTLED.*
 
 **What is built (18 Oct).** S5 ACT v1 (`custom_agents/gb/s5_act.py`): PRUNE
 (carried colour no-ops, no LLM; the book's no-op rules, re-bound on every level
@@ -461,16 +460,26 @@ summary is read).
 
 ### 5b. G2: the online dev gate
 
+*REGISTERED 18 Oct 2026 (Matt), before any G2 run, after 5a's result
+(`cf-counterfactual.md`). S5 was smoke-tested online on ft09 (twice), g50t,
+cd82 and lp85 (20,000 or 2,000 actions each; listed under "Known before
+registration" in 5a); no G2 run has started.*
+
 **Question.** Does Goose guided by S5 complete at least as many levels as A0
 on the dev games?
 
 **Arms.** A0: `mb_gated_att`'s 16 confirm runs on the 8 dev games, seeds 0-1,
-reused (manifest above). GB: `EVAL_GB=1 EVAL_GB_BOOK=<BOOK>
---agent mb_gated_att`, 8 dev games x seeds 0-1 x 100,000 actions. GB-free:
-the same with `EVAL_GB_BOOK` unset (no LLM anywhere: colour no-ops, goal hints).
+reused (manifest above; 37 levels in total: tu93 4+4, tr87 1+1, dc22 3+3, g50t
+1+1, vc33 4+4, ft09 2+2, m0r0 2+2, cd82 2+1). GB: `EVAL_GB=1
+EVAL_GB_BOOK=pool_g0b_g1 --agent mb_gated_att`, 8 dev games x seeds 0-1 x
+100,000 actions. GB-free: the same with `EVAL_GB_BOOK` unset (no LLM anywhere:
+colour no-ops, goal hints).
 
-**What runs.** `make gb-g2 BOOK=<BOOK> G2=1` (`tools/gb_sweep.py --run g2
---games dev --seeds 0,1 --cap 100000 --book <BOOK> --g2`): the 32 runs, 4 at a
+**What runs.** `make gb-g2 BOOK=pool_g0b_g1 G2=1` (`tools/gb_sweep.py --run g2
+--games dev --seeds 0,1 --cap 100000 --book pool_g0b_g1 --g2`), once, on a
+commit where the code it runs is unchanged since `d111172` (`git diff d111172 --
+custom_agents tools experiments/glassbox run_local.py compute_metrics.py`
+prints nothing), the PC on AC power: the 32 runs, 4 at a
 time on the GPU, each scored by `compute_metrics.py` and added to
 `results/glassbox/g2/online/manifest.tsv` as it finishes (pause and resume
 keep finished runs). A0's 16 rows are copied from its confirm manifest into
@@ -509,6 +518,20 @@ T1, the pooled book unchanged.
 **SETTLED (d): G2 runs S5 v1 as built** (prune, hints, map; Matt, 18 Oct).
 Probes, which the plan's cut line keeps with prune and hints, are added for
 dev sweep 2, so G2 stays on its dates.
+
+**Settings.** As 5a: `glassbox.toml` config hash `6c5d95983cf6fa97`, `[act]`
+`f6ce02211dee2c82`, `[carry]` `893dcab4f6e33df8`, S5 VERSION 1 with the code
+defaults listed in 5a; the agent's own settings are `mb_gated_att`'s
+(`presets.py`), unchanged.
+
+**Expectation, written before running.** On tu93 and tr87 the book has no no-op
+rule and Goose does not click, so GB and GB-free play as A0 does (their runs
+are, in effect, A0 run again: a measure of seed-to-seed noise). The guide's
+effect should show on vc33 and ft09 (the counterfactual's 60.1% and 22.9%),
+where fewer dead clicks could mean levels sooner; little elsewhere. GB and
+GB-free within 2 levels of each other in total (the LLM's no-op rules added at
+most 3.6 points in the counterfactual). The pass is uncertain: about 40%. With
+2 seeds a game, "no game worse on both seeds" can fail on noise alone.
 
 **Void.** If a GB run uses a different book, code or settings than registered;
 if `cpu_check` with `EVAL_GB` unset does not match move for move; if a run
