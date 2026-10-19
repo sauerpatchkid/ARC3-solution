@@ -108,11 +108,10 @@ with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
 (FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is ahead of its calendar:**
 G0, G0b, G1 run (M1 done); M2's pieces built and smoke-tested; **prereg 5a (the
-offline counterfactual) registered and run 18 Oct; next: register 5b and run
-G2**. Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+offline counterfactual) registered and run 18 Oct; 5b registered and G2
+started 18 Oct 21:46**. Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual) registered and run; **5b (G2) DRAFTED, its OPEN items
-settled by Matt 18 Oct, not registered**; 1, 2, 8–10 still drafts; 6–7 not
+5a (counterfactual) registered and run; **5b (G2) registered 18 Oct, running**; 1, 2, 8–10 still drafts; 6–7 not
 written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
@@ -185,10 +184,13 @@ written.
     9.7% clicks; expectation missed), dc22 8.4%, cd82 6.3%, g50t 1.3%, tu93 and
     tr87 0; masking <= 0.05%. GB-free nearly the same (the LLM's no-op rules
     add <= 3.6 points).
-- **Next:** register 5b (settled 18 Oct, Matt: book `pool_g0b_g1`; no online
-  LLM; S5 as built, no roles; no probes), fill its config hash and code commit,
-  then `make gb-g2 BOOK=pool_g0b_g1 G2=1` (GPU, ~6 h; check AC power; ask
-  Matt first) → verdict → write-up. Target G2 Tue 27 – Thu 29 Oct.
+- **G2 RUNNING** (prereg 5b registered and pushed `4174874`): started Sun 18 Oct
+  21:46 with `make gb-g2 BOOK=pool_g0b_g1 G2=1`, 32 runs, 4 at a time, ETA
+  ~5.6 h. Log `results/glassbox/g2/g2_log.txt`; runs, manifest and (at the end)
+  the verdicts `verdict_gb_vs_a0.md`, `gb_free_vs_a0.md`, `gb_vs_gb_free.md` in
+  `results/glassbox/g2/online/`. Pause: `touch results/glassbox/g2/online/STOP`;
+  continue: the same `tools/gb_sweep.py` command with `--resume`. A0's 16 runs:
+  37 levels. Then: write `docs/3-glassbox/g2-online.md` against 5b.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
