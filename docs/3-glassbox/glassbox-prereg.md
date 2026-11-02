@@ -19,7 +19,7 @@ before the run they affect.
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
-| 6 | G3: templates on held-out games | to be written before G3 runs (target Fri 6 Nov) |
+| 6 | G3: templates on held-out games | DRAFT (2 Nov), code `734600b`, catalog `c263262ecffd8d75` (not yet registered): one OPEN item for Matt, then registered with the catalog before any G3 run (target Fri 6 Nov) |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
@@ -539,8 +539,132 @@ ends on an error and is not rerun before the verdict.
 
 ## 6. G3: templates on held-out games
 
-*To be written before G3 runs, with the template catalog's registry entry and
-hash.*
+*DRAFT (2 Nov 2026), not registered. Matt settles the OPEN item, then registers
+this section and the catalog (`tools/artifacts.py add glassbox_templates_v1
+artifacts/glassbox_templates_v1.jsonl --games dev,seen`) before any G3 run. H3
+v1 was built and tested on synthetic data and on the seen games only; no
+Glassbox stage has touched an A/B-offline game (only their recordings' format
+was checked, as plan §6.3 asks).*
+
+**What is built (2 Nov, code `734600b`).** H3 TEMPLATES v1
+(`custom_agents/gb/h3_templates.py`):
+
+- **The catalog**, `artifacts/glassbox_templates_v1.jsonl` (`make gb-catalog`,
+  rebuilt byte for byte; sha256 `c263262ecffd8d75...`): 40 templates (16 button,
+  24 click), every rule trusted on its training level, lint-clean and with
+  PARAMS, of `pool_g0b_g1` (the 8 dev games: G0b's and G1's candidates) and
+  `smoke_lp85` (lp85, a seen game). bind() removed from 1 (ft09 #31: coordinate
+  literals). No duplicates: none by code, and the behaviour check could compare
+  only 4 of the 40 (the others apply to fewer than 20 of its synthetic bank's
+  1,800 moves). Report: `results/glassbox/h3_catalog/h3_templates/catalog_report.md`.
+- **Try**: on a game's training level, for each group S2 would call, every
+  template of the group's family re-bound by `bind.search` with no binding
+  preferred, the group's `[templates] search_budget_s` = 240 s (the plan's 4
+  minutes) shared among them; adopted only if trusted there (v2's trust).
+- **Use**: in GB+T, S2 starts each group from its adopted templates; a group
+  whose template carries skips the first round and gets residual prompts within
+  the same 8 calls (`s2_write`, TEMPLATES).
+- **Guards**: every offline stage refuses the untouched tier; an A/B-offline
+  game needs `--g3`, and the catalog is used on one only if it matches its
+  registry entry.
+
+**Known before registration.** v1's try on the seen games (2 Nov,
+`results/glassbox/h3v1_smoke/`): ls20, which gave the catalog no rule, 4 groups,
+64 tries, 0 adopted (nearest: m0r0's ACTION1 rule, 98.9% claimed-exact on 1,802
+moves, with no gain); lp85 adopted only its own rule (template 13, both click
+groups). Version 0 (18 Oct) adopted 0 of 21 on both. The A/B-offline games' A0
+seed-0 recordings are logged like the dev games' (the same arrays; 93,887 to
+99,413 moves each).
+
+**Question.** On games no Glassbox artifact was built from, do rules learned on
+the dev and seen games, carried by re-binding, give the book more trusted rules
+and more coverage than the LLM writes alone, at the same LLM budget?
+
+**Games and evidence.** The A/B-offline tier (section 2): ar25, lf52, re86,
+s5i5, sc25, sp80, su15, tn36; A0's seed-0 recordings (the `[run]` manifest), with
+CP1's level rule (training level: the first with >= 500 moves; transfer level:
+the next with >= 50 distinct cases; fit split: its first 300 moves) and S0 on,
+as in G1.
+
+**Arms.**
+- **GB**: S0 -> S1 -> S2 -> S3 -> S4 -> the guard fitter, G1's procedure and
+  settings (section 4): the same model with thinking on, 20,480-token answers,
+  one code-only retry and one repair, 4 first-round candidates and up to 8 more
+  calls per group, at most 12 groups per game. No templates.
+- **GB+T**: the same, with H3's try after S1 and S2 started from what it adopts
+  (`--set templates.enabled=true` on S2's command only).
+
+**What runs.** `make gb-g3 G3=1` (with `G3_SHARE=1` if OPEN (a) is settled that
+way), once, with the server up (`experiments/llm/serve.sh`), the PC on AC power,
+on a commit where the code it runs is unchanged since `734600b` (`git diff
+734600b -- custom_agents/gb tools/gb_offline.py tools/gb_gate.py experiments/glassbox
+artifacts/glassbox_templates_v1.jsonl` prints nothing): GB (run `g3_gb`), then
+GB+T (`g3_gbt`), then `tools/gb_gate.py g3 --run g3_gbt --base g3_gb`, which
+writes `g3_gbt/g3_verdict.{json,md}`. If a run stops (a power cut, a server
+crash), the same command is rerun and S2's cached answers are reused; a group
+that fails for a machine or server reason is rerun before the verdict, and one
+that fails for its rules' own reasons is a result.
+
+**Pass** (plan §6.3), as `tools/gb_gate.py g3` computes it:
+- **Primary**: on >= 5 of the 8 games, GB+T has MORE trusted rules than GB AND a
+  HIGHER training-level cell coverage, both strictly. Trusted rules: v2-trusted
+  in S3's grading plus the guard fitter's rescues (G1's count); cell coverage:
+  the composed book after the guard fitter (G1's primary).
+- **Wrong**: T1's wrong cases, pooled over the games with a transfer level (each
+  game's wrong share times its changing cases, so to about one case), no higher
+  for GB+T than for GB.
+- **Overrun**: answers that ran out of room, pooled over the LLM's answers (first
+  round, refinement, residual and retry answers; templates and guard-narrowed
+  rules are not answers), no higher for GB+T.
+- **Pass = all three.**
+
+**Reported, not gating.** Per game: templates tried, adopted, in the book and
+carried to T1; distinct templates reused; the share of GB+T's trusted rules that
+are templates; LLM requests saved (GB's minus GB+T's); negative transfer (a game
+where GB+T's cell coverage or T1 is below GB's); template coincidence (a
+template in the book that S4 does not carry to the transfer level, with S4's
+reason). GB's numbers are also the first held-out test of S1-S4: G1's table for
+these 8 games.
+
+**Settings.** `experiments/glassbox/glassbox.toml` config hash `6c5d95983cf6fa97`
+(as G2's): `[write]` `75d996c8d133b7a9` (G1's), `[mask]` `5561d138585be439`,
+`[see]` `a31392fb68e47122`, `[check]` `635ce93f9ee63cd1`, `[carry]`
+`893dcab4f6e33df8`, `[templates]` `8b696760c638c342` (`enabled = false` in the
+file, true only on GB+T's S2 command); vocabulary `glassbox_vocab_v1`; catalog
+`glassbox_templates_v1` (sha256 `c263262ecffd8d75...`); model
+`cyankiwi/Qwen3.8-27B-AWQ-INT4`, served as `rulebook`.
+
+**Expectation, written before running.** Few templates will be adopted: on the
+seen games v1's try adopted none on the game that gave the catalog no rule
+(ls20), and version 0 none of 21 on either. So GB+T should equal or nearly equal
+GB on most games, and the primary is expected to fail: pass about 10% (the plan's
+35-40% was written before either smoke test). The wrong and overrun conditions
+are expected to hold, since the arms differ only where a template is adopted (if
+OPEN (a) is settled for one cache; otherwise also by the LLM's sampling). GB's
+own cell coverage is expected below G1's on the dev games: S1, H1 and S2 were
+built on the dev games, and these games were never looked at.
+
+**OPEN (a): answers to identical questions.** Section 8 (v2's honesty rules)
+says answer caches are never shared between scored runs. Wherever no template is
+adopted, GB+T asks exactly GB's questions (the same evidence, prompts and seeds:
+the cache key is the whole request), but a fresh call need not repeat its answer
+(sampling on the GPU is not bit-reproducible), so with two caches part of any
+difference between the arms is the LLM's own noise. *Recommendation:* GB+T's S2
+starts from a copy of GB's answer cache (`G3_SHARE=1`, copied after GB's S2 and
+before GB+T's), so an identical question gets the identical answer and the arms
+differ only where a template changed what was asked; it also saves about 7 h of
+GPU. Nothing is learned between the arms (an answer is reused only for the
+byte-identical request), but it departs from the rule's letter, so it is stated
+here and, if settled so, in section 11. *Otherwise:* two caches, as section 8
+reads, about 15 h.
+
+**Void.** If the code, the catalog, the model or the settings differ from the
+above; if the verdict is computed while a group that failed for a machine or
+server reason has not been rerun.
+
+**What it decides** (plan §6.3). Pass: the confirm's configuration is GB+T.
+Fail: templates are not adopted, the confirm runs GB, and G3 is reported as a
+result in its own right (reuse is a finding either way).
 
 ## 7. G4: the confirm
 

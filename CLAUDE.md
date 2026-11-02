@@ -112,8 +112,8 @@ M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
 three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
 book on every later level). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual) and 5b (G2) registered and run; 1, 2, 8–10 still drafts; 6–7 not
-written.
+5a (counterfactual) and 5b (G2) registered and run; **6 (G3) drafted 2 Nov, one
+OPEN item, not registered**; 1, 2, 8–10 still drafts; 7 not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -158,10 +158,17 @@ written.
     `make gb-cf`), refused on dev games without `--cf`/`CF=1`; it counts masking
     by colour and rule, and replays other recordings with `--set
     run.manifest="<manifest>"` and `--arm`.
-  - **H3 TEMPLATES v0** `h3_templates.py`: the plan's smoke test only (seen
-    games only): 0 of 21 templates adopted on lp85/ls20.
+  - **H3 TEMPLATES v1** `h3_templates.py` (2 Nov): the catalog
+    (`make gb-catalog`: 40 templates from `pool_g0b_g1` + `smoke_lp85`,
+    `artifacts/glassbox_templates_v1.jsonl`, sha256 `c263262ecffd8d75`, **not yet
+    registered**), the try step (`--stage templates`, no source binding preferred)
+    and S2 started from adopted templates (`[templates] enabled`); A/B-offline games
+    only with `--g3` (every offline stage) and a registered catalog. Seen-game
+    check: ls20 0 of 64 adopted, lp85 only its own rule. v0's smoke (0 of 21)
+    kept as run. G3: `make gb-g3 G3=1 [G3_SHARE=1]`, verdict `gb_gate.py g3`.
   - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
-  - **Not built:** H2 SCHEDULER (online LLM), S5 probes, IMAGINE, contact goals.
+  - **Not built:** H2 SCHEDULER (online LLM), S5 probes; IMAGINE and contact goals
+    dropped 2 Nov (plan §7.3).
   - Drivers: `tools/gb_offline.py` (`--stage mask|see|pool|write|check|carry|
     guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB,
     GB-free and A0-fresh arms, 4 at a time, verdicts vs A0 with a 16-run A0
@@ -169,7 +176,7 @@ written.
     after §5b is registered, `make gb-a0-fresh` A0 run again); verdicts
     `tools/gb_gate.py`.
 - **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
-  gb-g0b-control`. 230 live tests.
+  gb-g0b-control`. 238 live tests.
 - **Results** (each written up in `docs/3-glassbox/`):
   - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
     a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
@@ -218,12 +225,14 @@ written.
     claims every live cell: **plan §7.3's IMAGINE precondition is met by no
     game** (the 18 Oct reading was the weaker "whole screen right").
 - **Next (Matt, 2 Nov; plan §6.3: the confirm runs only if dev sweep 2 shows
-  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). H3's catalog built,
-  frozen and registered by **Thu 5 Nov**, prereg §6, **G3 Fri 6 - Sun 8 Nov**;
-  then S5 v2 (colour no-ops judged at the level's end) as dev sweep 2's
-  candidate; **dev sweep 2 (Wed 11 - Fri 13 Nov): a same-day A0 arm, 4 seeds per
-  arm.** Course: idea statement Mon 2 Nov (plan §2.1 still names predicted
-  moves), final Mon 7 Dec.
+  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). **Waiting on Matt:**
+  settle §6's OPEN (a) (GB+T starts from a copy of GB's answer cache, `G3_SHARE=1`,
+  recommended), then register §6 and the catalog (`tools/artifacts.py add
+  glassbox_templates_v1 artifacts/glassbox_templates_v1.jsonl --games dev,seen`),
+  then **G3 Fri 6 - Sun 8 Nov** (GPU + server, ~8 h shared or ~15 h). Then S5 v2
+  (colour no-ops judged at the level's end) as dev sweep 2's candidate; **dev
+  sweep 2 (Wed 11 - Fri 13 Nov): a same-day A0 arm, 4 seeds per arm.** Course:
+  idea statement Mon 2 Nov (plan §2.1 still names predicted moves), final Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
