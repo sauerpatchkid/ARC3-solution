@@ -102,13 +102,15 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (18 Oct 2026, evening)
+## Where things stand (2 Nov 2026)
 
 **Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
-(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is ahead of its calendar:**
-G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual (prereg 5a)
-run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is on its calendar, in
+M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
+(prereg 5a) run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels);
+three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
+book on every later level). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
 5a (counterfactual) and 5b (G2) registered and run; 1, 2, 8–10 still drafts; 6–7 not
 written.
@@ -136,7 +138,10 @@ written.
   - **S4 CARRY v1** `s4_carry.py`: CP1's re-binding; plus (18 Oct) a role
     tie-break among the exact bindings applying to the most fit cases
     (`[carry] roles_in_bind`, **off by default**, so `make gb-g0b-control` still
-    equals CP1) and the online wait `ready()`. Not built: repair calls.
+    equals CP1) and the online wait `ready()`; (2 Nov) `later_levels`
+    (`--stage carry --later --book <run>`): the book re-bound on every later
+    level of a recording, scored on the pairs that level had not seen (mask
+    kept across levels). Not built: repair calls.
   - **S5 ACT v1** `s5_act.py` (18 Oct): prune (carried colour no-ops, no LLM:
     >= 20 clicks on a level, none changing; the book's no-op rules, per group
     the known no-op with most moves, re-bound on EVERY level's own moves after
@@ -150,18 +155,21 @@ written.
     16 lines tagged `# [gb]` in `action.py`; **`cpu_check` with it unset:
     identical on every move** (goose/ft09 1,970, mb_gated_att/tu93 1,960; 18 Oct).
     Replay = the offline counterfactual (`--stage replay`, `make gb-replay`,
-    `make gb-cf`), refused on dev games without `--cf`/`CF=1`.
+    `make gb-cf`), refused on dev games without `--cf`/`CF=1`; it counts masking
+    by colour and rule, and replays other recordings with `--set
+    run.manifest="<manifest>"` and `--arm`.
   - **H3 TEMPLATES v0** `h3_templates.py`: the plan's smoke test only (seen
     games only): 0 of 21 templates adopted on lp85/ls20.
   - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
   - **Not built:** H2 SCHEDULER (online LLM), S5 probes, IMAGINE, contact goals.
   - Drivers: `tools/gb_offline.py` (`--stage mask|see|pool|write|check|carry|
-    guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB and
-    GB-free arms, 4 at a time, verdicts vs A0 with a 16-run A0 manifest;
-    `make gb-online` seen games, `make gb-g2 BOOK=.. G2=1` dev games only after
-    §5b is registered); verdicts `tools/gb_gate.py`.
+    guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB,
+    GB-free and A0-fresh arms, 4 at a time, verdicts vs A0 with a 16-run A0
+    manifest; `make gb-online` seen games, `make gb-g2 BOOK=.. G2=1` dev games only
+    after §5b is registered, `make gb-a0-fresh` A0 run again); verdicts
+    `tools/gb_gate.py`.
 - **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
-  gb-g0b-control`. 226 live tests.
+  gb-g0b-control`. 230 live tests.
 - **Results** (each written up in `docs/3-glassbox/`):
   - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
     a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
@@ -190,12 +198,32 @@ written.
     level per game is seed noise. dc22 s0 (GB 1, GB-free 4, A0 3) is the one
     loss the book's no-op rules may have caused. Runs, manifests, verdicts:
     `results/glassbox/g2/online/`.
+  - **A0 run again** (run 19 Oct, `a0-fresh.md`, exploratory): unchanged
+    `mb_gated_att` on G2's 16 runs: **33 levels vs 37 on 27 Sep** (1 / 12 / 3;
+    dc22 worse on both seeds). G2's arms are above it (GB 34: 2 / 12 / 2, would
+    pass the dev rule; GB-free 35: 3 / 9 / 4). Nine 8-game seed totals all 16-19;
+    noise ~±2.6 levels per 16-run total; telling +2 levels per seed from noise
+    needs ~4 seeds per arm, +1 per seed ~14. G2's verdict stands.
+  - **dc22's no-op rules** (2 Nov, `dc22-noop-check.md`): over whole levels, 9
+    recordings, 4,160 moves covered, 0 changed anything; the level-2 stall is
+    dc22's (4 of 9 runs, 3 unguided). Online, colours are carried later than the
+    replay says (vc33 a level late, m0r0 1 of 7, cd82 0 of 3; ft09 exact): S5
+    judges a click under the agent's mask at that moment (empty for its first
+    200 moves), so 5a overstates online prune.
+  - **The book on every later level** (2 Nov, `carry-later-levels.md`): where
+    Goose stops, the re-bound book is right wherever it applies on ft09 L3
+    (20.4% of new changing pairs) and tr87 L2 (25.6%), partly on dc22, cd82
+    (23-39%), never on tu93 L5 (other blocks move: new mechanics), g50t L2,
+    m0r0 L3 (wrong wherever it applies), vc33 (no rule re-binds). It never
+    claims every live cell: **plan §7.3's IMAGINE precondition is met by no
+    game** (the 18 Oct reading was the weaker "whole screen right").
 - **Next (Matt's call; plan §6.3: M3 still builds, the confirm runs only if
-  dev sweep 2 shows GB >= A0):** give the LLM's changing rules an online use
-  (S5 probes; IMAGINE, whose precondition tu93 and m0r0 meet); measure the
-  noise (a fresh A0 run of the 16, ~3 h GPU; more seeds); check dc22's no-op
-  rules offline on dc22 s0's level 2. Course: draft Fri 30 Oct (G0-G2 and the
-  counterfactual are in), idea statement Mon 2 Nov.
+  dev sweep 2 shows GB >= A0):** M3's focus after the IMAGINE measurement
+  (Matt chose IMAGINE first on 19 Oct; §7.3 now says not to build it); H3's
+  catalog frozen and registered by **Thu 5 Nov**, prereg §6, **G3 Fri 6 - Sun
+  8 Nov**; dev sweep 2 (Wed 11 - Fri 13 Nov) needs its design decided (a
+  same-day A0 arm, more than 2 seeds). Course: idea statement **Mon 2 Nov**
+  (plan §2.1's text names predicted moves, i.e. IMAGINE), final Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
@@ -204,7 +232,9 @@ written.
   untried on tr87 when the machine is busy (run S4 on a quiet machine); the
   `ARC-AGI-3-Agents` submodule's local edits make manifests say `+dirty`
   (prereg §11). `--set` overrides are recorded in stage headers, not in the
-  run's copied `config.toml`.
+  run's copied `config.toml`. S5's online colour carry lags its replay (see
+  dc22's check). S0's mask misses a bar that changes 3 cells a move (tu93 L4;
+  `gridtools.tick_cells` too); a mask kept across levels covers it.
 - **Frontier models:** everything is the local model. The only frontier use is
   an optional showcase in late November (plan §6.5, limits in prereg §10).
 

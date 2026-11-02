@@ -1099,7 +1099,7 @@ gantt
 - **The confirm starts by Tue 17 Nov at the latest.** If the first 10 runs project an end later than Mon 23 Nov, ablations shrink; the confirm itself is never shortened.
 - **Cut order if time runs short:** frontier showcase → progress heuristic → online ablations (down to 2 games) → contact goals → IMAGINE → H3's optional extras → H3 itself (then the cross-game claim rests on H1, labelled as hand-written).
 
-### 7.4 Next steps (as of 18 Oct)
+### 7.4 Next steps (as of 2 Nov)
 
 1. Review the pre-registration draft (`docs/3-glassbox/glassbox-prereg.md`, sections 1–3 and 8–10) and commit it. Sections 1, 2 and 8–10 are copied from v2's or from this plan; section 3 (G0) must be committed before G0 runs.
 2. ~~`tools/gb_offline.py --import-cp1`~~ **done 16 Oct**: `gb/cp1_import.py` re-grades every CP1 candidate, recomposes the books and re-scores T0/T1/T2 with `gb/core/` and CP1's bindings (no LLM, no search) into `results/glassbox/cp1_import/`; all 437 numbers on the 8 games equal CP1's registered ones (~80 s). `tests/test_gb_regression.py` checks 4 games in ~15 s.
@@ -1119,6 +1119,10 @@ gantt
    - **Prereg §5 drafted** (5a counterfactual, 5b G2), with four OPEN items for Matt: the book, the LLM online, roles, probes.
 10. **18 Oct evening (Matt: "go with your recommendations; push, then register 5a and run it"):** OPEN items settled (book `pool_g0b_g1`; no online LLM in G2; S5 as built; no probes in G2). **5a registered** (`d9a6c80`, pushed) and **run**: avoidable waste vc33 60.1%, ft09 22.9% (expectation met), m0r0 5.4% (missed: 9.7% of its moves are clicks), dc22 8.4%, cd82 6.3%, g50t 1.3%, tu93 and tr87 0; masking ≤ 0.05%; GB-free nearly the same (`docs/3-glassbox/cf-counterfactual.md`). Next: register 5b, run G2.
 11. **18-19 Oct: 5b registered (`4174874`, pushed) and G2 run** (21:46-03:45, 32 runs): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35 (1 / 12 / 3); GB vs GB-free 34 vs 35. The guide changed 0% of moves on tu93 and tr87, yet tr87 lost a level in each arm: a level per game is seed noise. dc22 s0 (GB 1 vs GB-free 4) is the one loss the book's no-op rules may have caused (`docs/3-glassbox/g2-online.md`). Per §6.3, M3 still builds; the confirm runs only if dev sweep 2 shows GB >= A0.
+12. **19 Oct - 2 Nov, G2's follow-ups (Matt, 19 Oct: "IMAGINE first", plus the fresh A0 run and the dc22 check):**
+   - **A0 run again** (`tools/gb_sweep.py` arm `A0-fresh`, `make gb-a0-fresh`; `docs/3-glassbox/a0-fresh.md`): the unchanged adopted Goose on G2's 16 runs, 33 levels vs 37 on 27 Sep (1 / 12 / 3); GB 34 and GB-free 35 are above it. The noise is about ±2.6 levels per 16-run total, so dev sweep 2 needs a same-day A0 arm and more seeds to show anything short of a large effect.
+   - **dc22's no-op rules** (`docs/3-glassbox/dc22-noop-check.md`): clean over whole levels on 9 recordings (4,160 covered moves, 0 changing); the stall is dc22's. Online colour carry lags the replay (S5 judges clicks under the agent's mask at the time), so 5a overstates online prune on vc33, dc22, m0r0 and cd82.
+   - **IMAGINE's precondition where Goose stops** (S4 `later_levels`, `--stage carry --later`; `docs/3-glassbox/carry-later-levels.md`): rules never claim every live cell, so §7.3's condition is met by no game; read as "the whole screen right, unclaimed cells unchanged", the book carries to the stop level on ft09 and tr87 only (partly dc22, cd82; not tu93, g50t, m0r0, vc33). By §7.3, IMAGINE is not built unless Matt decides otherwise.
 
 ## 8. Compute
 

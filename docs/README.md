@@ -75,6 +75,9 @@ It is split into stages that each fix one problem and can be tested alone:
 - [A pooled book, G0b + G1](3-glassbox/pool-g0b-g1.md) (18 Oct, exploratory): both runs' rules in one book, no LLM; never below the better source, above both on dc22, g50t, cd82; T1 the better source's on every game. Also S4's role tie-break: m0r0's G1 rules 6.8% → 26.5% at T1.
 - [The offline counterfactual](3-glassbox/cf-counterfactual.md) (18 Oct, prereg 5a): on A0's recordings S5's carried no-ops would have covered 60.1% of vc33's and 22.9% of ft09's moves in each new level's first 2,000 actions, all of them moves that did nothing; masking ≤ 0.05%; m0r0 5.4% (expectation missed: only 9.7% of its moves are clicks). GB-free covers nearly the same.
 - [G2, the online dev gate](3-glassbox/g2-online.md) (19 Oct, prereg 5b): **FAIL**, Goose with S5 34 levels vs A0's 37 on the 16 dev runs (1 better, 12 same, 3 worse), no game worse on both seeds; the LLM-free arm 35. Differences are within seed noise; the LLM's no-op rules add nothing measurable.
+- [A0 run again](3-glassbox/a0-fresh.md) (run 19 Oct, exploratory): the adopted Goose, unchanged, completed 33 levels on G2's 16 runs where its 27 Sep runs completed 37 (1 / 12 / 3). G2's arms (34, 35) are above it: G2's gap is A0's own noise, about ±2.6 levels per 16 runs.
+- [dc22's no-op rules over whole levels](3-glassbox/dc22-noop-check.md) (2 Nov, exploratory): on 9 recordings they covered 4,160 moves and none changed anything; dc22's level-2 stall happens with no guide too. Also: online, colours are carried later than the counterfactual assumed (vc33, dc22, m0r0, cd82).
+- [The book on every later level](3-glassbox/carry-later-levels.md) (2 Nov, exploratory): what IMAGINE would have to work with where Goose stops.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes
