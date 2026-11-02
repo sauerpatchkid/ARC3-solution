@@ -19,12 +19,12 @@ before the run they affect.
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
-| 6 | G3: templates on held-out games | DRAFT (2 Nov), code `734600b`, catalog `c263262ecffd8d75` (not yet registered): one OPEN item for Matt, then registered with the catalog before any G3 run (target Fri 6 Nov) |
+| 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). The run starts on Matt's word |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
-| 11 | Changes after registration | empty |
+| 11 | Changes after registration | entries 1-5 |
 
 ---
 
@@ -539,12 +539,12 @@ ends on an error and is not rerun before the verdict.
 
 ## 6. G3: templates on held-out games
 
-*DRAFT (2 Nov 2026), not registered. Matt settles the OPEN item, then registers
-this section and the catalog (`tools/artifacts.py add glassbox_templates_v1
-artifacts/glassbox_templates_v1.jsonl --games dev,seen`) before any G3 run. H3
-v1 was built and tested on synthetic data and on the seen games only; no
-Glassbox stage has touched an A/B-offline game (only their recordings' format
-was checked, as plan §6.3 asks).*
+*REGISTERED 2 Nov 2026 (Matt), before any G3 run, with the catalog
+(`tools/artifacts.py add glassbox_templates_v1 artifacts/glassbox_templates_v1.jsonl
+--games dev,seen`): the commit that marks this section registered in the table
+above is its timestamp. H3 v1 was built and tested on synthetic data and on the
+seen games only; no Glassbox stage has touched an A/B-offline game (only their
+recordings' format was checked, as plan §6.3 asks).*
 
 **What is built (2 Nov, code `734600b`).** H3 TEMPLATES v1
 (`custom_agents/gb/h3_templates.py`):
@@ -594,8 +594,7 @@ as in G1.
 - **GB+T**: the same, with H3's try after S1 and S2 started from what it adopts
   (`--set templates.enabled=true` on S2's command only).
 
-**What runs.** `make gb-g3 G3=1` (with `G3_SHARE=1` if OPEN (a) is settled that
-way), once, with the server up (`experiments/llm/serve.sh`), the PC on AC power,
+**What runs.** `make gb-g3 G3=1 G3_SHARE=1` (SETTLED (a)), once, with the server up (`experiments/llm/serve.sh`), the PC on AC power,
 on a commit where the code it runs is unchanged since `734600b` (`git diff
 734600b -- custom_agents/gb tools/gb_offline.py tools/gb_gate.py experiments/glassbox
 artifacts/glassbox_templates_v1.jsonl` prints nothing): GB (run `g3_gb`), then
@@ -631,7 +630,7 @@ these 8 games.
 `[see]` `a31392fb68e47122`, `[check]` `635ce93f9ee63cd1`, `[carry]`
 `893dcab4f6e33df8`, `[templates]` `8b696760c638c342` (`enabled = false` in the
 file, true only on GB+T's S2 command); vocabulary `glassbox_vocab_v1`; catalog
-`glassbox_templates_v1` (sha256 `c263262ecffd8d75...`); model
+`glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`); model
 `cyankiwi/Qwen3.8-27B-AWQ-INT4`, served as `rulebook`.
 
 **Expectation, written before running.** Few templates will be adopted: on the
@@ -639,12 +638,12 @@ seen games v1's try adopted none on the game that gave the catalog no rule
 (ls20), and version 0 none of 21 on either. So GB+T should equal or nearly equal
 GB on most games, and the primary is expected to fail: pass about 10% (the plan's
 35-40% was written before either smoke test). The wrong and overrun conditions
-are expected to hold, since the arms differ only where a template is adopted (if
-OPEN (a) is settled for one cache; otherwise also by the LLM's sampling). GB's
+are expected to hold, since the arms differ only where a template is adopted
+(one answer cache, SETTLED (a)). GB's
 own cell coverage is expected below G1's on the dev games: S1, H1 and S2 were
 built on the dev games, and these games were never looked at.
 
-**OPEN (a): answers to identical questions.** Section 8 (v2's honesty rules)
+**SETTLED (a): one answer cache** (Matt, 2 Nov: "Share it, G3_SHARE=1"). Section 8 (v2's honesty rules)
 says answer caches are never shared between scored runs. Wherever no template is
 adopted, GB+T asks exactly GB's questions (the same evidence, prompts and seeds:
 the cache key is the whole request), but a fresh call need not repeat its answer
@@ -655,8 +654,8 @@ before GB+T's), so an identical question gets the identical answer and the arms
 differ only where a template changed what was asked; it also saves about 7 h of
 GPU. Nothing is learned between the arms (an answer is reused only for the
 byte-identical request), but it departs from the rule's letter, so it is stated
-here and, if settled so, in section 11. *Otherwise:* two caches, as section 8
-reads, about 15 h.
+here and in section 11. (The alternative, two caches as section 8 reads, about
+15 h, was not chosen.)
 
 **Void.** If the code, the catalog, the model or the settings differ from the
 above; if the verdict is computed while a group that failed for a machine or
@@ -757,3 +756,9 @@ started.)*
    --stat 4174874 a2cc3cf`: 1 file, CLAUDE.md), so every run used the
    registered code. As before, the manifests say `+dirty` only because of the
    `ARC-AGI-3-Agents` submodule's local edits.
+5. **2 Nov 2026, sections 6 and 8, before any G3 run.** For G3 only, GB+T's S2
+   starts from a copy of GB's answer cache (section 6, SETTLED (a); Matt: "Share
+   it, G3_SHARE=1"), where section 8 says answer caches are never shared between
+   scored runs. An answer is reused only for a byte-identical request (the cache
+   key is the whole request), so nothing is learned between the arms; the arms
+   then differ only where a template changed what S2 asked.

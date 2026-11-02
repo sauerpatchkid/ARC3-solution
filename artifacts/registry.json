@@ -199,6 +199,29 @@
    "files": {
     "custom_agents/gb/h1_vocab.py": "c19a56e98485811d634756ceb901959607b45430bb501df59a65d0790546668e"
    }
+  },
+  {
+   "name": "glassbox_templates_v1",
+   "kind": "artifact",
+   "frozen": "2026-11-02",
+   "source_games": [
+    "cd82",
+    "dc22",
+    "ft09",
+    "g50t",
+    "lp85",
+    "ls20",
+    "m0r0",
+    "tr87",
+    "tu93",
+    "vc33"
+   ],
+   "note": "H3 TEMPLATES v1 catalog for G3 (prereg section 6): 40 templates from pool_g0b_g1 (8 dev games) and smoke_lp85 (lp85); built by make gb-catalog at 734600b",
+   "n_files": 1,
+   "sha256": "0ba3d961eda68c23bc7b8669976ddbd20973df24d901484328262322ab48058c",
+   "files": {
+    "artifacts/glassbox_templates_v1.jsonl": "c263262ecffd8d751adbf459c4fd12e85dff22e15c20d6dbc94d60a34d772ce0"
+   }
   }
  ],
  "events": []

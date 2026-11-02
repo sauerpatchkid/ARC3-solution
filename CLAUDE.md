@@ -112,8 +112,8 @@ M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
 three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
 book on every later level). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual) and 5b (G2) registered and run; **6 (G3) drafted 2 Nov, one
-OPEN item, not registered**; 1, 2, 8–10 still drafts; 7 not written.
+5a (counterfactual) and 5b (G2) registered and run; **6 (G3) registered 2 Nov,
+not yet run**; 1, 2, 8–10 still drafts; 7 not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -160,8 +160,8 @@ OPEN item, not registered**; 1, 2, 8–10 still drafts; 7 not written.
     run.manifest="<manifest>"` and `--arm`.
   - **H3 TEMPLATES v1** `h3_templates.py` (2 Nov): the catalog
     (`make gb-catalog`: 40 templates from `pool_g0b_g1` + `smoke_lp85`,
-    `artifacts/glassbox_templates_v1.jsonl`, sha256 `c263262ecffd8d75`, **not yet
-    registered**), the try step (`--stage templates`, no source binding preferred)
+    `artifacts/glassbox_templates_v1.jsonl`, sha256 `c263262ecffd8d75`,
+    **registered `glassbox_templates_v1`, frozen**), the try step (`--stage templates`, no source binding preferred)
     and S2 started from adopted templates (`[templates] enabled`); A/B-offline games
     only with `--g3` (every offline stage) and a registered catalog. Seen-game
     check: ls20 0 of 64 adopted, lp85 only its own rule. v0's smoke (0 of 21)
@@ -225,11 +225,10 @@ OPEN item, not registered**; 1, 2, 8–10 still drafts; 7 not written.
     claims every live cell: **plan §7.3's IMAGINE precondition is met by no
     game** (the 18 Oct reading was the weaker "whole screen right").
 - **Next (Matt, 2 Nov; plan §6.3: the confirm runs only if dev sweep 2 shows
-  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). **Waiting on Matt:**
-  settle §6's OPEN (a) (GB+T starts from a copy of GB's answer cache, `G3_SHARE=1`,
-  recommended), then register §6 and the catalog (`tools/artifacts.py add
-  glassbox_templates_v1 artifacts/glassbox_templates_v1.jsonl --games dev,seen`),
-  then **G3 Fri 6 - Sun 8 Nov** (GPU + server, ~8 h shared or ~15 h). Then S5 v2
+  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). §6 (G3) and the catalog
+  registered 2 Nov (one answer cache, `G3_SHARE=1`). **G3 starts only on Matt's
+  word** ("wait for me to say start"): the server up, then `make gb-g3 G3=1
+  G3_SHARE=1` (GPU, ~8 h), code unchanged since `734600b`. Then S5 v2
   (colour no-ops judged at the level's end) as dev sweep 2's candidate; **dev
   sweep 2 (Wed 11 - Fri 13 Nov): a same-day A0 arm, 4 seeds per arm.** Course:
   idea statement Mon 2 Nov (plan §2.1 still names predicted moves), final Mon 7 Dec.
