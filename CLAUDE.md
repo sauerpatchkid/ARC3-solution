@@ -217,13 +217,13 @@ written.
     m0r0 L3 (wrong wherever it applies), vc33 (no rule re-binds). It never
     claims every live cell: **plan §7.3's IMAGINE precondition is met by no
     game** (the 18 Oct reading was the weaker "whole screen right").
-- **Next (Matt's call; plan §6.3: M3 still builds, the confirm runs only if
-  dev sweep 2 shows GB >= A0):** M3's focus after the IMAGINE measurement
-  (Matt chose IMAGINE first on 19 Oct; §7.3 now says not to build it); H3's
-  catalog frozen and registered by **Thu 5 Nov**, prereg §6, **G3 Fri 6 - Sun
-  8 Nov**; dev sweep 2 (Wed 11 - Fri 13 Nov) needs its design decided (a
-  same-day A0 arm, more than 2 seeds). Course: idea statement **Mon 2 Nov**
-  (plan §2.1's text names predicted moves, i.e. IMAGINE), final Mon 7 Dec.
+- **Next (Matt, 2 Nov; plan §6.3: the confirm runs only if dev sweep 2 shows
+  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). H3's catalog built,
+  frozen and registered by **Thu 5 Nov**, prereg §6, **G3 Fri 6 - Sun 8 Nov**;
+  then S5 v2 (colour no-ops judged at the level's end) as dev sweep 2's
+  candidate; **dev sweep 2 (Wed 11 - Fri 13 Nov): a same-day A0 arm, 4 seeds per
+  arm.** Course: idea statement Mon 2 Nov (plan §2.1 still names predicted
+  moves), final Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
