@@ -266,3 +266,4 @@ def test_replay_counts_waste_and_masking_from_level_2(tmp_path):
     assert [r["level"] for r in rows] == [1, 2]
     assert rows[0]["covered"] == 0
     assert (rows[1]["window"], rows[1]["waste"], rows[1]["masking"]) == (16, 10, 1)
+    assert rows[1]["by"] == {"colour": 11} and rows[1]["masking_by"] == {"colour": 1}

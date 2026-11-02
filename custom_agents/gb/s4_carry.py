@@ -38,6 +38,24 @@ Version 1 adds two things from plan 5.4, each aimed at a loss G1 showed:
 
 Repair calls (plan 5.4, step 5) come with H2.
 
+LATER LEVELS (`later_levels`, 19 Oct; `--stage carry --later`). T1 looks one level
+ahead. IMAGINE (plan 5.5) would use the book on every later level, where Goose
+stalls, to stand in for moves not yet tried. So for each level after the training
+level of a recording: every book rule is re-bound on the level's first
+`online_max_wait` moves (S5's online wait, at its longest) by CP1's rebind, the
+rules kept are composed on the rest of the level, and each (screen, action) pair
+there that the first moves never saw is scored at its first occurrence (on a
+level with more pairs than the evidence index keeps, MAX_KEYS, its uniform sample
+of them): does the
+book apply (claim a cell), is the whole next screen then right (cells it leaves
+unclaimed unchanged), is a claimed cell wrong, does it claim every live cell (the
+plan's IMAGINE condition). The decoration mask is S0's, kept from level to level
+(the training level's and every later level's so far, together): IMAGINE would
+compare screens by the map's key, whose mask is sticky across levels. tu93 shows
+why: its move-budget bar is masked on level 3, but on level 4 it changes 3 cells
+a move, which neither S0's ticker scan nor gridtools.tick_cells (components of at
+most 2 cells) catches, so level 4's own mask is empty.
+
 Reads  <run>/evidence/<game>_L<k>_train.npz, <game>_L<j>_{fit,score}.npz
        <run>/s2_write/<game>/candidates.jsonl
        <run>/s3_check/<game>_L<k>.book.json
@@ -49,15 +67,18 @@ import ast
 import glob
 import json
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
+import xxhash
 
 from gb.artifacts import plain
 from gb.core import bind as B
 from gb.core import book as K
-from gb.core.evidence import LevelEvidence
+from gb.core.evidence import LevelEvidence, read_moves, ticker_mask
 from gb.core.metrics import gate_interval, memory_hash, moves_right, nothing_hash
+from gb.s0_mask import complete_bars
 from gb.s3_check import member, regrade, status_arrays
 
 VERSION = 1                     # bump when what the output means changes (artifacts.py)
@@ -216,3 +237,123 @@ def run_game(run, game, log=print, force=False):
         f"(nothing {t1['per_move']['rate']['nothing']:.1%}, memory {t1['per_move']['rate']['memory']:.1%}), "
         f"wrong {t1['wrong']:.1%}" + (f"; WARNING: the search left {untried} bindings untried" if untried else ""))
     return {"t0": t0, "t1": t1}
+
+
+# ---- every later level of one recording (module doc, LATER LEVELS) ---------------------------------
+MIN_SCORE = 200                 # moves a level needs after the wait to be scored
+
+
+def book_of(book_dir, game):
+    """A finished run's book for `game`: (training level, its rules, the training evidence path)."""
+    books = glob.glob(os.path.join(book_dir, "s3_check", f"{game}_L*.book.json"))
+    if not books:
+        raise FileNotFoundError(f"{book_dir}: no book for {game}")
+    with open(books[0]) as f:
+        book = json.load(f)
+    with open(os.path.join(book_dir, "s2_write", game, "candidates.jsonl")) as f:
+        by_id = {c["id"]: c for c in map(json.loads, f)}
+    k = book["level"]
+    return k, [by_id[i] for i in book["members"]], os.path.join(book_dir, "evidence", f"{game}_L{k}_train.npz")
+
+
+def screen_key(board):
+    return xxhash.xxh64(np.ascontiguousarray(board, np.uint8).tobytes()).intdigest()
+
+
+def pair_keys(frames, actions, live):
+    """(screen under the mask, action) per move, as S5's cache and the evidence index key them."""
+    return [(screen_key(np.where(live, f, 255)), int(a)) for f, a in zip(frames, actions)]
+
+
+def later_levels(book_dir, game, corpus, settings=DEFAULTS, log=print):
+    """The book re-bound and scored on every level after its training level in one
+    recording (module doc, LATER LEVELS). One row of counts per level played."""
+    k, rules, p_train = book_of(book_dir, game)
+    train = LevelEvidence.load(p_train)
+    with ThreadPoolExecutor(WORKERS) as ex:
+        res_train = list(ex.map(lambda c: regrade(c, p_train, train)[0], rules))
+    wait, rows, level0 = int(settings["online_max_wait"]), [], k      # level0: the level after training, 0-based
+    sticky = train.mask.copy()                                         # module doc: the mask kept from level to level
+    with tempfile.TemporaryDirectory() as tmp:
+        while True:
+            f, n, a, order = read_moves(corpus, level0)
+            if not len(a):
+                break
+            own = complete_bars(ticker_mask(f[:20000], n[:20000])[0])
+            mask = sticky | own
+            sticky = mask
+            live = ~mask
+            row = dict(level=level0 + 1, moves=int(len(a)), wait=wait, mask_own=int(own.sum()), mask=int(mask.sum()))
+            rows.append(row)
+            level0 += 1
+            if len(a) < wait + MIN_SCORE:
+                row["skipped"] = f"fewer than {wait + MIN_SCORE} moves"
+                continue
+            part = lambda s: None if order is None else {key: v[s] for key, v in order.items()}
+            ev_fit, ev_sc = (LevelEvidence.from_moves(game, level0 - 1, f[s], n[s], a[s], mask=mask, order=part(s))
+                             for s in (slice(0, wait), slice(wait, None)))
+            p_fit, p_sc = os.path.join(tmp, f"L{level0}_fit.npz"), os.path.join(tmp, f"L{level0}_score.npz")
+            ev_fit.save(p_fit)
+            ev_sc.save(p_sc)
+            with ThreadPoolExecutor(WORKERS) as ex:
+                carried = list(ex.map(lambda cr: rebind(cr[0], cr[1], train, ev_fit, p_fit) if cr[1] is not None
+                                      else {"in_t1": False, "flag": None, "why": "could not be re-graded"},
+                                      zip(rules, res_train)))
+            kept = [(c, t) for c, t in zip(rules, carried) if t["in_t1"]]
+            row.update(kept=[c["id"] for c, _ in kept], untried=sum(t.get("untried", 0) for t in carried),
+                       why={c["id"]: t["flag"] or t["why"] for c, t in zip(rules, carried) if not t["in_t1"]})
+            seen, new = set(pair_keys(f[:wait], a[:wait], live)), []
+            for i, key in enumerate(pair_keys(f[wait:], a[wait:], live)):
+                if key not in seen:
+                    seen.add(key)
+                    new.append(i)
+            new = np.array(new, int)
+            sampled = ev_sc.moves["key"][new] >= 0          # a level over MAX_KEYS pairs keeps a uniform sample
+            new = new[sampled]
+            changing = ((f[wait:] != n[wait:]) & live).reshape(len(a) - wait, -1).any(axis=1)[new]
+            row.update(new=len(new), new_sampled_out=int((~sampled).sum()), new_changing=int(changing.sum()),
+                       nothing_right=int(moves_right(ev_sc, nothing_hash(ev_sc))[new].sum()))
+            if not kept:
+                continue
+            comp = K.compose([member(c, p_fit, t["binding"]) for c, t in kept], p_sc)
+            if comp["stage"] != "checked":
+                row["error"] = comp.get("reason")
+                continue
+            case = ev_sc.moves["key"][new]
+            right = moves_right(ev_sc, comp["hash"])[new]
+            claimed = np.asarray(comp["claimed_n"])[case]
+            applies, full = claimed > 0, claimed >= int(live.sum())
+            wrong = np.asarray(comp["status"])[case] == K.WRONG
+            for name, sel in (("", np.ones(len(new), bool)), ("_changing", changing)):
+                row.update({f"applies{name}": int((applies & sel).sum()),
+                            f"right_applies{name}": int((applies & right & sel).sum()),
+                            f"wrong{name}": int((wrong & sel).sum()),
+                            f"full_right{name}": int((full & right & sel).sum())})
+            log(f"[{game}] level {row['level']}: {len(kept)} of {len(rules)} rules re-bound; {row['new_changing']} "
+                f"new changing pairs, the book applies to {row['applies_changing']}, right on "
+                f"{row['right_applies_changing']}, wrong on {row['wrong_changing']}")
+    return rows
+
+
+def later_table(per_game, log=print):
+    """Rows of every seed pooled per game and level: markdown text."""
+    pct = lambda x, y: f"{x / y:.1%}" if y else "-"
+    lines = ["| Game | Level | Seeds | Rules re-bound | New pairs (changing) | Book applies (changing) | "
+             "Right where it applies (changing) | Wrong (changing) | Claims every cell, right (changing) |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    for game, rows in per_game.items():
+        for level in sorted({r["level"] for r in rows}):
+            rs = [r for r in rows if r["level"] == level and "new" in r]
+            if not rs:
+                continue
+            s = lambda key: sum(r.get(key, 0) for r in rs)
+            nc, ac = s("new_changing"), s("applies_changing")
+            lines.append(f"| {game} | {level} | {', '.join(str(r['seed']) for r in rs)} | "
+                         f"{', '.join(str(len(r.get('kept', []))) for r in rs)} | {s('new'):,} ({nc:,}) | "
+                         f"{pct(s('applies'), s('new'))} ({pct(ac, nc)}) | "
+                         f"{pct(s('right_applies'), s('applies'))} ({pct(s('right_applies_changing'), ac)}) | "
+                         f"{pct(s('wrong'), s('applies'))} ({pct(s('wrong_changing'), ac)}) | "
+                         f"{pct(s('full_right'), s('new'))} ({pct(s('full_right_changing'), nc)}) |")
+    text = "\n".join(lines) + "\n"
+    log(text)
+    return text

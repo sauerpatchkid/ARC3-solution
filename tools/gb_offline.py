@@ -9,8 +9,9 @@ added here as they are built (plan section 4.3).
     uv run python tools/gb_offline.py --stage mask --run <new> --from cp1_import
     uv run python tools/gb_offline.py --stage see|check|carry|guards|show --run <name> [--games a,b]
     uv run python tools/gb_offline.py --stage pool --run <new> --from g0b_bars,g1 [--report]
-    uv run python tools/gb_offline.py --stage replay --run <new> [--book <run>] --games lp85 [--seeds 0,1,2]
+    uv run python tools/gb_offline.py --stage replay --run <new> [--book <run>] --games lp85 [--seeds 0,1,2] [--arm A]
     uv run python tools/gb_offline.py --stage templates --run <run with S0 on lp85,ls20> --book <run>
+    uv run python tools/gb_offline.py --stage carry --later --run <new> --book <run> --games tu93 [--seeds 0,1,2]
 
 --import-cp1  re-run Rulebook v2's CP1 with gb/core (no LLM, no search) and write
               it as Glassbox artifacts; every number is checked against CP1's
@@ -33,6 +34,9 @@ added here as they are built (plan section 4.3).
               (the [run] manifest) fed through S5's guide level by level; avoidable
               waste and masking risk in each level's first actions, level 2 up.
               --book <run>: that run's no-op rules are carried (none: GB-free).
+              Other recordings: --set run.manifest="<manifest.tsv>" and, if it
+              holds several arms, --arm (a run replays one arm). Whole levels:
+              --set act.waste_window=1000000000.
               On a dev game this IS the offline counterfactual (prereg section 5):
               it refuses dev games without --cf, which is for after section 5 is
               registered.
@@ -48,6 +52,10 @@ added here as they are built (plan section 4.3).
               replayed on the training level, and the book composed.
 --stage carry S4 CARRY (custom_agents/gb/s4_carry.py): the book's rules re-bound on
               the transfer level's fit split; T0 and T1 on its score split.
+              --later: --book's rules re-bound on EVERY level after its training
+              level of A0's recordings (--seeds; other recordings as for replay),
+              scored on the (screen, action) pairs each level had not yet seen
+              (IMAGINE's raw material, plan 7.3); s4_carry/later_summary.md.
 --stage guards  S3's guard fitter (custom_agents/gb/s3_guards.py): every
               admitted-but-not-trusted rule, a guard from S1's facts, the
               narrowed rule and the exception, re-graded; the book and T1
@@ -62,6 +70,7 @@ added here as they are built (plan section 4.3).
               Exit status 1 if not (cp1_import.matches).
 """
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -125,6 +134,19 @@ def seed_from(run, src, game):
     return res["corpus"], res["train"]["level"], res.get("transfer_level")
 
 
+def recording(run, game, seed, arm=""):
+    """The transitions folder of one recorded run in the [run] manifest (one arm only)."""
+    cfg = run.config.get("run", {})
+    rows = [r for r in read_manifest(os.path.join(ROOT, cfg["manifest"]), strict=True)
+            if r["game"] == game and int(r["seed"]) == seed and arm in ("", r["arm"])]
+    if not rows:
+        sys.exit(f"{game}: no seed-{seed} run{' of arm ' + arm if arm else ''} in {cfg['manifest']}")
+    if len({r["arm"] for r in rows}) > 1:
+        sys.exit(f"{game} s{seed}: {cfg['manifest']} has arms {sorted({r['arm'] for r in rows})}; pick one with --arm")
+    d = rows[0]["run_dir"]
+    return os.path.join(d if os.path.isabs(d) else os.path.join(ROOT, d), "transitions")
+
+
 def games_with_evidence(run):
     """The games a run has a training split for."""
     d = os.path.join(run.dir, "evidence")
@@ -161,6 +183,8 @@ def main():
     ap.add_argument("--report", action="store_true", help="--stage pool: the pool's book beside its sources'")
     ap.add_argument("--book", default="", help="--stage replay: the offline run whose no-op rules are carried")
     ap.add_argument("--seeds", default="0", help="--stage replay: A0 seeds to replay, comma-separated")
+    ap.add_argument("--arm", default="", help="--stage replay, carry --later: the manifest's arm (needed if it has several)")
+    ap.add_argument("--later", action="store_true", help="--stage carry: --book's rules on every later level (S4 doc)")
     ap.add_argument("--cf", action="store_true",
                     help="--stage replay on dev games: only after prereg section 5 is registered")
     ap.add_argument("--url", default="http://127.0.0.1:8018/v1", help="--stage write: the LLM server")
@@ -218,17 +242,30 @@ def main():
             sys.exit(f"{', '.join(dev)}: on a dev game the replay IS the offline counterfactual; it needs --cf, "
                      "which is for after pre-registration section 5 is registered")
         book_dir = os.path.join(A.results_dir(), a.book) if a.book else None
-        cfg = run.config.get("run", {})
-        rows = read_manifest(os.path.join(ROOT, cfg["manifest"]), strict=True)
         for game in games:
             for seed in map(int, a.seeds.split(",")):
-                hit = [r for r in rows if r["game"] == game and int(r["seed"]) == seed]
-                if not hit:
-                    sys.exit(f"{game}: no seed-{seed} run in {cfg['manifest']}")
-                d = hit[0]["run_dir"]
-                corpus = os.path.join(d if os.path.isabs(d) else os.path.join(ROOT, d), "transitions")
-                s5_act.replay_run(run, game, seed, corpus, book_dir, log=log)
+                s5_act.replay_run(run, game, seed, recording(run, game, seed, a.arm), book_dir, log=log)
         s5_act.replay_table(run, games, log=log)
+        return
+    if a.stage == "carry" and a.later:
+        if not a.book or not a.games:
+            sys.exit("--stage carry --later needs --book <run> and --games")
+        book_dir, out = os.path.join(A.results_dir(), a.book), run.stage_dir("s4_carry")
+        settings = s4_carry.settings_of(run)[0]
+        for game in a.games.split(","):
+            for seed in map(int, a.seeds.split(",")):
+                corpus = recording(run, game, seed, a.arm)
+                rows = [dict(r, seed=seed) for r in s4_carry.later_levels(book_dir, game, corpus, settings, log=log)]
+                with open(os.path.join(out, f"{game}_s{seed}.later.json"), "w") as f:
+                    json.dump({"game": game, "seed": seed, "corpus": corpus, "book": book_dir, "settings": settings,
+                               "levels": rows}, f, indent=1, default=int)
+        per = {}
+        for p in sorted(glob.glob(os.path.join(out, "*.later.json"))):
+            with open(p) as f:
+                r = json.load(f)
+            per.setdefault(r["game"], []).extend(r["levels"])
+        with open(os.path.join(out, "later_summary.md"), "w") as f:
+            f.write(f"# S4 on every later level: {run.name} (book {a.book})\n\n" + s4_carry.later_table(per, log=log))
         return
     if a.stage == "templates":
         if not a.book:

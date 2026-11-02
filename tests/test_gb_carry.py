@@ -3,6 +3,8 @@ wait. The re-binding itself is CP1's (tests/test_gb_regression.py checks it on d
 import os
 import sys
 
+import numpy as np
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
@@ -74,3 +76,66 @@ def test_by_roles_never_prefers_a_binding_that_applies_to_fewer_cases():
     r2 = {"click_changers": [9, 12], "counters": [11, 12]}
     got, note = S.by_roles(c, found, best, None, (r1, r2))
     assert got is best and note is None
+
+
+# ---- every later level ------------------------------------------------------------------------------
+RIGHT_RULE = '''
+RULE = "ACTION1 moves the agent block one step right"
+PARAMS = {"agent": Colour()}
+def applies(board, act, api, p):
+    return act.action == 1 and bool((board == p["agent"]).any())
+def predict(board, act, api, p):
+    m = board == p["agent"]
+    out = np.where(m, api.background, board)
+    out[:, 1:][m[:, :-1]] = p["agent"]
+    return out
+'''
+
+
+def walk(colour, row, pairs):
+    """A 3x3 block (a single cell's 2-cell moves would look like a ticker to S0's mask):
+    ACTION1 (one step right) and ACTION2 (nothing) in turn, from x = 0."""
+    F, N, A = [], [], []
+    for x in range(pairs):
+        b = np.zeros((64, 64), np.uint8)
+        b[row:row + 3, x:x + 3] = colour
+        right = np.zeros((64, 64), np.uint8)
+        right[row:row + 3, x + 1:x + 4] = colour
+        F += [b, right]
+        N += [right, right]
+        A += [0, 1]
+    return F, N, A
+
+
+def test_later_levels_rebinds_the_book_on_each_level_and_scores_pairs_it_has_not_seen(tmp_path, monkeypatch):
+    import json
+    from gb.core.evidence import LevelEvidence
+    book = tmp_path / "book"
+    for d in ("s3_check", "s2_write/toy", "evidence"):
+        (book / d).mkdir(parents=True)
+    (book / "s3_check" / "toy_L1.book.json").write_text(json.dumps({"level": 1, "members": [0]}))
+    (book / "s2_write" / "toy" / "candidates.jsonl").write_text(
+        json.dumps({"id": 0, "code": RIGHT_RULE, "group": "ACTION1", "binding": {"agent": 3}, "lint": []}) + "\n")
+    F, N, A, L = [], [], [], []
+    for level, (colour, row) in enumerate([(3, 10), (7, 20), (9, 30)]):
+        f, n, a = walk(colour, row, 30)
+        if level == 0:
+            LevelEvidence.from_moves("toy", 0, np.array(f), np.array(n), np.array(a),
+                                     mask=np.zeros((64, 64), bool)).save(str(book / "evidence" / "toy_L1_train.npz"))
+        F += f + [n[-1]]                       # and the move that completes the level
+        N += n + [n[-1]]
+        A += a + [1]
+        L += [level] * (len(a) + 1)
+    rec = tmp_path / "transitions"
+    rec.mkdir()
+    np.savez(rec / "shard_00000.npz", frames=np.array(F), next_frames=np.array(N), actions=np.array(A),
+             levels=np.array(L), action_nums=np.arange(1, len(A) + 1))
+    monkeypatch.setattr(S, "MIN_SCORE", 20)
+    rows = S.later_levels(str(book), "toy", str(rec), dict(S.DEFAULTS, online_max_wait=30), log=lambda m: None)
+    assert [r["level"] for r in rows] == [2, 3]
+    for r in rows:                             # 30 moves after the wait, each at a new position; 15 move the agent
+        assert r["kept"] == [0], r.get("why")
+        assert (r["new"], r["new_changing"]) == (30, 15)
+        assert (r["applies_changing"], r["right_applies_changing"], r["wrong_changing"]) == (15, 15, 0)
+        assert r["full_right_changing"] == 15  # a bare board claims every live cell
+        assert r["applies"] == 15              # ACTION2: the book does not apply

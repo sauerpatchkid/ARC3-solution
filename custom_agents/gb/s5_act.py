@@ -550,7 +550,9 @@ def level_mask(frames, next_frames):
 
 def replay(guide, corpus, max_level=None, log=print):
     """Feed one recorded run through `guide`, level by level (module doc, REPLAY).
-    Returns per level {level, moves, window, covered, waste, masking, by}."""
+    Returns per level {level, moves, window, covered, waste, masking, by, masking_by};
+    `by` counts what covered each covered move ('colour', 'rule'; once per colour or rule
+    that covered it), and `masking_by` the same for the covered moves that changed something."""
     out, prev_last = [], None
     level0 = 0
     while max_level is None or level0 < max_level:
@@ -561,7 +563,7 @@ def replay(guide, corpus, max_level=None, log=print):
         guide.new_level(level0 + 1, f[0], mask, before_win=prev_last)
         nums = order["num"] - order["num"][0] if order else np.arange(len(a))
         row = dict(level=level0 + 1, moves=int(len(a)), window=0, covered=0, waste=0, masking=0,
-                   by=collections.Counter())
+                   by=collections.Counter(), masking_by=collections.Counter())
         for i in range(len(a)):
             changed = bool(((f[i] != n[i]) & ~mask).any())
             if nums[i] < guide.s["waste_window"]:
@@ -572,8 +574,9 @@ def replay(guide, corpus, max_level=None, log=print):
                     row["waste" if not changed else "masking"] += 1
                     for w in who:
                         row["by"][w.split()[0]] += 1
+                        row["masking_by"][w.split()[0]] += int(changed)
             guide.observe(f[i], int(a[i]), n[i], changed)
-        row["by"] = dict(row["by"])
+        row["by"], row["masking_by"] = dict(row["by"]), dict(row["masking_by"])
         out.append(row)
         log(f"[{guide.game}] level {level0 + 1}: {row['moves']} moves; first {guide.s['waste_window']} actions: "
             f"{row['window']} moves, covered {row['covered']}, waste {row['waste']}, masking {row['masking']}")
@@ -618,15 +621,19 @@ def replay_table(run, games, log=print):
                      "masking_moves": sum(x["masking"] for x in rows),
                      "waste": round(sum(x["waste"] for x in rows) / win, 4) if win else 0.0,
                      "masking": round(sum(x["masking"] for x in rows) / win, 4) if win else 0.0,
-                     "by": dict(sum((collections.Counter(x["by"]) for x in rows), collections.Counter()))}
+                     "by": dict(sum((collections.Counter(x["by"]) for x in rows), collections.Counter())),
+                     "masking_by": dict(sum((collections.Counter(x.get("masking_by", {})) for x in rows),
+                                            collections.Counter()))}
+    window = run.config.get("act", {}).get("waste_window", DEFAULTS["waste_window"])
     lines = [f"# S5 replay: {run.name}", "",
-             "Levels 2 and up, the first actions of each level (waste_window), pooled over seeds and levels.", "",
-             "| Game | Seeds | Levels | Moves | Covered | Avoidable waste | Masking risk | Covered by |",
-             "|---|---|---|---|---|---|---|---|"]
+             f"Levels 2 and up, the first {window:,} actions of each level, pooled over seeds and levels.", "",
+             "| Game | Seeds | Levels | Moves | Covered | Avoidable waste | Masking risk | Covered by | Masking by |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for g, r in per.items():
         lines.append(f"| {g} | {','.join(map(str, r['seeds']))} | {r['levels']} | {r['window']:,} | {r['covered']:,} | "
                      f"{r['waste']:.1%} ({r['waste_moves']:,}) | {r['masking']:.2%} ({r['masking_moves']:,}) | "
-                     + (", ".join(f"{k} {v:,}" for k, v in sorted(r["by"].items())) or "-") + " |")
+                     + (", ".join(f"{k} {v:,}" for k, v in sorted(r["by"].items())) or "-") + " | "
+                     + (", ".join(f"{k} {v:,}" for k, v in sorted(r["masking_by"].items()) if v) or "-") + " |")
     text = "\n".join(lines) + "\n"
     d = run.stage_dir("s5_act")
     with open(os.path.join(d, "replay_summary.json"), "w") as f:
