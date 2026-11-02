@@ -32,6 +32,12 @@ Every candidate's PARAMS are fitted to the level by search (bind.search) and
 graded by v2's trust (book.trust), as in CP1. Answers are cached
 (gb/core/llm.py), so a finished run can be re-scored without the GPU.
 
+TEMPLATES (2 Nov, H3; only with `[templates] enabled`, the GB+T arm of G3). A group
+starts from the templates H3 adopted for it (<run>/h3_templates/<game>.json), each
+graded with the binding H3 found (origin "template"). A group with one that carries
+(trusted, no level facts) skips the first round and goes straight to residual
+prompts, within the same calls; the others run as before. Off, S2 is unchanged.
+
 Reads  <run>/evidence/<game>_L<k>_train.npz, <run>/s1_see/<game>_L<k>_train.facts.{npz,jsonl}, .roles.json
 Writes <run>/s2_write/<game>/candidates.jsonl   every candidate: code, binding, trust, origin, tokens
        <run>/s2_write/<game>/groups.json        the groups called, in order
@@ -53,8 +59,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from gb import h1_vocab as H
+from gb import h3_templates
 from gb import s3_guards
-from gb.artifacts import plain
+from gb.artifacts import ROOT, plain
 from gb.core import bind as B
 from gb.core import book as K
 from gb.core import contract as C
@@ -614,10 +621,11 @@ class Writer:
     """S2 on one level: the LLM client, the prompter, the evidence, S1's facts for the guard fitter."""
 
     def __init__(self, game, ev, ev_path, client, settings, facts_text, bits, names, mover, vocab=True,
-                 log=print):
+                 log=print, templates=None):
         self.game, self.ev, self.ev_path, self.client, self.settings, self.log = game, ev, ev_path, client, settings, log
         self.prompts = Prompter(ev, facts_text, settings, vocab)
         self.bits, self.names, self.mover = bits, names, mover
+        self.templates = templates or {}            # group -> H3's adopted templates (module doc, TEMPLATES)
 
     def ask(self, parts, instruction, n, seed, group, seen):
         """One request for n answers, each with one code-only retry if it ran out of room and one repair
@@ -684,8 +692,15 @@ class Writer:
                 a.update(order=len(arms), refined=0, **kw)
                 arms.append(a)
 
-        parts, instruction = self.prompts.first_round(group, rng_for(game, group, "prompt"))
-        add(self.ask(parts, instruction, s["k_first"], 1, group, seen), origin="first round", step=0)
+        for t in self.templates.get(group, []):                      # module doc, TEMPLATES
+            arm = evaluate_bound(t["code"], group, ev, self.ev_path, t["binding"])
+            arm.update(duplicate=t["code"] in seen, template=t["tid"])
+            seen.add(t["code"])
+            add([arm], origin="template", step=None)
+        first_round = not any(carries(a) for a in arms)
+        if first_round:
+            parts, instruction = self.prompts.first_round(group, rng_for(game, group, "prompt"))
+            add(self.ask(parts, instruction, s["k_first"], 1, group, seen), origin="first round", step=0)
         rng = rng_for(game, group, "bandit")
         stopped, guarded = None, 0
         while stopped is None:
@@ -741,6 +756,7 @@ class Writer:
         return {"group": group, "moves": int(ev.count[keys].sum()), "cases": int(len(keys)),
                 "changing_cases": int((ev.changed[keys] & ~ev.frozen[keys]).sum()),
                 "conflict_cases": int((ev.n_variants[keys] > 1).sum()), "calls": len(steps), "guards": guarded,
+                "first_round": int(first_round), "templates": len(self.templates.get(group, [])),
                 "stopped": stopped, "trusted": sum(is_trusted(a) and not a["duplicate"] for a in arms),
                 "carrying": sum(carries(a) and not a["duplicate"] for a in arms),
                 "seconds": round(time.time() - t0), "arms": arms}
@@ -819,10 +835,13 @@ def run_all(run, games, client, log=print, vocab=None):
         raise NotImplementedError("exception prompts are not built (the plan's cut line): set "
                                   "[write] exceptions = false")
     vocab = run.config.get("vocab", {}).get("enabled", True) if vocab is None else vocab
+    tcfg = run.config.get("templates", {})
+    catalog = h3_templates.load_catalog(os.path.join(ROOT, tcfg["catalog"])) if tcfg.get("enabled") else None
     writers, tasks = {}, []
     for game in games:
         p_train, ev, texts, bits, names, mover = level_inputs(run, game)
-        writers[game] = Writer(game, ev, p_train, client, settings, texts, bits, names, mover, vocab, log)
+        templates = h3_templates.adopted_for(run, game, catalog) if catalog is not None else None
+        writers[game] = Writer(game, ev, p_train, client, settings, texts, bits, names, mover, vocab, log, templates)
         groups = groups_to_call(ev, settings)
         log(f"[{game}] training level {ev.level + 1}: {len(ev.actions)} cases; {len(groups)} groups get calls")
         tasks += [(game, g) for g in groups]
@@ -835,7 +854,7 @@ def run_all(run, games, client, log=print, vocab=None):
         except Exception as e:        # noqa: BLE001 - the run is long; the answer cache makes a rerun cheap
             log(f"[{game} {group}] FAILED: {type(e).__name__}: {e}")
             return {"group": group, "error": f"{type(e).__name__}: {e}", "calls": 0, "guards": 0,
-                    "trusted": 0, "carrying": 0, "arms": []}
+                    "first_round": 0, "templates": 0, "trusted": 0, "carrying": 0, "arms": []}
     with ThreadPoolExecutor(GROUP_WORKERS) as ex:
         records = list(ex.map(one, tasks))
     out = {}
@@ -862,6 +881,8 @@ def write_game(run, game, writer, records, settings, vocab, client, seconds):
     with open(p_groups, "w") as f:
         json.dump([r["group"] for r in records], f)
     llm = {"calls": sum(r["calls"] for r in records), "guards": sum(r["guards"] for r in records),
+           "requests": sum(r["calls"] + r.get("first_round", 1) for r in records),
+           "template_arms": sum(c.get("origin") == "template" for c in cands),
            "candidates": len(cands), "tokens": sum(int(c.get("tokens") or 0) for c in cands),
            "no_code": sum(c["stage"] == "no-code" for c in cands),
            "ran_out": sum(1 for c in cands if c.get("finished") is False),
@@ -870,7 +891,8 @@ def write_game(run, game, writer, records, settings, vocab, client, seconds):
            "model": client.served_model(), "run_seconds": round(seconds), "settings": settings, "vocab": vocab}
     with open(p_llm, "w") as f:
         json.dump(plain(llm), f, indent=1)
-    run.write_header("s2_write", game, VERSION, dict(settings, vocab=vocab, model=client.served_model()),
+    templates = {"templates": True} if writer.templates or run.config.get("templates", {}).get("enabled") else {}
+    run.write_header("s2_write", game, VERSION, dict(settings, vocab=vocab, model=client.served_model(), **templates),
                      {"evidence": writer.ev_path}, {"candidates": p_cands, "groups": p_groups, "llm": p_llm},
                      code=__file__)
     trusted = sum(r["trusted"] for r in records)

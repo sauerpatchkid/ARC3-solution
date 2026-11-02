@@ -10,7 +10,9 @@ added here as they are built (plan section 4.3).
     uv run python tools/gb_offline.py --stage see|check|carry|guards|show --run <name> [--games a,b]
     uv run python tools/gb_offline.py --stage pool --run <new> --from g0b_bars,g1 [--report]
     uv run python tools/gb_offline.py --stage replay --run <new> [--book <run>] --games lp85 [--seeds 0,1,2] [--arm A]
-    uv run python tools/gb_offline.py --stage templates --run <run with S0 on lp85,ls20> --book <run>
+    uv run python tools/gb_offline.py --stage templates --run <run with S0 on lp85,ls20> --book <run>   # v0 smoke
+    uv run python tools/gb_offline.py --stage catalog --run h3_catalog --from pool_g0b_g1,smoke_lp85
+    uv run python tools/gb_offline.py --stage templates --run <run with S0> [--g3]                   # v1 try
     uv run python tools/gb_offline.py --stage carry --later --run <new> --book <run> --games tu93 [--seeds 0,1,2]
 
 --import-cp1  re-run Rulebook v2's CP1 with gb/core (no LLM, no search) and write
@@ -40,10 +42,16 @@ added here as they are built (plan section 4.3).
               On a dev game this IS the offline counterfactual (prereg section 5):
               it refuses dev games without --cf, which is for after section 5 is
               registered.
---stage templates  H3 TEMPLATES' smoke test (custom_agents/gb/h3_templates.py): a
-              throwaway catalog from --book's trusted rules on the dev games,
-              each template re-bound on the seen games' training levels (S0's
-              evidence in --run); seen games only.
+--stage templates  H3 TEMPLATES (custom_agents/gb/h3_templates.py). With --book:
+              version 0, the 18 Oct smoke test (a throwaway catalog from
+              --book's trusted rules on the dev games, each template re-bound
+              on the seen games' training levels; seen games only). Without:
+              version 1, the catalog (`[templates] catalog`) tried on each game's
+              training level, for the groups S2 would call; an A/B-offline game
+              needs --g3 (G3, prereg section 6) and the catalog registered.
+--stage catalog  H3's version-1 catalog built from the --from runs' trusted rules
+              (dev and seen games only) into `[templates] catalog`, its report in
+              <run>/h3_templates/; then frozen with tools/artifacts.py add.
 --stage write S2 WRITE (custom_agents/gb/s2_write.py): the local LLM writes rules for
               each action group of the training level (the server must be up:
               experiments/llm/serve.sh). --dry renders the first-round prompts
@@ -68,6 +76,8 @@ added here as they are built (plan section 4.3).
               mask.complete_bars=false; stages record the settings they used.
 --compare-cp1 does --run (made by --stage mask, check, carry) give CP1's results?
               Exit status 1 if not (cp1_import.matches).
+--g3          allow the A/B-offline games (G3: only after pre-registration
+              section 6 is registered). The untouched games are always refused.
 """
 import argparse
 import glob
@@ -89,6 +99,7 @@ from gb import s0_mask, s1_see, s2_pool, s2_write, s3_check, s3_guards, s4_carry
 from gb import h3_templates  # noqa: E402
 import tiers  # noqa: E402
 from gb.core.llm import ChatClient  # noqa: E402
+from gb.core.evidence import LevelEvidence  # noqa: E402
 from manifest import read_manifest  # noqa: E402
 from gb import s6_show  # noqa: E402
 
@@ -168,7 +179,7 @@ def main():
     ap.add_argument("--cp1", default=cp1_import.CP1_DIR, help="CP1's registered result folder (read only)")
     ap.add_argument("--workers", type=int, default=cp1_import.WORKERS)
     ap.add_argument("--stage", choices=["mask", "see", "pool", "write", "check", "carry", "guards", "replay", "templates",
-                                        "show"],
+                                        "catalog", "show"],
                     help="run one stage on --run (more are added as they are built)")
     ap.add_argument("--from", dest="src", default="cp1_import",
                     help="--stage mask: a run to copy candidates from, or cp1 (CP1's levels and recordings, no "
@@ -185,6 +196,8 @@ def main():
     ap.add_argument("--seeds", default="0", help="--stage replay: A0 seeds to replay, comma-separated")
     ap.add_argument("--arm", default="", help="--stage replay, carry --later: the manifest's arm (needed if it has several)")
     ap.add_argument("--later", action="store_true", help="--stage carry: --book's rules on every later level (S4 doc)")
+    ap.add_argument("--g3", action="store_true",
+                    help="allow the A/B-offline games: only after prereg section 6 (G3) is registered")
     ap.add_argument("--cf", action="store_true",
                     help="--stage replay on dev games: only after prereg section 5 is registered")
     ap.add_argument("--url", default="http://127.0.0.1:8018/v1", help="--stage write: the LLM server")
@@ -196,6 +209,12 @@ def main():
     if not a.stage:
         if not a.compare_cp1:
             ap.error("nothing to do: give --import-cp1, --stage or --compare-cp1")
+    asked = a.games.split(",") if a.games else []
+    if untouched := [g for g in asked if g in tiers.UNTOUCHED]:
+        sys.exit(f"{', '.join(untouched)}: the untouched tier is only ever run inside the confirm")
+    if (held := [g for g in asked if g in tiers.AB_OFFLINE]) and not a.g3:
+        sys.exit(f"{', '.join(held)}: A/B-offline games are G3's (pre-registration section 6); they need --g3, "
+                 "which is for after that section is registered")
     log = lambda m: print(m, flush=True)
     if a.stage == "show":
         s6_show.build(a.run, log=log)
@@ -267,14 +286,35 @@ def main():
         with open(os.path.join(out, "later_summary.md"), "w") as f:
             f.write(f"# S4 on every later level: {run.name} (book {a.book})\n\n" + s4_carry.later_table(per, log=log))
         return
+    tsettings = dict(h3_templates.DEFAULTS, **{k: v for k, v in run.config.get("templates", {}).items()
+                                              if k in h3_templates.DEFAULTS})
+    p_catalog = os.path.join(ROOT, run.config.get("templates", {}).get("catalog", ""))
+    if a.stage == "catalog":
+        # read only: opening an artifacts.Run would record a session in the source's manifest
+        dirs = [os.path.join(A.results_dir(), n) for n in a.src.split(",")]
+        if missing := [d for d in dirs if not os.path.isdir(d)]:
+            sys.exit(f"no such run: {', '.join(missing)}")
+        catalog, report = h3_templates.build_catalog_v1(dirs, tsettings["max_templates"], log=log)
+        sha = h3_templates.write_catalog_v1(p_catalog, catalog, os.path.join(run.dir, "h3_templates"), report)
+        log(f"wrote {os.path.relpath(p_catalog, ROOT)}: {len(catalog)} templates, sha256 {sha[:16]}; freeze it with "
+            f"tools/artifacts.py add {h3_templates.REGISTRY_NAME} {os.path.relpath(p_catalog, ROOT)} --games dev,seen")
+        return
     if a.stage == "templates":
-        if not a.book:
-            sys.exit("--stage templates needs --book <run> (the catalog's source)")
-        catalog = h3_templates.build_catalog(os.path.join(A.results_dir(), a.book), tiers.DEV)
-        h3_templates.write_catalog(run, catalog)
-        log(f"catalog: {len(catalog)} templates from {a.book}'s books on the dev games")
-        for game in (a.games.split(",") if a.games else games_with_evidence(run)):
-            h3_templates.try_game(run, game, catalog, log=log)
+        games = a.games.split(",") if a.games else games_with_evidence(run)
+        if a.book:                                     # version 0, the smoke test, as run on 18 Oct
+            catalog = h3_templates.build_catalog(os.path.join(A.results_dir(), a.book), tiers.DEV)
+            h3_templates.write_catalog(run, catalog)
+            log(f"catalog: {len(catalog)} templates from {a.book}'s books on the dev games")
+            for game in games:
+                h3_templates.smoke_game(run, game, catalog, log=log)
+            return
+        catalog = h3_templates.load_catalog(p_catalog, verify=any(g in tiers.HELD_OUT for g in games))
+        wsettings = dict(s2_write.DEFAULTS, **{k: v for k, v in run.config.get("write", {}).items()
+                                               if k in s2_write.DEFAULTS})
+        for game in games:
+            ev = LevelEvidence.load(sorted(glob.glob(os.path.join(run.dir, "evidence", f"{game}_L*_train.npz")))[0])
+            h3_templates.try_game(run, game, catalog, s2_write.groups_to_call(ev, wsettings), tsettings, g3=a.g3,
+                                  log=log)
         return
     if a.stage == "write":
         games = a.games.split(",") if a.games else games_with_evidence(run)

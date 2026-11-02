@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-a0-fresh
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-a0-fresh gb-catalog gb-g3
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -53,6 +53,10 @@ gb-help:
 	@echo "                     8 dev games x seeds 0-1 x 100k, then paired_compare --rule dev --expect 16 (GPU)"
 	@echo "  make gb-a0-fresh [SEEDS=0,1]  A0 (mb_gated_att, no S5) run again on the 8 dev games x 100k:"
 	@echo "                     the drift and noise control, compared with A0's 27 Sep runs (GPU, ~3 h)"
+	@echo "  make gb-catalog     H3's version-1 catalog from pool_g0b_g1 and smoke_lp85 (dev and seen games)"
+	@echo "                     into artifacts/glassbox_templates_v1.jsonl (CPU, ~20 s; refuses once registered)"
+	@echo "  make gb-g3 G3=1     G3 (prereg 6; G3=1 only after it is registered; the LLM server up): GB and GB+T"
+	@echo "                     on the 8 A/B-offline games, then gb_gate.py g3 (GPU, ~15 h, backgrounded)"
 	@echo "  make gb-report RUN=<name>   S6: results/glassbox/<name>/s6_show/index.html (funnel, case viewer)"
 	@echo "  Stage commands are added as each stage is built; the planned list is at the top of"
 	@echo "  experiments/glassbox/gb.mk."
@@ -167,3 +171,30 @@ gb-a0-fresh:
 	  --seeds $(if $(filter command line environment,$(origin SEEDS)),$(SEEDS),0,1) --cap 100000 \
 	  >> results/glassbox/a0_fresh/a0_log.txt 2>&1 < /dev/null &
 	@echo "started detached; log: results/glassbox/a0_fresh/a0_log.txt   pause: touch results/glassbox/a0_fresh/online/STOP"
+
+# H3's version-1 catalog (custom_agents/gb/h3_templates.py, CATALOG): built once, then frozen with
+# tools/artifacts.py add glassbox_templates_v1 artifacts/glassbox_templates_v1.jsonl --games dev,seen
+gb-catalog:
+	uv run python tools/gb_offline.py --stage catalog --run h3_catalog --from pool_g0b_g1,smoke_lp85
+
+# G3, pre-registration section 6: GB (S0 -> S1 -> S2 -> S3 -> S4 -> guards, as G1) and GB+T (the same, with
+# H3's registered catalog tried before S2 and S2 started from what it adopts) on the 8 A/B-offline games,
+# from A0's seed-0 recordings; then the verdict. G3=1 only after section 6 is registered. Backgrounded.
+AB_GAMES = ar25,lf52,re86,s5i5,sc25,sp80,su15,tn36
+G3_OFF = uv run python tools/gb_offline.py
+gb-g3:
+	$(if $(G3),,$(error G3=1 only after pre-registration section 6 is registered))
+	mkdir -p results/glassbox/g3
+	setsid nohup sh -c '\
+	  $(G3_OFF) --stage mask --run g3_gb --from cp1 --games $(AB_GAMES) --g3 && \
+	  $(G3_OFF) --stage see --run g3_gb && $(G3_OFF) --stage write --run g3_gb && \
+	  $(G3_OFF) --stage check --run g3_gb && $(G3_OFF) --stage carry --run g3_gb && \
+	  $(G3_OFF) --stage guards --run g3_gb && \
+	  $(G3_OFF) --stage mask --run g3_gbt --from cp1 --games $(AB_GAMES) --g3 && \
+	  $(G3_OFF) --stage see --run g3_gbt && $(G3_OFF) --stage templates --run g3_gbt --g3 && \
+	  $(G3_OFF) --stage write --run g3_gbt --set templates.enabled=true && \
+	  $(G3_OFF) --stage check --run g3_gbt && $(G3_OFF) --stage carry --run g3_gbt && \
+	  $(G3_OFF) --stage guards --run g3_gbt && \
+	  uv run python tools/gb_gate.py g3 --run g3_gbt --base g3_gb' \
+	  >> results/glassbox/g3/g3_log.txt 2>&1 < /dev/null &
+	@echo "started detached; log: results/glassbox/g3/g3_log.txt"
