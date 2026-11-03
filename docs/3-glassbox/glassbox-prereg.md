@@ -19,12 +19,12 @@ before the run they affect.
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
-| 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). The run starts on Matt's word |
+| 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
 | 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
-| 11 | Changes after registration | entries 1-6 |
+| 11 | Changes after registration | entries 1-7 |
 
 ---
 
@@ -774,3 +774,11 @@ started.)*
    tools/gb_gate.py experiments/glassbox artifacts/glassbox_templates_v1.jsonl`
    shows only these lines of `experiments/glassbox/gb.mk`. G3 runs from the
    commit that records this entry.
+7. **3 Nov 2026, section 6, after G3 ran (no change to its text or numbers).**
+   Both runs record `ebba7e1+dirty`, as in entry 1 only because of the
+   `ARC-AGI-3-Agents` submodule's local edits. In entry 6, "(21:47)" is when
+   the run that worked started (21:46:57); the launch that failed was at
+   21:45. GB+T's S2 sent no request to the server (every answer came from the
+   copy of GB's cache); on sc25 the binding search's time budget gave one
+   unadmitted first-round rule a different grade (`g3-templates.md`, "One
+   cache"), which changes no number section 6 gates on or reports.

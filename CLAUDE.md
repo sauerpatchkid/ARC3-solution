@@ -102,7 +102,7 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (2 Nov 2026)
+## Where things stand (3 Nov 2026)
 
 **Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
@@ -110,10 +110,11 @@ closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
 M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
 (prereg 5a) run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels);
 three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
-book on every later level). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+book on every later level); **G3 (6) run 2-3 Nov: FAIL** (no template adopted
+on any held-out game). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual) and 5b (G2) registered and run; **6 (G3) registered 2 Nov,
-not yet run**; 1, 2, 8–10 still drafts; 7 not written.
+5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 1, 2, 8–10 still
+drafts; 7 (G4) not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -165,7 +166,8 @@ not yet run**; 1, 2, 8–10 still drafts; 7 not written.
     and S2 started from adopted templates (`[templates] enabled`); A/B-offline games
     only with `--g3` (every offline stage) and a registered catalog. Seen-game
     check: ls20 0 of 64 adopted, lp85 only its own rule. v0's smoke (0 of 21)
-    kept as run. G3: `make gb-g3 G3=1 [G3_SHARE=1]`, verdict `gb_gate.py g3`.
+    kept as run. G3: `make gb-g3 G3=1 [G3_SHARE=1]`, verdict `gb_gate.py g3`;
+    run 2-3 Nov: 0 of 792 tries adopted (results below).
   - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
   - **Not built:** H2 SCHEDULER (online LLM), S5 probes; IMAGINE and contact goals
     dropped 2 Nov (plan §7.3).
@@ -224,20 +226,30 @@ not yet run**; 1, 2, 8–10 still drafts; 7 not written.
     m0r0 L3 (wrong wherever it applies), vc33 (no rule re-binds). It never
     claims every live cell: **plan §7.3's IMAGINE precondition is met by no
     game** (the 18 Oct reading was the weaker "whole screen right").
-- **Next (Matt, 2 Nov; plan §6.3: the confirm runs only if dev sweep 2 shows
-  GB >= A0):** **no IMAGINE** (§7.3; nor contact goals). §6 (G3) and the catalog
-  registered 2 Nov (one answer cache, `G3_SHARE=1`). **G3 starts only on Matt's
-  word** ("wait for me to say start"): the server up, then `make gb-g3 G3=1
-  G3_SHARE=1` (GPU, ~8 h), code unchanged since `734600b`. Then S5 v2
-  (colour no-ops judged at the level's end) as dev sweep 2's candidate; **dev
-  sweep 2 (Wed 11 - Fri 13 Nov): a same-day A0 arm, 4 seeds per arm.** Course:
-  idea statement Mon 2 Nov (plan §2.1 still names predicted moves), final Mon 7 Dec.
+  - **G3** (2-3 Nov, prereg 6, `g3-templates.md`): **FAIL**, as expected. On
+    the 8 A/B-offline games H3 adopted no template (0 of 792 tries; none got a
+    changed cell right), so GB+T equals GB on every game (its S2 replayed GB's
+    285 calls from the shared cache, no new request). GB, the first held-out
+    test of S1-S4: mean cell coverage 13.8% (G1 on dev 32.0%), 16 trusted
+    rules, 46% of answers out of room (G1 35%); s5i5's book beats "nothing" and
+    "memory" at T1; tn36's is wrong on 8.1% of changing cases; lf52 is a
+    perception gap (S1 explains 0.0%). Runs `results/glassbox/g3_gb`, `g3_gbt`.
+- **Next (plan §6.3: the confirm runs only if dev sweep 2 shows GB >= A0;
+  since G3 failed, it runs GB, which has no book outside the 8 dev games and
+  plays there as GB-free):** **S5 v2** (colour no-ops judged at the level's
+  end, `dc22-noop-check.md`) as dev sweep 2's candidate; **dev sweep 2 (Wed 11
+  - Fri 13 Nov): a same-day A0 arm, 4 seeds per arm** (Matt, 2 Nov).
+  `gb_sweep.py` needs a flag of its own for it (`--g2` is tied to §5b) and a
+  GB vs A0-fresh verdict under `--rule dev`; A0's 27 Sep runs have seeds 0-2
+  only. Then §7 (G4) registered by Sat 14 Nov, the confirm from Mon 16 Nov.
+  No IMAGINE, no contact goals (§7.3). Course: final report Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
   `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings
-  untried on tr87 when the machine is busy (run S4 on a quiet machine); the
+  untried on tr87 when the machine is busy (run S4 on a quiet machine; H3's
+  try too: G3's budget cut 118 of 792 tries short); the
   `ARC-AGI-3-Agents` submodule's local edits make manifests say `+dirty`
   (prereg §11). `--set` overrides are recorded in stage headers, not in the
   run's copied `config.toml`. S5's online colour carry lags its replay (see

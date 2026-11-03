@@ -78,6 +78,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [A0 run again](3-glassbox/a0-fresh.md) (run 19 Oct, exploratory): the adopted Goose, unchanged, completed 33 levels on G2's 16 runs where its 27 Sep runs completed 37 (1 / 12 / 3). G2's arms (34, 35) are above it: G2's gap is A0's own noise, about ±2.6 levels per 16 runs.
 - [dc22's no-op rules over whole levels](3-glassbox/dc22-noop-check.md) (2 Nov, exploratory): on 9 recordings they covered 4,160 moves and none changed anything; dc22's level-2 stall happens with no guide too. Also: online, colours are carried later than the counterfactual assumed (vc33, dc22, m0r0, cd82).
 - [The book on every later level](3-glassbox/carry-later-levels.md) (2 Nov, exploratory): what IMAGINE would have to work with where Goose stops.
+- [G3, templates on held-out games](3-glassbox/g3-templates.md) (3 Nov, prereg 6): **FAIL**, as expected: no template was adopted on any of the 8 held-out games (0 of 792 tries; none got a changed cell right), so GB+T equals GB. GB's first held-out numbers: mean cell coverage 13.8% (32.0% on the dev games), 16 trusted rules; s5i5's book beats both baselines at T1.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes
