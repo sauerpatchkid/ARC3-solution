@@ -184,6 +184,7 @@ gb-catalog:
 # exactly as GB did gets GB's answer.
 AB_GAMES = ar25,lf52,re86,s5i5,sc25,sp80,su15,tn36
 G3_OFF = uv run python tools/gb_offline.py
+G3_CACHE = results/glassbox/g3_gb/s2_write/llm_cache.jsonl
 gb-g3:
 	$(if $(G3),,$(error G3=1 only after pre-registration section 6 is registered))
 	mkdir -p results/glassbox/g3
@@ -194,8 +195,7 @@ gb-g3:
 	  $(G3_OFF) --stage guards --run g3_gb && \
 	  $(G3_OFF) --stage mask --run g3_gbt --from cp1 --games $(AB_GAMES) --g3 && \
 	  $(G3_OFF) --stage see --run g3_gbt && $(G3_OFF) --stage templates --run g3_gbt --g3 && \
-	  $(if $(G3_SHARE),mkdir -p results/glassbox/g3_gbt/s2_write && \
-	  cp results/glassbox/g3_gb/s2_write/llm_cache.jsonl results/glassbox/g3_gbt/s2_write/llm_cache.jsonl && \)
+	  $(if $(G3_SHARE),mkdir -p results/glassbox/g3_gbt/s2_write && cp $(G3_CACHE) results/glassbox/g3_gbt/s2_write/ &&) \
 	  $(G3_OFF) --stage write --run g3_gbt --set templates.enabled=true && \
 	  $(G3_OFF) --stage check --run g3_gbt && $(G3_OFF) --stage carry --run g3_gbt && \
 	  $(G3_OFF) --stage guards --run g3_gbt && \

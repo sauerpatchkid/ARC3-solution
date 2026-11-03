@@ -24,7 +24,7 @@ before the run they affect.
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
-| 11 | Changes after registration | entries 1-5 |
+| 11 | Changes after registration | entries 1-6 |
 
 ---
 
@@ -762,3 +762,15 @@ started.)*
    scored runs. An answer is reused only for a byte-identical request (the cache
    key is the whole request), so nothing is learned between the arms; the arms
    then differ only where a template changed what S2 asked.
+6. **2 Nov 2026, section 6, after registration and before any G3 run started.**
+   The registered launcher could not run: in `make gb-g3` (gb.mk at `734600b`) a
+   line inside `$(if $(G3_SHARE),...)` ended in `\)`, which ends make's line
+   continuation, so the shell got an unterminated quote (21:47) and ran nothing:
+   no run folder was made, and `results/glassbox/g3/` held only the server's
+   log. Those two lines were fixed (the copy step on one line, `G3_CACHE` for
+   its path) and the generated command checked with `sh -n` before running: it
+   is section 6's sequence, the copy just before GB+T's S2. Nothing else
+   differs from `734600b`: `git diff 734600b -- custom_agents/gb tools/gb_offline.py
+   tools/gb_gate.py experiments/glassbox artifacts/glassbox_templates_v1.jsonl`
+   shows only these lines of `experiments/glassbox/gb.mk`. G3 runs from the
+   commit that records this entry.
