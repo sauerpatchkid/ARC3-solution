@@ -4,6 +4,8 @@
     uv run python tools/gb_sweep.py --run g2_smoke --games lp85 --seeds 0 --cap 3000 --jobs 2   # a smoke test
     uv run python tools/gb_sweep.py --run g2 --games dev --seeds 0,1 --book pool_g0b_g1 --g2   # G2 (prereg 5b)
     uv run python tools/gb_sweep.py --run a0_fresh --arms A0-fresh --games dev --seeds 0,1   # A0 run again
+    uv run python tools/gb_sweep.py --run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 \
+        --book pool_g0b_g1 --dev2                          # dev sweep 2 (prereg 7a)
     uv run python tools/gb_sweep.py ... --dry-run          # the plan and an ETA, nothing run
     uv run python tools/gb_sweep.py ... --resume           # skip runs already in the run's manifest
 
@@ -26,12 +28,15 @@ loses only the runs in progress (--resume continues). `touch <run>/online/STOP`
 pauses after the runs in progress. When every run is in, tools/paired_compare.py
 writes the verdicts: GB against A0 (--rule dev --expect N, G2's rule), and,
 reported, GB-free against A0, GB against GB-free, A0-fresh against A0, and GB and
-GB-free against A0-fresh.
+GB-free against A0-fresh. With --dev2 (dev sweep 2) the verdict is instead GB
+against the same-day A0-fresh, under the same rule (verdict_gb_vs_a0_fresh.md).
+Comparisons against A0's 27 Sep runs are skipped when they lack some of the games
+and seeds asked (they have seeds 0-2 only), since --expect would block them.
 
-With S5 (GB, GB-free), dev games are G2 (pre-registration section 5b): they need
---g2, which is for after that section is registered. A0-fresh has no S5 and runs
-on dev games without it. Seen games (lp85, ls20) run without it, for smoke tests.
-Held-out games are refused.
+With S5 (GB, GB-free), dev games need --g2 (G2, pre-registration section 5b) or
+--dev2 (dev sweep 2, section 7a), each for after its section is registered.
+A0-fresh has no S5 and runs on dev games without either. Seen games (lp85, ls20)
+run without them, for smoke tests. Held-out games are refused.
 
 Copied in pattern from legacy/goose_experiments/upgrade_screen/screen.py (live
 code never imports legacy/).
@@ -91,19 +96,29 @@ def write_a0(out, games, seeds):
     return path, len(rows)
 
 
-def verdicts(out, a0, n, arms):
+def verdicts(out, a0, n, n_a0, arms, dev2=False):
+    """paired_compare's verdicts (module doc). `n` runs per arm; `n_a0` of A0's 27 Sep runs
+    match the games and seeds asked (all of them, or the comparisons with A0 are skipped)."""
     m = os.path.join(out, "manifest.tsv")
+    dev = ["--rule", "dev", "--expect", str(n)]
     plan = []
-    if "GB" in arms:
-        plan.append((f"{a0}:{AGENT}", f"{m}:GB", ["--rule", "dev", "--expect", str(n)], "verdict_gb_vs_a0.md"))
-    if "GB-free" in arms:
-        plan.append((f"{a0}:{AGENT}", f"{m}:GB-free", ["--rule", "dev", "--expect", str(n)], "gb_free_vs_a0.md"))
+    if dev2:                                    # dev sweep 2 (prereg 7a): GB against the same-day A0
+        plan.append((f"{m}:A0-fresh", f"{m}:GB", dev, "verdict_gb_vs_a0_fresh.md"))
+    if n_a0 == n:
+        if "GB" in arms and not dev2:
+            plan.append((f"{a0}:{AGENT}", f"{m}:GB", dev, "verdict_gb_vs_a0.md"))
+        if "GB-free" in arms:
+            plan.append((f"{a0}:{AGENT}", f"{m}:GB-free", dev, "gb_free_vs_a0.md"))
+        if "A0-fresh" in arms:
+            plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
+    else:
+        print(f"=== A0's 27 Sep runs cover {n_a0} of these {n} game x seed pairs: comparisons with them skipped",
+              flush=True)
     if {"GB", "GB-free"} <= set(arms):
         plan.append((f"{m}:GB-free", f"{m}:GB", ["--expect", str(n)], "gb_vs_gb_free.md"))
     if "A0-fresh" in arms:
-        plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
         for arm in ("GB", "GB-free"):
-            if arm in arms:
+            if arm in arms and not (dev2 and arm == "GB"):
                 plan.append((f"{m}:A0-fresh", f"{m}:{arm}", ["--expect", str(n)],
                              f"{arm.lower().replace('-', '_')}_vs_a0_fresh.md"))
     for base, new, extra, name in plan:
@@ -124,6 +139,8 @@ def main():
     ap.add_argument("--resume", action="store_true", help="skip runs already in the run's manifest")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--g2", action="store_true", help="allow dev games: only after prereg section 5b is registered")
+    ap.add_argument("--dev2", action="store_true",
+                    help="dev sweep 2: allow dev games, verdict GB vs A0-fresh; only after prereg section 7a is registered")
     a = ap.parse_args()
 
     games = list(tiers.TIERS[a.games]) if a.games in tiers.TIERS else [g for g in a.games.split(",") if g]
@@ -139,9 +156,11 @@ def main():
     if held:
         sys.exit(f"{', '.join(held)}: held-out games are never run here")
     dev = [g for g in games if g in tiers.DEV]
-    if dev and not a.g2 and {"GB", "GB-free"} & set(arms):
-        sys.exit(f"{', '.join(dev)}: dev games are G2 (pre-registration section 5b); they need --g2, which is "
-                 "for after that section is registered")
+    if dev and not (a.g2 or a.dev2) and {"GB", "GB-free"} & set(arms):
+        sys.exit(f"{', '.join(dev)}: with S5, dev games are G2 (--g2, pre-registration section 5b) or dev sweep 2 "
+                 "(--dev2, section 7a), each for after its section is registered")
+    if a.dev2 and not {"GB", "A0-fresh"} <= set(arms):
+        sys.exit("--dev2 compares GB with the same-day A0: --arms needs GB and A0-fresh")
 
     out = os.path.join(A.results_dir(), a.run, "online")
     manifest = os.path.join(out, "manifest.tsv")
@@ -220,7 +239,7 @@ def main():
     if missing:
         print(f"=== {len(missing)} runs missing (see logs); rerun with --resume before the verdict", flush=True)
         return
-    verdicts(out, a0, len(games) * len(seeds), arms)       # --expect blocks if A0 lacks a run
+    verdicts(out, a0, len(games) * len(seeds), n_a0, arms, a.dev2)   # --expect blocks if an arm lacks a run
 
 
 if __name__ == "__main__":

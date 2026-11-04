@@ -111,14 +111,20 @@ M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
 (prereg 5a) run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels);
 three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
 book on every later level); **G3 (6) run 2-3 Nov: FAIL** (no template adopted
-on any held-out game). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+on any held-out game); **S5 v2 built 3 Nov** (dev sweep 2's candidate). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 1, 2, 8–10 still
-drafts; 7 (G4) not written.
+5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 7a (dev sweep 2)
+drafted 3 Nov; 1, 2, 8–10 still drafts; 7 (G4) not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
   Oct full draft, Mon 2 Nov idea statement, Mon 7 Dec final. Plan §7.
+  **Moved up 3 Nov (Matt): everything in the plans finished by Tue 17 Nov**, then
+  2-3 weeks of write-up: S5 v2 (3-4 Nov), dev sweep 2 (~Thu 5 - Fri 6 Nov), G4
+  (~Sun 8 - Tue 10 Nov; with no online LLM it is ~14 h per 75-run arm, not the
+  plan's 55-95 h), its write-up by Thu 12 Nov, buffer to 17 Nov. **Cut:** the
+  online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
+  uninformative) and the frontier showcase (only if the buffer allows).
 - **Built** (`custom_agents/gb/`, one file per stage; `gb/README.md` has each
   one's status, `make gb-help` its command):
   - **S0 MASK** `s0_mask.py`: each bar in the decoration mask run to the
@@ -159,6 +165,16 @@ drafts; 7 (G4) not written.
     `make gb-cf`), refused on dev games without `--cf`/`CF=1`; it counts masking
     by colour and rule, and replays other recordings with `--set
     run.manifest="<manifest>"` and `--arm`.
+  - **S5 ACT v2** (3 Nov, `s5-v2.md`, tuned on dev games; **on in
+    `glassbox.toml`**, off in the code's defaults): `[act] colour_judge =
+    "level_end"` (a colour's changed cells judged at the level's end under the
+    mask with S0's bars completed, not click by click) and `mask_bars = true`
+    (the guide's online mask with S0's bars completed, so a bar's last cell no
+    longer drops a carried colour). The replay's `replay_mask = "agent"`
+    rebuilds the agent's own mask from a recording (`AgentMask`) and lists what
+    an online S5 run carried: v1 that way reproduces G2's online carries on 9 of
+    10 recordings, and v2 that way gives 5a's numbers exactly. No `cpu_check`
+    needed: `action.py` untouched, `s5_act` imported only under `EVAL_GB=1`.
   - **H3 TEMPLATES v1** `h3_templates.py` (2 Nov): the catalog
     (`make gb-catalog`: 40 templates from `pool_g0b_g1` + `smoke_lp85`,
     `artifacts/glassbox_templates_v1.jsonl`, sha256 `c263262ecffd8d75`,
@@ -175,10 +191,13 @@ drafts; 7 (G4) not written.
     guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB,
     GB-free and A0-fresh arms, 4 at a time, verdicts vs A0 with a 16-run A0
     manifest; `make gb-online` seen games, `make gb-g2 BOOK=.. G2=1` dev games only
-    after §5b is registered, `make gb-a0-fresh` A0 run again); verdicts
+    after §5b is registered, `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1` dev sweep 2
+    only after §7a is registered (`--dev2`: GB vs A0-fresh under `--rule dev`;
+    comparisons with A0's 27 Sep runs skipped when they lack the seeds),
+    `make gb-a0-fresh` A0 run again); verdicts
     `tools/gb_gate.py`.
 - **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
-  gb-g0b-control`. 238 live tests.
+  gb-g0b-control`. 252 live tests.
 - **Results** (each written up in `docs/3-glassbox/`):
   - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
     a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
@@ -234,15 +253,24 @@ drafts; 7 (G4) not written.
     rules, 46% of answers out of room (G1 35%); s5i5's book beats "nothing" and
     "memory" at T1; tn36's is wrong on 8.1% of changing cases; lf52 is a
     perception gap (S1 explains 0.0%). Runs `results/glassbox/g3_gb`, `g3_gbt`.
+  - **S5 v2 check** (3 Nov, `s5-v2.md`, exploratory, CPU): replaying G2's
+    GB-free runs with the agent's mask, v2 carries the counterfactual's colours
+    on all 10 (m0r0 7 and 3 instead of 1 and 0, cd82 3 instead of 0, vc33 a
+    level earlier); avoidable waste vc33 29.0 → 38.2%, m0r0 0.1 → 6.5%, dc22
+    1.6 → 5.3%, cd82 0 → 3.1%; masking <= 0.05%. Every drop v2 alone still had
+    was a bar's last cell on row 63 (hence `mask_bars`). Runs
+    `results/glassbox/s5v2_*`, commands `s5v2_check/run.sh`, `run_b.sh`.
 - **Next (plan §6.3: the confirm runs only if dev sweep 2 shows GB >= A0;
   since G3 failed, it runs GB, which has no book outside the 8 dev games and
-  plays there as GB-free):** **S5 v2** (colour no-ops judged at the level's
-  end, `dc22-noop-check.md`) as dev sweep 2's candidate; **dev sweep 2 (Wed 11
-  - Fri 13 Nov): a same-day A0 arm, 4 seeds per arm** (Matt, 2 Nov).
-  `gb_sweep.py` needs a flag of its own for it (`--g2` is tied to §5b) and a
-  GB vs A0-fresh verdict under `--rule dev`; A0's 27 Sep runs have seeds 0-2
-  only. Then §7 (G4) registered by Sat 14 Nov, the confirm from Mon 16 Nov.
-  No IMAGINE, no contact goals (§7.3). Course: final report Mon 7 Dec.
+  plays there as GB-free):** the S5 v2 online smoke (vc33 and m0r0, 20k
+  actions, seed 0; OK'd by Matt 3 Nov); then Matt registers **§7a, dev sweep 2**
+  (designed 3 Nov: arms A0-fresh and GB with S5 v2, 8 dev games x **seeds 3-6**
+  x 100k = 64 runs, ~12 h; no GB-free; verdict GB vs A0-fresh, `--rule dev
+  --expect 32`; `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1`). If it passes, §7 (G4)
+  is written and registered (Matt's open question: A0's 27 Sep runs as the
+  baseline, or a same-day A0 arm on all 75, ~14 h; recommended: the same-day
+  arm as primary, 112 reported beside). No IMAGINE, no contact goals (§7.3).
+  Course: final report Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
@@ -252,8 +280,9 @@ drafts; 7 (G4) not written.
   try too: G3's budget cut 118 of 792 tries short); the
   `ARC-AGI-3-Agents` submodule's local edits make manifests say `+dirty`
   (prereg §11). `--set` overrides are recorded in stage headers, not in the
-  run's copied `config.toml`. S5's online colour carry lags its replay (see
-  dc22's check). S0's mask misses a bar that changes 3 cells a move (tu93 L4;
+  run's copied `config.toml`. S5 v1's online colour carry lagged its replay
+  (dc22's check; fixed in v2). The agent's own mask (`canon.py`, the bars
+  upgrade) still lacks bars' last cells; only S5 completes them. S0's mask misses a bar that changes 3 cells a move (tu93 L4;
   `gridtools.tick_cells` too); a mask kept across levels covers it.
 - **Frontier models:** everything is the local model. The only frontier use is
   an optional showcase in late November (plan §6.5, limits in prereg §10).

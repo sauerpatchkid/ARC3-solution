@@ -73,6 +73,108 @@ def test_a_colour_that_ever_changed_something_is_not_carried():
     assert g.covered(b, click(5, 5)) == ()
 
 
+# ---- v2: colour no-ops judged at the level's end ----------------------------------------------------
+V2 = {"colour_judge": "level_end"}
+
+
+def clicks_that_also_change(cell, n=25, colour=3):
+    """`n` clicks on a colour-`colour` cell, each also changing `cell` (a decoration, say)."""
+    b = board(0, [(5, 5, colour)])
+    after = b.copy()
+    after[cell] = 9
+    return b, after, [(b, click(5, 5), after)] * n
+
+
+def test_v1_never_carries_a_colour_whose_clicks_moved_a_decoration_before_the_mask_knew_it():
+    g = S.Guide("toy")
+    b, after, moves = clicks_that_also_change((0, 10))
+    g.new_level(1, b)
+    for m in moves:
+        g.observe(*m, changed=True)                         # judged under an empty mask at the time
+    deco = np.zeros((64, 64), bool)
+    deco[0, 10] = True
+    g.new_level(2, b, deco, end_mask=deco)
+    assert g.covered(b, click(5, 5)) == ()
+
+
+def test_v2_carries_it_when_every_cell_its_clicks_changed_is_masked_at_the_levels_end():
+    g = S.Guide("toy", settings=V2)
+    b, after, moves = clicks_that_also_change((0, 10))
+    g.new_level(1, b)
+    for m in moves:
+        g.observe(*m, changed=True)
+    deco = np.zeros((64, 64), bool)
+    deco[0, 10] = True
+    g.new_level(2, b, deco, end_mask=deco)
+    assert g.covered(b, click(5, 5)) == ("colour 3",)
+    g.observe(b, click(5, 5), b, changed=True)              # dropping is v1's: at once
+    assert g.covered(b, click(5, 5)) == ()
+
+
+def test_v2_does_not_carry_a_colour_whose_clicks_changed_a_live_cell():
+    g = S.Guide("toy", settings=V2)
+    b, after, moves = clicks_that_also_change((20, 20))
+    g.new_level(1, b)
+    for m in moves:
+        g.observe(*m, changed=False)                        # whatever it was told then
+    deco = np.zeros((64, 64), bool)
+    deco[0, 10] = True
+    g.new_level(2, b, deco, end_mask=deco)
+    assert g.covered(b, click(5, 5)) == ()
+
+
+def test_v2_runs_the_masks_bars_to_the_edges_first():
+    """m0r0's case: the mask's bar on row 63 stops at column 57; a click empties (63, 60)."""
+    bar = np.zeros((64, 64), bool)
+    bar[63, :58] = True
+    for settings, expect in ((V2, ("colour 3",)), ({}, ())):
+        g = S.Guide("toy", settings=settings)
+        b, after, moves = clicks_that_also_change((63, 60))
+        g.new_level(1, b, bar)
+        for m in moves:
+            g.observe(*m)                                   # judged under the level's mask: (63, 60) is live
+        g.new_level(2, b, bar)                              # no end mask: the level's own (the replay's case)
+        assert g.covered(b, click(5, 5)) == expect
+
+
+def test_online_hands_the_mask_at_the_level_up_to_v2():
+    g = S.Guide("toy", settings=V2)
+    o = S.Online(g)
+    b, after, _ = clicks_that_also_change((0, 10))
+    o.step(None, None, b, 0, None)
+    for _ in range(25):
+        o.step(b, click(5, 5), after, 0, None)              # no mask yet: each click "changed" something
+        o.step(after, 0, b, 0, None)                        # (a button puts it back)
+    deco = np.zeros((64, 64), bool)
+    deco[0, 10] = True
+    o.step(None, None, b, 1, deco)                          # level 2: by now the mask has the decoration
+    assert g.colour_noops == {3: 1}
+
+
+@pytest.mark.parametrize("mask_bars, dropped", [(False, True), (True, False)])
+def test_mask_bars_keeps_a_bars_last_cell_from_dropping_a_carried_colour(mask_bars, dropped):
+    """Online, the agent's bar on row 63 stops at column 57; a click empties (63, 60)."""
+    g = S.Guide("toy", settings=dict(V2, mask_bars=mask_bars))
+    o = S.Online(g)
+    bar = np.zeros((64, 64), bool)
+    bar[63, :58] = True
+    b, after, _ = clicks_that_also_change((0, 10))
+    o.step(None, None, b, 0, bar)
+    for _ in range(25):
+        o.step(b, click(5, 5), b, 0, bar)                   # 25 dead clicks on colour 3
+    o.step(None, None, b, 1, bar)                           # level 2: colour 3 carried
+    assert g.colour_noops == {3: 1}
+    emptied = b.copy()
+    emptied[63, 60] = 7
+    o.step(b, click(5, 5), emptied, 1, bar)
+    assert (3 not in g.colour_noops) == dropped
+
+
+def test_an_unknown_colour_judge_is_refused():
+    with pytest.raises(ValueError):
+        S.Guide("toy", settings={"colour_judge": "sometimes"})
+
+
 def test_goal_colours_are_the_ones_that_vanished_or_shrank_most():
     first = board(0, [(1, 1, 5), (1, 2, 5), (2, 2, 7), (3, 3, 7), (3, 4, 7), (9, 9, 8)])
     before_win = board(0, [(9, 9, 8), (3, 3, 7)])           # 5 vanished (2 cells), 7 shrank by 2, 8 kept
@@ -267,3 +369,49 @@ def test_replay_counts_waste_and_masking_from_level_2(tmp_path):
     assert rows[0]["covered"] == 0
     assert (rows[1]["window"], rows[1]["waste"], rows[1]["masking"]) == (16, 10, 1)
     assert rows[1]["by"] == {"colour": 11} and rows[1]["masking_by"] == {"colour": 1}
+
+
+def ticking_recording(tmp_path, n_clicks=400):
+    """Level 1: `n_clicks` clicks on colour 3 while cell (0, 0) ticks on every move (a
+    decoration). Level 2: 30 more clicks. The agent's mask learns (0, 0) only after 200 moves."""
+    b0 = board(0, [(5, 5, 3)])
+    b1 = b0.copy()
+    b1[0, 0] = 1
+    F, N, A, L = [], [], [], []
+    for i in range(n_clicks + 1 + 30):
+        before, after = (b0, b1) if i % 2 == 0 else (b1, b0)
+        F.append(before), N.append(after), A.append(click(5, 5) if i != n_clicks else 0)
+        L.append(0 if i <= n_clicks else 1)                 # move n_clicks completes level 1
+    d = tmp_path / "transitions"
+    d.mkdir()
+    np.savez(d / "shard_00000.npz", frames=np.array(F), next_frames=np.array(N), actions=np.array(A),
+             levels=np.array(L), action_nums=np.arange(1, len(A) + 1))
+    return str(d)
+
+
+@pytest.mark.parametrize("settings, carried", [
+    ({}, True),                                              # v1 under S0's mask: the 5a counterfactual
+    ({"replay_mask": "agent"}, False),                       # v1 as the agent judged it online: the lag
+    ({"replay_mask": "agent", **V2}, True),                  # v2 as the agent would judge it
+])
+def test_the_replay_with_the_agents_mask_shows_v1s_lag_and_v2_closes_it(tmp_path, settings, carried):
+    g = S.Guide("toy", settings=settings)
+    rows = S.replay(g, ticking_recording(tmp_path), log=lambda m: None)
+    assert [r["level"] for r in rows] == [1, 2]
+    assert (3 in g.colour_noops) == carried
+    assert rows[1]["masking"] == 0                           # waste and masking: always S0's mask
+    assert rows[1]["waste"] == (30 if carried else 0)
+
+
+def test_the_replay_lists_what_the_online_run_carried(tmp_path):
+    corpus = ticking_recording(tmp_path)
+    (tmp_path / "glassbox").mkdir()
+    with open(tmp_path / "glassbox" / "events.jsonl", "w") as f:
+        f.write('{"kind": "start", "level": null, "move": 0}\n')
+        f.write('{"kind": "colour no-op carried", "level": 2, "move": 9, "colour": 3, "clicks": 20}\n')
+    g = S.Guide("toy")
+    S.replay(g, corpus, log=lambda m: None)
+    r = {"seed": 0, "events": g.events, "online_carried": S.carried(S.read_events(str(tmp_path / "glassbox" /
+                                                                                    "events.jsonl")))}
+    assert S.carry_vs_online(r) == "s0: 1 / 1 (0 same level)"   # the same colour, a level later online
+    assert S.carry_vs_online({"seed": 0, "events": [], "online_carried": None}) is None

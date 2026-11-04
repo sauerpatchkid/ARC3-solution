@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-a0-fresh gb-catalog gb-g3
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-dev2 gb-a0-fresh gb-catalog gb-g3
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -51,6 +51,8 @@ gb-help:
 	@echo "                     of mb_gated_att with S5 (tools/gb_sweep.py; GPU, 4 at a time); seen games only"
 	@echo "  make gb-g2 BOOK=<run> G2=1  G2 (prereg 5b; G2=1 only after it is registered): GB and GB-free,"
 	@echo "                     8 dev games x seeds 0-1 x 100k, then paired_compare --rule dev --expect 16 (GPU)"
+	@echo "  make gb-dev2 BOOK=<run> DEV2=1  dev sweep 2 (prereg 7a; DEV2=1 only after it is registered): GB and"
+	@echo "                     the same-day A0, 8 dev games x seeds 3-6 x 100k, GB vs A0-fresh --rule dev (GPU, ~12 h)"
 	@echo "  make gb-a0-fresh [SEEDS=0,1]  A0 (mb_gated_att, no S5) run again on the 8 dev games x 100k:"
 	@echo "                     the drift and noise control, compared with A0's 27 Sep runs (GPU, ~3 h)"
 	@echo "  make gb-catalog     H3's version-1 catalog from pool_g0b_g1 and smoke_lp85 (dev and seen games)"
@@ -162,6 +164,15 @@ gb-g2:
 	setsid nohup uv run python tools/gb_sweep.py --run g2 --games dev --seeds 0,1 --cap 100000 --book $(BOOK) $(if $(G2),--g2) \
 	  >> results/glassbox/g2/g2_log.txt 2>&1 < /dev/null &
 	@echo "started detached; log: results/glassbox/g2/g2_log.txt   pause: touch results/glassbox/g2/online/STOP"
+
+# Dev sweep 2, pre-registration section 7a: GB (BOOK's no-op rules, S5 as glassbox.toml sets it) against the
+# same-day A0 (A0-fresh), 8 dev games x seeds 3-6 x 100k, arms interleaved. DEV2=1 only after that section is
+# registered. Backgrounded: ~12 h on the GPU.
+gb-dev2:
+	mkdir -p results/glassbox/dev2
+	setsid nohup uv run python tools/gb_sweep.py --run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 --cap 100000 \
+	  --book $(BOOK) $(if $(DEV2),--dev2) >> results/glassbox/dev2/dev2_log.txt 2>&1 < /dev/null &
+	@echo "started detached; log: results/glassbox/dev2/dev2_log.txt   pause: touch results/glassbox/dev2/online/STOP"
 
 # A0 run again (mb_gated_att, EVAL_GB unset): is today's Goose A0's 27 Sep Goose, and how far do seeds spread?
 # Not a gate. Backgrounded: ~3 h on the GPU for seeds 0-1.

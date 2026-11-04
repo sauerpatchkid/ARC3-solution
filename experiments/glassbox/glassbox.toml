@@ -86,6 +86,10 @@ iw_prune = true
 contact_max_steps = 30
 override_cap_run = 10000
 override_stall = 500
+colour_judge = "level_end"        # S5 v2 (3 Nov, tuned on dev games): colour no-ops judged at the level's end;
+                                  # "click" = v1, each click when made (docs/3-glassbox/s5-v2.md)
+mask_bars = true                  # S5 v2: the guide's online mask with S0's bars run to the edges (false = v1)
+replay_mask = "s0"                # the replay only: "agent" tells the guide what the agent's own mask saw
 
 [schedule]                        # H2 (online)
 warmup_moves = 2000

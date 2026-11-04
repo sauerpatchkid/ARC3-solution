@@ -4,8 +4,9 @@ The problem it fixes: no rule has ever been used online. Goose still spends move
 actions the book knows do nothing, and its map walks across a level to press a button
 the book knows does nothing (plan section 5.5).
 
-Version 1 builds PRUNE, goal HINTS and the map's part (GbMap). PROBE, IMAGINE and
-contact goals come later (the plan's cut line keeps prune and hints first).
+Version 1 builds PRUNE, goal HINTS and the map's part (GbMap). Version 2 changes
+only when a colour no-op is judged (`colour_judge`, below). PROBE, IMAGINE and
+contact goals are not built (IMAGINE and contact goals dropped 2 Nov, plan 7.3).
 
   PRUNE  A move the carried no-ops cover gets Goose's probability x `alpha` (never
          zero, so a contradiction can still show up; the first one drops whatever
@@ -13,7 +14,26 @@ contact goals come later (the plan's cut line keeps prune and hints first).
           - COLOUR no-ops (no LLM; Rulebook v2's strict C2-free rule): a colour
             clicked at least `noop_min_clicks` times on one level with nothing ever
             changing is a no-op on every later level, until a click on it changes
-            something.
+            something. WHEN "nothing changed" is judged is `colour_judge`:
+              "click" (v1): click by click, under the mask of that moment. Online
+                that is the agent's own mask, empty for the run's first
+                EVAL_CANON_WARMUP = 200 moves and short of m0r0's bar end, so one
+                early click that only moved a decoration kept a colour from being
+                carried for the whole level (online vs replay, colours carried:
+                m0r0 1 vs 7 and 0 vs 3, cd82 0 vs 3, vc33 a level late;
+                docs/3-glassbox/dc22-noop-check.md, point 3).
+              "level_end" (v2, tuned on dev games): per colour, the cells its
+                clicks changed are kept; at the level's end the colour is carried
+                if none of them is live under that moment's mask with S0's bars
+                run to the edges (s0_mask.complete_bars). Online the mask is the
+                agent's at the level-up; in the replay, S0's mask of the level.
+            Dropping is the same in both: a click on a carried colour that changes
+            a live cell under the mask of that moment drops it at once. With
+            `mask_bars` (v2, tuned on dev games), the guide's own mask online has
+            S0's bars run to the edges, for every move it is told about: then a
+            click that only empties a bar's last cells (m0r0's (63, 58), dc22's
+            (63, 62) and (63, 63) on G2's GB-free runs) no longer drops a carried
+            colour, nor counts as a change for the rules' wait.
           - the book's no-op RULES: per action group, the candidate with the most
             moves among those meeting v1's known-no-op bar on the training level
             (it applies to >= 20 moves, predicts no change, and the whole board
@@ -59,7 +79,13 @@ each level from level 2 up: AVOIDABLE WASTE = covered moves that indeed changed
 nothing, MASKING RISK = covered moves that changed something (Rulebook v2's
 definitions; counted in recorded moves, reported as shares of the window's).
 "Changed" means a live cell changed: in the replay under the level's decoration mask
-built as S0 builds it; online under the agent's own (the map's) mask.
+built as S0 builds it; online under the agent's own (the map's) mask. With
+`replay_mask = "agent"` the replay shows the guide what the agent would have seen
+instead: the agent's mask rebuilt move by move from the recording (AgentMask: the
+same OnlineCanonicalizer and BarDetector, fed in the agent's order), while waste
+and masking are still judged under S0's mask. Replaying an online S5 run, the
+replay also lists the colours that run carried (its glassbox/events.jsonl), so the
+two can be compared.
 
 Reads  (online) results/glassbox/<book run>/s2_write/<game>/candidates.jsonl and
        s3_check/<game>_L<k>.book.json (EVAL_GB_BOOK; none = the GB-free arm)
@@ -80,13 +106,17 @@ from gb.core import bind as B
 from gb.core.evidence import GRID, LevelEvidence, read_moves, ticker_mask
 from gb.s0_mask import complete_bars
 from gb.s4_carry import ready
+from canon import DEFAULT_REFRESH, DEFAULT_WARMUP, OnlineCanonicalizer
 from return_map import ReturnMap
-from upgrades import UpgradedReturnMap
+from upgrades import BarDetector, UpgradedReturnMap
 
-VERSION = 1
+VERSION = 2
 DEFAULTS = {"prune": True, "hints": True, "alpha": 0.1, "gamma": 1.0, "hint_drop_moves": 2000,
             "noop_min_clicks": 20, "noop_rule_min_cases": 10, "online_min_cases": 10,
-            "online_max_wait": 1000, "waste_window": 2000, "n_hints": 2, "ask_timeout_s": 5.0}
+            "online_max_wait": 1000, "waste_window": 2000, "n_hints": 2, "ask_timeout_s": 5.0,
+            "colour_judge": "click", "mask_bars": False, "replay_mask": "s0"}
+COLOUR_JUDGES = ("click", "level_end")       # v1, v2 (module doc, PRUNE)
+REPLAY_MASKS = ("s0", "agent")
 MAX_DRAWS = 100                  # rejection sampling: the move drawn last is taken
 MAX_CACHE = 200_000              # (screen, move) answers kept before the cache starts over
 CLICKS = 5                       # unified action index of the first click (5 + 64*y + x)
@@ -216,6 +246,8 @@ class Guide:
     def __init__(self, game, rules=(), train_level=None, settings=None, seed=0, log_path=None, worker=None):
         self.game = game
         self.s = dict(DEFAULTS, **(settings or {}))
+        if self.s["colour_judge"] not in COLOUR_JUDGES:
+            raise ValueError(f"colour_judge {self.s['colour_judge']!r}: one of {COLOUR_JUDGES}")
         self.rules = {r["id"]: dict(r) for r in rules}
         self.train_level = train_level
         self.rng = np.random.default_rng(seed)
@@ -227,7 +259,8 @@ class Guide:
         self.first = self.mask = None           # the level's first board; S0's mask (hints, fallback)
         self.rule_mask = None                   # the mask the rules were re-bound with on this level
         self.clicks = collections.Counter()     # colour -> clicks this level
-        self.click_changed = collections.Counter()
+        self.click_changed = collections.Counter()   # colour -> its clicks that changed a live cell then (v1)
+        self.click_cells = {}                   # colour -> cells its clicks changed this level, raw (v2)
         self.moves = []                         # this level's moves, kept until every rule is re-bound
         self.changing = collections.defaultdict(set)   # family -> hashes of distinct changing moves
         self.active = {}                        # rule id -> binding in use on this level
@@ -247,14 +280,19 @@ class Guide:
             with open(self.log_path, "a") as f:
                 f.write(json.dumps(e) + "\n")
 
-    def new_level(self, level, first, mask=None, before_win=None):
+    def new_level(self, level, first, mask=None, before_win=None, end_mask=None):
         """A level starts (1-based `level`; `first` its first board; `mask` a decoration
         mask for goal hints and for `observe` when it is not told whether a move changed
-        anything; `before_win` the board before the previous level's winning move)."""
+        anything; `before_win` the board before the previous level's winning move;
+        `end_mask` the mask at the end of the level just finished, for v2's colour
+        judgement: None means that level's own `mask`)."""
         if self.level is not None:
+            end = None
+            if self.s["colour_judge"] == "level_end":
+                end = complete_bars(np.asarray(self.mask if end_mask is None else end_mask, bool))
             for c in sorted(self.clicks):          # carry colours that never did anything
-                if self.clicks[c] >= self.s["noop_min_clicks"] and not self.click_changed[c] \
-                        and c not in self.colour_noops:
+                if self.clicks[c] >= self.s["noop_min_clicks"] and c not in self.colour_noops \
+                        and self._never_changed(c, end):
                     self.colour_noops[c] = self.level
                     self._event("colour no-op carried", colour=c, clicks=self.clicks[c])
             if self.s["hints"] and before_win is not None and self.first is not None:
@@ -263,9 +301,17 @@ class Guide:
                     self._event("goal hints", colours=sorted(self.hints))
         self.level, self.first = level, np.array(first, np.uint8)
         self.mask = np.zeros((GRID, GRID), bool) if mask is None else np.asarray(mask, bool)
-        self.clicks, self.click_changed = collections.Counter(), collections.Counter()
+        self.clicks, self.click_changed, self.click_cells = collections.Counter(), collections.Counter(), {}
         self.moves, self.changing, self.cache, self.moves_on_level = [], collections.defaultdict(set), {}, 0
         self.active, self.pending, self.rule_mask, self.not_before = {}, set(self.rules), None, {}
+
+    def _never_changed(self, colour, end):
+        """v1: no click on `colour` changed a live cell when it was made. v2 (`end` is the
+        level's end mask, bars completed): none of the cells its clicks changed is live."""
+        if end is None:
+            return not self.click_changed[colour]
+        cells = self.click_cells.get(colour)
+        return cells is None or not (cells & ~end).any()
 
     def _bind_worker(self):
         self.rules_version += 1
@@ -300,6 +346,12 @@ class Guide:
             c = clicked_colour(before, action)
             self.clicks[c] += 1
             self.click_changed[c] += int(changed)
+            if self.s["colour_judge"] == "level_end":
+                diff = before != after
+                if c in self.click_cells:
+                    self.click_cells[c] |= diff
+                else:
+                    self.click_cells[c] = diff
         if self.hints:
             diff = (before != after) & ~self.mask
             for c in list(self.hints):
@@ -475,6 +527,7 @@ class Online:
     def __init__(self, guide, book=None):
         self.guide, self.book = guide, book
         self.score, self.last_raw, self.map = None, None, None
+        self.bars_done = BarsDone()
 
     def wrap_map(self, m):
         """The agent's return map, as a GbMap with the same settings and upgrades."""
@@ -484,14 +537,15 @@ class Online:
     def _mask(self, canon_mask):
         m = np.zeros((GRID, GRID), bool) if canon_mask is None else np.asarray(canon_mask, bool)
         bars = getattr(self.map, "bars", None)
-        return m | bars.sticky if bars is not None else m
+        m = m | bars.sticky if bars is not None else m
+        return self.bars_done(m) if self.guide.s["mask_bars"] else m
 
     def step(self, prev_raw, prev_action, cur_raw, score, canon_mask):
         """Each decision frame. `prev_raw` is None right after a reset or a level change."""
         mask = self._mask(canon_mask)
-        if score != self.score:
+        if score != self.score:                     # the mask now is also the finished level's end mask
             self.guide.new_level(int(score) + 1, cur_raw, mask,
-                                 before_win=self.last_raw if self.score is not None else None)
+                                 before_win=self.last_raw if self.score is not None else None, end_mask=mask)
             self.score = score
         elif prev_raw is not None and prev_action is not None:
             self.guide.observe(prev_raw, int(prev_action), cur_raw, bool(((prev_raw != cur_raw) & ~mask).any()))
@@ -548,11 +602,54 @@ def level_mask(frames, next_frames):
     return complete_bars(mask)
 
 
+class BarsDone:
+    """complete_bars for a mask that changes rarely (the agent's, at its refreshes):
+    worked out again only when the mask differs from the last one."""
+
+    def __init__(self):
+        self.key, self.done = None, None
+
+    def __call__(self, mask):
+        k = np.packbits(mask).tobytes()
+        if k != self.key:
+            self.key, self.done = k, complete_bars(mask)
+        return self.done
+
+
+class AgentMask:
+    """The agent's own decoration mask, rebuilt from a recording for the replay
+    (`replay_mask = "agent"`): mb_gated_att's OnlineCanonicalizer (one per run, never
+    reset at a level) and its bars upgrade's BarDetector, fed each recorded move in the
+    agent's order: the canonicaliser takes the move, S5 judges it under canon | bars,
+    then the bars take it (custom_agents/action.py, the frame step). The level-completing
+    move is not in read_moves, so each level-up's one move is missing: a small gap.
+    `mask_bars`: S0's bars run to the edges, as Online does with that setting."""
+
+    def __init__(self, mask_bars=False, warmup=DEFAULT_WARMUP, refresh=DEFAULT_REFRESH):
+        self.canon, self.bars = OnlineCanonicalizer(warmup, refresh), BarDetector()
+        self.bars_done = BarsDone() if mask_bars else None
+
+    def mask(self):
+        m = self.canon.mask | self.bars.sticky
+        return self.bars_done(m) if self.bars_done is not None else m
+
+    def before_guide(self, before, after):
+        self.canon.update(before, after)
+
+    def after_guide(self, before, after):
+        self.bars.update(before, after)
+
+
 def replay(guide, corpus, max_level=None, log=print):
     """Feed one recorded run through `guide`, level by level (module doc, REPLAY).
     Returns per level {level, moves, window, covered, waste, masking, by, masking_by};
     `by` counts what covered each covered move ('colour', 'rule'; once per colour or rule
-    that covered it), and `masking_by` the same for the covered moves that changed something."""
+    that covered it), and `masking_by` the same for the covered moves that changed something.
+    Waste and masking are judged under S0's mask; what the guide is told changed follows
+    `replay_mask` (S0's mask, or the agent's rebuilt: AgentMask)."""
+    if guide.s["replay_mask"] not in REPLAY_MASKS:
+        raise ValueError(f"replay_mask {guide.s['replay_mask']!r}: one of {REPLAY_MASKS}")
+    agent = AgentMask(guide.s["mask_bars"]) if guide.s["replay_mask"] == "agent" else None
     out, prev_last = [], None
     level0 = 0
     while max_level is None or level0 < max_level:
@@ -560,12 +657,17 @@ def replay(guide, corpus, max_level=None, log=print):
         if not len(a):
             break
         mask = level_mask(f, n)
-        guide.new_level(level0 + 1, f[0], mask, before_win=prev_last)
+        if agent is None:
+            guide.new_level(level0 + 1, f[0], mask, before_win=prev_last)
+        else:                                   # what Online.step passes at a level-up
+            guide.new_level(level0 + 1, f[0], agent.mask(), before_win=prev_last, end_mask=agent.mask())
         nums = order["num"] - order["num"][0] if order else np.arange(len(a))
         row = dict(level=level0 + 1, moves=int(len(a)), window=0, covered=0, waste=0, masking=0,
                    by=collections.Counter(), masking_by=collections.Counter())
         for i in range(len(a)):
             changed = bool(((f[i] != n[i]) & ~mask).any())
+            if agent is not None:
+                agent.before_guide(f[i], n[i])
             if nums[i] < guide.s["waste_window"]:
                 who = guide.covered(f[i], int(a[i]))
                 row["window"] += 1
@@ -575,7 +677,11 @@ def replay(guide, corpus, max_level=None, log=print):
                     for w in who:
                         row["by"][w.split()[0]] += 1
                         row["masking_by"][w.split()[0]] += int(changed)
-            guide.observe(f[i], int(a[i]), n[i], changed)
+            if agent is None:
+                guide.observe(f[i], int(a[i]), n[i], changed)
+            else:
+                guide.observe(f[i], int(a[i]), n[i], bool(((f[i] != n[i]) & ~agent.mask()).any()))
+                agent.after_guide(f[i], n[i])
         row["by"], row["masking_by"] = dict(row["by"]), dict(row["masking_by"])
         out.append(row)
         log(f"[{guide.game}] level {level0 + 1}: {row['moves']} moves; first {guide.s['waste_window']} actions: "
@@ -598,11 +704,34 @@ def replay_run(run, game, seed, corpus, book_dir=None, log=print):
     finally:
         guide.close()
     out = os.path.join(run.stage_dir("s5_act"), f"{game}_s{seed}.replay.json")
+    online = os.path.join(os.path.dirname(os.path.normpath(corpus)), "glassbox", "events.jsonl")
     with open(out, "w") as f:
         json.dump({"game": game, "seed": seed, "corpus": corpus, "book": book_dir, "rules": [r["id"] for r in rules],
                    "train_level": level, "settings": settings, "levels": rows, "events": guide.events,
-                   "summary": guide.summary()}, f, indent=1, default=int)
+                   "summary": guide.summary(),
+                   "online_carried": carried(read_events(online)) if os.path.exists(online) else None},
+                  f, indent=1, default=int)
     return rows
+
+
+def read_events(path):
+    with open(path) as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def carried(events):
+    """[(level it was carried from, colour)] for every colour no-op carried, in order."""
+    return [(e["level"], e["colour"]) for e in events if e["kind"] == "colour no-op carried"]
+
+
+def carry_vs_online(r):
+    """One replay's colours carried against the online run's it replays: 'replay / online
+    (k at the same level)', or None if the recording is not an online S5 run."""
+    if r.get("online_carried") is None:
+        return None
+    mine, theirs = carried(r["events"]), [tuple(x) for x in r["online_carried"]]
+    same = len(set(mine) & set(theirs))
+    return f"s{r['seed']}: {len(mine)} / {len(theirs)} ({same} same level)"
 
 
 def replay_table(run, games, log=print):
@@ -610,11 +739,12 @@ def replay_table(run, games, log=print):
     <run>/s5_act/replay_summary.{json,md}."""
     per = {}
     for game in games:
-        rows = []
+        rows, vs = [], []
         for p in sorted(glob.glob(os.path.join(run.stage_dir("s5_act"), f"{game}_s*.replay.json"))):
             with open(p) as f:
                 r = json.load(f)
             rows += [dict(x, seed=r["seed"]) for x in r["levels"] if x["level"] >= 2]
+            vs.append(carry_vs_online(r))
         win = sum(x["window"] for x in rows)
         per[game] = {"seeds": sorted({x["seed"] for x in rows}), "levels": len(rows), "window": win,
                      "covered": sum(x["covered"] for x in rows), "waste_moves": sum(x["waste"] for x in rows),
@@ -623,17 +753,23 @@ def replay_table(run, games, log=print):
                      "masking": round(sum(x["masking"] for x in rows) / win, 4) if win else 0.0,
                      "by": dict(sum((collections.Counter(x["by"]) for x in rows), collections.Counter())),
                      "masking_by": dict(sum((collections.Counter(x.get("masking_by", {})) for x in rows),
-                                            collections.Counter()))}
+                                            collections.Counter())),
+                     "carried_vs_online": [v for v in vs if v] or None}
     window = run.config.get("act", {}).get("waste_window", DEFAULTS["waste_window"])
+    online = any(r["carried_vs_online"] for r in per.values())
     lines = [f"# S5 replay: {run.name}", "",
-             f"Levels 2 and up, the first {window:,} actions of each level, pooled over seeds and levels.", "",
-             "| Game | Seeds | Levels | Moves | Covered | Avoidable waste | Masking risk | Covered by | Masking by |",
-             "|---|---|---|---|---|---|---|---|---|"]
+             f"Levels 2 and up, the first {window:,} actions of each level, pooled over seeds and levels."
+             + (" Colours carried over the whole run: this replay's / the online run's (at the same level)."
+                if online else ""), "",
+             "| Game | Seeds | Levels | Moves | Covered | Avoidable waste | Masking risk | Covered by | Masking by |"
+             + (" Colours carried |" if online else ""),
+             "|---|---|---|---|---|---|---|---|---|" + ("---|" if online else "")]
     for g, r in per.items():
         lines.append(f"| {g} | {','.join(map(str, r['seeds']))} | {r['levels']} | {r['window']:,} | {r['covered']:,} | "
                      f"{r['waste']:.1%} ({r['waste_moves']:,}) | {r['masking']:.2%} ({r['masking_moves']:,}) | "
                      + (", ".join(f"{k} {v:,}" for k, v in sorted(r["by"].items())) or "-") + " | "
-                     + (", ".join(f"{k} {v:,}" for k, v in sorted(r["masking_by"].items()) if v) or "-") + " |")
+                     + (", ".join(f"{k} {v:,}" for k, v in sorted(r["masking_by"].items()) if v) or "-") + " |"
+                     + (f" {'; '.join(r['carried_vs_online'] or ['-'])} |" if online else ""))
     text = "\n".join(lines) + "\n"
     d = run.stage_dir("s5_act")
     with open(os.path.join(d, "replay_summary.json"), "w") as f:

@@ -79,6 +79,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [dc22's no-op rules over whole levels](3-glassbox/dc22-noop-check.md) (2 Nov, exploratory): on 9 recordings they covered 4,160 moves and none changed anything; dc22's level-2 stall happens with no guide too. Also: online, colours are carried later than the counterfactual assumed (vc33, dc22, m0r0, cd82).
 - [The book on every later level](3-glassbox/carry-later-levels.md) (2 Nov, exploratory): what IMAGINE would have to work with where Goose stops.
 - [G3, templates on held-out games](3-glassbox/g3-templates.md) (3 Nov, prereg 6): **FAIL**, as expected: no template was adopted on any of the 8 held-out games (0 of 792 tries; none got a changed cell right), so GB+T equals GB. GB's first held-out numbers: mean cell coverage 13.8% (32.0% on the dev games), 16 trusted rules; s5i5's book beats both baselines at T1.
+- [S5 v2, colour no-ops judged at the level's end](3-glassbox/s5-v2.md) (3 Nov, exploratory, tuned on dev games): a replay that rebuilds the agent's own mask reproduces what G2's online runs carried; with v2 it carries what the counterfactual carries on all 10 recordings (m0r0 7 and 3 colours instead of 1 and 0) and gives prereg 5a's numbers exactly. Dev sweep 2's candidate.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## Notes

@@ -20,7 +20,8 @@ before the run they affect.
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
-| 7 | G4: the confirm | to be written before G4 runs (target Mon 16 Nov) |
+| 7 | G4: the confirm | to be written before G4 runs, after 7a's verdict (target Sat 7 Nov) |
+| 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | DRAFT (3 Nov) |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
@@ -667,7 +668,107 @@ result in its own right (reuse is a finding either way).
 
 ## 7. G4: the confirm
 
-*To be written before G4 runs, with the frozen configuration's hash.*
+*To be written before G4 runs, with the frozen configuration's hash, after 7a's
+verdict.*
+
+### 7a. Dev sweep 2: GB against the same-day A0 (G4's precondition)
+
+*DRAFT, 3 Nov 2026, before any dev sweep 2 run. Design settled by Matt on 2 Nov
+(a same-day A0 arm, 4 seeds per arm) and 3 Nov (seeds 3-6, no GB-free arm, S5
+v2 as the candidate, registered as 7a). No OPEN item.*
+
+**Question.** On the 8 dev games, does Goose guided by S5 v2 complete at least
+as many levels as the adopted Goose run beside it, on the same days?
+
+**Why this design (what G2 taught).** G2 compared GB with A0's 27 Sep runs.
+The unchanged A0, run again on 19 Oct on the same 16 runs, completed 33 levels
+where the 27 Sep runs completed 37 (`a0-fresh.md`): seed noise is about ±2.6
+levels per 16-run total, and a gap against runs made weeks earlier cannot be
+told from drift. So the comparator here is A0 run in the same sweep, arms
+interleaved, with twice G2's seeds.
+
+**Arms.** A0-fresh: `--agent mb_gated_att`, `EVAL_GB` unset (the adopted
+Goose, unchanged). GB: `EVAL_GB=1 EVAL_GB_BOOK=pool_g0b_g1 --agent
+mb_gated_att`, S5 VERSION 2 with `[act] colour_judge = "level_end"` and
+`mask_bars = true` (below).
+8 dev games x seeds 3, 4, 5, 6 x 100,000 actions = 32 runs per arm. No run so
+far has used seeds 3-6 (A0's confirm 0-2; G2 and A0 run again 0-1). No GB-free
+arm: G2 (GB 34, GB-free 35) and the counterfactual (the LLM's no-op rules add
+<= 3.6 points of cover) already answer what the book adds, and at 4 seeds a
+difference of that size would still be inside the noise.
+
+**What runs.** `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1` (`tools/gb_sweep.py
+--run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 --cap 100000 --book
+pool_g0b_g1 --dev2`), once, the PC on AC power, on a commit where the code it
+runs is unchanged since `<code commit>` (`git diff <code commit> --
+custom_agents tools experiments/glassbox run_local.py compute_metrics.py`
+prints nothing): 64 runs, 4 at a time on the GPU, in the order seed, game, arm
+(each game and seed runs A0-fresh, then GB), each scored by
+`compute_metrics.py` and added to `results/glassbox/dev2/online/manifest.tsv`
+as it finishes (a pause or reboot keeps finished runs; `--resume` continues).
+About 12 h (G2's 32 runs took 6 h).
+
+**Pass** (v2's dev rule, as G2's): GB levels >= A0-fresh's; 32 of 32 runs of
+each arm complete; paired wins >= losses; no game worse on all 4 seeds.
+`uv run python tools/paired_compare.py --base dev2/online/manifest.tsv:A0-fresh
+--new dev2/online/manifest.tsv:GB --rule dev --expect 32` (`gb_sweep.py
+--dev2` runs it at the end and writes `verdict_gb_vs_a0_fresh.md`).
+
+**What it decides** (plan §6.3). Pass: G4 runs, with GB (S5 v2, book
+`pool_g0b_g1`; not GB+T, since G3 failed) as its configuration, registered in
+section 7 before it starts. Fail: G4 does not run; the report covers G1-G3,
+the counterfactual, G2, this sweep and the funnel, and says where it stopped.
+
+**Reported, not gating.** Levels per game and seed for both arms; levels of 2
+and above; A0-fresh's spread across its 4 seeds beside A0 run again's
+(seeds 0-1, 19 Oct) as a noise measure; moves the guide changed; colours
+carried and dropped online, against S5 v2's replay of the same recordings with
+the agent's mask (`replay_mask = "agent"`), as in `s5-v2.md`; rules re-bound
+and demoted; actions per second of each arm. No comparison with A0's 27 Sep
+runs (different seeds).
+
+**Caveats, stated with the result.** S5 v2 was designed and checked on dev-game
+recordings (G2's), so this is a dev-game result, labelled as tuned; the book
+was written from A0's seed-0 recordings of these games. GPU runs are not
+reproducible past the first training step, so the arms are compared as
+distributions over seeds (CLAUDE.md). On tu93 and tr87 the book has no no-op
+rule and Goose does not click, so there GB plays as A0 does: those 16 pairs
+measure noise. In v2, as in v1, the book steers Goose only through its no-op
+rules (no probes, no IMAGINE).
+
+**Known before registration.** S5 v2's offline check (`s5-v2.md`, 3 Nov, CPU,
+no game run): a replay that rebuilds the agent's own mask from a recording
+reproduces what G2's GB-free runs carried online with v1 (9 of 10 recordings
+colour for colour), and with v2 carries the counterfactual's colours on all 10
+(m0r0 7 and 3 instead of 1 and 0, cd82 3 instead of 0, vc33 a level earlier);
+on A0's 24 dev recordings with the pooled book it gives 5a's numbers exactly
+(avoidable waste vc33 60.1%, ft09 22.9%, dc22 8.4%, cd82 6.3%, m0r0 5.4%;
+masking <= 0.05%). `mask_bars` was added after the first pass showed every
+remaining online drop came from a bar's last cell on row 63. The online smoke
+(vc33 and m0r0, seed 0, 20,000 actions, GPU): `<filled in>`. No dev sweep 2
+run, and no run with seeds 3-6, has been made.
+
+**Expectation, written before running.** GB within noise of A0-fresh: the
+guide's effect should show on vc33 and ft09 (the counterfactual's 60.1% and
+22.9% avoidable waste) and, with v2, a little on m0r0 and cd82; nothing on tu93
+and tr87. The noise on a 32-run total is about ±3.7 levels (G2's ±2.6 per 16
+runs, times the square root of 2), larger than any effect G2 or the
+counterfactual suggests, so the verdict mostly measures noise: pass about 50%
+(a tie passes "levels >=", and "no game worse on all 4 seeds" is rarely failed
+by noise alone).
+
+**Settings.** `experiments/glassbox/glassbox.toml` config hash
+`8c8e1cb023c827d2`; S5 reads from `[act]` (`bcf6c0c0e4c8bd94`) prune = on, hints = on,
+alpha = 0.1, gamma = 1.0, hint_drop_moves = 2,000, colour_judge = "level_end",
+mask_bars = true (replay_mask is replay-only), and from `[carry]` (`893dcab4f6e33df8`)
+noop_min_clicks = 20, online_min_cases = 10, online_max_wait = 1,000; in the code
+(`s5_act.DEFAULTS`, VERSION 2) as in 5a: noop_rule_min_cases = 10, 2 hints, a
+re-binding retried at twice the moves up to 4,000, the background never a hint.
+The agent's own settings are `mb_gated_att`'s (`presets.py`), unchanged.
+
+**Void.** If a GB run uses a different book, code or settings than above; if a
+run ends on an error and is not rerun before the verdict; if the PC sleeps or
+reboots and the interrupted runs are not rerun whole.
 
 ## 8. Honesty rules
 
