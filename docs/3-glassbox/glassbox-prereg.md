@@ -700,7 +700,7 @@ difference of that size would still be inside the noise.
 **What runs.** `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1` (`tools/gb_sweep.py
 --run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 --cap 100000 --book
 pool_g0b_g1 --dev2`), once, the PC on AC power, on a commit where the code it
-runs is unchanged since `<code commit>` (`git diff <code commit> --
+runs is unchanged since `ecae24b` (`git diff ecae24b --
 custom_agents tools experiments/glassbox run_local.py compute_metrics.py`
 prints nothing): 64 runs, 4 at a time on the GPU, in the order seed, game, arm
 (each game and seed runs A0-fresh, then GB), each scored by
@@ -745,7 +745,11 @@ on A0's 24 dev recordings with the pooled book it gives 5a's numbers exactly
 (avoidable waste vc33 60.1%, ft09 22.9%, dc22 8.4%, cd82 6.3%, m0r0 5.4%;
 masking <= 0.05%). `mask_bars` was added after the first pass showed every
 remaining online drop came from a bar's last cell on row 63. The online smoke
-(vc33 and m0r0, seed 0, 20,000 actions, GPU): `<filled in>`. No dev sweep 2
+(vc33 and m0r0, seed 0, 20,000 actions, GPU, 3 Nov, `ecae24b`): no errors, 71-75
+act/s two at once; online the guide carried exactly the colours the agent's-mask
+replay of the same recordings carries (vc33 6 of 6, m0r0 2 of 2, each at the
+same level), none dropped; it changed 39.8% of vc33's moves and 2.8% of m0r0's.
+vc33 reached level 4 at action 18,666 (one run, not evidence of levels). No dev sweep 2
 run, and no run with seeds 3-6, has been made.
 
 **Expectation, written before running.** GB within noise of A0-fresh: the

@@ -258,12 +258,14 @@ drafted 3 Nov; 1, 2, 8–10 still drafts; 7 (G4) not written.
     on all 10 (m0r0 7 and 3 instead of 1 and 0, cd82 3 instead of 0, vc33 a
     level earlier); avoidable waste vc33 29.0 → 38.2%, m0r0 0.1 → 6.5%, dc22
     1.6 → 5.3%, cd82 0 → 3.1%; masking <= 0.05%. Every drop v2 alone still had
-    was a bar's last cell on row 63 (hence `mask_bars`). Runs
+    was a bar's last cell on row 63 (hence `mask_bars`). Online smoke (vc33,
+    m0r0, seed 0, 20k): carries equal the replay's (6/6, 2/2), no errors. Runs
     `results/glassbox/s5v2_*`, commands `s5v2_check/run.sh`, `run_b.sh`.
 - **Next (plan §6.3: the confirm runs only if dev sweep 2 shows GB >= A0;
   since G3 failed, it runs GB, which has no book outside the 8 dev games and
-  plays there as GB-free):** the S5 v2 online smoke (vc33 and m0r0, 20k
-  actions, seed 0; OK'd by Matt 3 Nov); then Matt registers **§7a, dev sweep 2**
+  plays there as GB-free):** Matt registers **§7a, dev sweep 2** (the S5 v2
+  online smoke is done: vc33 and m0r0, 20k actions, online carries equal the
+  agent's-mask replay's, no errors; `s5-v2.md`)
   (designed 3 Nov: arms A0-fresh and GB with S5 v2, 8 dev games x **seeds 3-6**
   x 100k = 64 runs, ~12 h; no GB-free; verdict GB vs A0-fresh, `--rule dev
   --expect 32`; `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1`). If it passes, §7 (G4)
