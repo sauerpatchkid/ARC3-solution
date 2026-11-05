@@ -21,7 +21,7 @@ before the run they affect.
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
 | 7 | G4: the confirm | to be written before G4 runs, after 7a's verdict (target Sat 7 Nov) |
-| 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | DRAFT (3 Nov) |
+| 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6 |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
@@ -673,9 +673,10 @@ verdict.*
 
 ### 7a. Dev sweep 2: GB against the same-day A0 (G4's precondition)
 
-*DRAFT, 3 Nov 2026, before any dev sweep 2 run. Design settled by Matt on 2 Nov
-(a same-day A0 arm, 4 seeds per arm) and 3 Nov (seeds 3-6, no GB-free arm, S5
-v2 as the candidate, registered as 7a). No OPEN item.*
+*REGISTERED 4 Nov 2026 (Matt: "register 7a and start"), before any dev sweep 2
+run; written 3 Nov. Design settled by Matt on 2 Nov (a same-day A0 arm, 4 seeds
+per arm) and 3 Nov (seeds 3-6, no GB-free arm, S5 v2 as the candidate,
+registered as 7a). No OPEN item.*
 
 **Question.** On the 8 dev games, does Goose guided by S5 v2 complete at least
 as many levels as the adopted Goose run beside it, on the same days?

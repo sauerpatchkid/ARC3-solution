@@ -114,7 +114,7 @@ book on every later level); **G3 (6) run 2-3 Nov: FAIL** (no template adopted
 on any held-out game); **S5 v2 built 3 Nov** (dev sweep 2's candidate). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
 5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 7a (dev sweep 2)
-drafted 3 Nov; 1, 2, 8–10 still drafts; 7 (G4) not written.
+registered 4 Nov and running (`results/glassbox/dev2/`); 1, 2, 8–10 still drafts; 7 (G4) not written.
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -263,7 +263,10 @@ drafted 3 Nov; 1, 2, 8–10 still drafts; 7 (G4) not written.
     `results/glassbox/s5v2_*`, commands `s5v2_check/run.sh`, `run_b.sh`.
 - **Next (plan §6.3: the confirm runs only if dev sweep 2 shows GB >= A0;
   since G3 failed, it runs GB, which has no book outside the 8 dev games and
-  plays there as GB-free):** Matt registers **§7a, dev sweep 2** (the S5 v2
+  plays there as GB-free):** **§7a, dev sweep 2, registered 4 Nov (Matt) and
+  started** (`make gb-dev2 BOOK=pool_g0b_g1 DEV2=1`, log
+  `results/glassbox/dev2/dev2_log.txt`; verdict `dev2/online/verdict_gb_vs_a0_fresh.md`;
+  do not commit while it runs) (the S5 v2
   online smoke is done: vc33 and m0r0, 20k actions, online carries equal the
   agent's-mask replay's, no errors; `s5-v2.md`)
   (designed 3 Nov: arms A0-fresh and GB with S5 v2, 8 dev games x **seeds 3-6**
