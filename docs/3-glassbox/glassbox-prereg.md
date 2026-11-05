@@ -20,12 +20,12 @@ before the run they affect.
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
-| 7 | G4: the confirm | to be written before G4 runs, after 7a's verdict (target Sat 7 Nov) |
-| 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6 |
+| 7 | G4: the confirm | to be written before G4 runs: 7a passed (5 Nov), so G4 runs GB; comparator a same-day A0 arm on all 75 runs (Matt, 5 Nov) |
+| 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6. **Run 4-5 Nov** (`3386f77`; paused 08:03-12:41 at Matt's request, section 11 entry 8): **PASS**, GB 72 levels vs A0-fresh 67 (6 / 24 / 2), no game worse on all 4 seeds; result: `dev-sweep-2.md` |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
 | 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
-| 11 | Changes after registration | entries 1-7 |
+| 11 | Changes after registration | entries 1-8 |
 
 ---
 
@@ -669,7 +669,11 @@ result in its own right (reuse is a finding either way).
 ## 7. G4: the confirm
 
 *To be written before G4 runs, with the frozen configuration's hash, after 7a's
-verdict.*
+verdict. 7a passed on 5 Nov (`dev-sweep-2.md`), so G4 runs GB (S5 v2, book
+`pool_g0b_g1`). Settled by Matt on 5 Nov: the comparator is a same-day A0 arm
+on all 75 runs (A0-fresh, interleaved with GB), with A0's 27 Sep runs (112
+levels) reported beside it, not the plan's §6.3 comparison with the 27 Sep runs
+alone (`a0-fresh.md`: the same agent moved 37 → 33 on 16 of those runs).*
 
 ### 7a. Dev sweep 2: GB against the same-day A0 (G4's precondition)
 
@@ -888,3 +892,11 @@ started.)*
    copy of GB's cache); on sc25 the binding search's time budget gave one
    unadmitted first-round rule a different grade (`g3-templates.md`, "One
    cache"), which changes no number section 6 gates on or reports.
+8. **5 Nov 2026, section 7a, after dev sweep 2 ran (no change to its text or
+   numbers).** The sweep was paused at 08:03 at Matt's request (he needed the
+   GPU) with its STOP file, so the 4 runs in progress finished and none was cut
+   short (52 of 64 done); it was resumed at 12:41 with `--resume`, after checking
+   that the code was unchanged since `ecae24b`, the config hash was
+   `8c8e1cb023c827d2` and the PC was on AC power. Section 7a allows a pause
+   ("a pause or reboot keeps finished runs"). All 64 runs record `3386f77+dirty`,
+   as in entry 1 only because of the `ARC-AGI-3-Agents` submodule's local edits.

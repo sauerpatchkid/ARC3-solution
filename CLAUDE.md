@@ -102,7 +102,7 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (3 Nov 2026)
+## Where things stand (5 Nov 2026)
 
 **Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
 closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
@@ -111,18 +111,21 @@ M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
 (prereg 5a) run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels);
 three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
 book on every later level); **G3 (6) run 2-3 Nov: FAIL** (no template adopted
-on any held-out game); **S5 v2 built 3 Nov** (dev sweep 2's candidate). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
+on any held-out game); **S5 v2 built 3 Nov**; **dev sweep 2 (7a) run 4-5 Nov: PASS**
+(GB 72 vs a same-day A0's 67), so **G4 runs next**. Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
 5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 7a (dev sweep 2)
-registered 4 Nov and running (`results/glassbox/dev2/`); 1, 2, 8–10 still drafts; 7 (G4) not written.
+registered 4 Nov and run 4-5 Nov (PASS); 1, 2, 8–10 still drafts; 7 (G4) not
+written yet (its comparator settled 5 Nov: a same-day A0 arm on all 75).
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
   Oct full draft, Mon 2 Nov idea statement, Mon 7 Dec final. Plan §7.
   **Moved up 3 Nov (Matt): everything in the plans finished by Tue 17 Nov**, then
-  2-3 weeks of write-up: S5 v2 (3-4 Nov), dev sweep 2 (~Thu 5 - Fri 6 Nov), G4
-  (~Sun 8 - Tue 10 Nov; with no online LLM it is ~14 h per 75-run arm, not the
-  plan's 55-95 h), its write-up by Thu 12 Nov, buffer to 17 Nov. **Cut:** the
+  2-3 weeks of write-up: S5 v2 (3-4 Nov, done), dev sweep 2 (4-5 Nov, done:
+  PASS), G4 (~Fri 6 - Sat 7 Nov: GB and a same-day A0 arm, 150 runs, ~27-30 h
+  with no online LLM, not the plan's 55-95 h), its write-up by ~Tue 10 Nov,
+  buffer to 17 Nov. **Cut:** the
   online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
   uninformative) and the frontier showcase (only if the buffer allows).
 - **Built** (`custom_agents/gb/`, one file per stage; `gb/README.md` has each
@@ -261,21 +264,31 @@ registered 4 Nov and running (`results/glassbox/dev2/`); 1, 2, 8–10 still draf
     was a bar's last cell on row 63 (hence `mask_bars`). Online smoke (vc33,
     m0r0, seed 0, 20k): carries equal the replay's (6/6, 2/2), no errors. Runs
     `results/glassbox/s5v2_*`, commands `s5v2_check/run.sh`, `run_b.sh`.
-- **Next (plan §6.3: the confirm runs only if dev sweep 2 shows GB >= A0;
-  since G3 failed, it runs GB, which has no book outside the 8 dev games and
-  plays there as GB-free):** **§7a, dev sweep 2, registered 4 Nov (Matt) and
-  started** (`make gb-dev2 BOOK=pool_g0b_g1 DEV2=1`, log
-  `results/glassbox/dev2/dev2_log.txt`; verdict `dev2/online/verdict_gb_vs_a0_fresh.md`;
-  do not commit while it runs) (the S5 v2
-  online smoke is done: vc33 and m0r0, 20k actions, online carries equal the
-  agent's-mask replay's, no errors; `s5-v2.md`)
-  (designed 3 Nov: arms A0-fresh and GB with S5 v2, 8 dev games x **seeds 3-6**
-  x 100k = 64 runs, ~12 h; no GB-free; verdict GB vs A0-fresh, `--rule dev
-  --expect 32`; `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1`). If it passes, §7 (G4)
-  is written and registered (Matt's open question: A0's 27 Sep runs as the
-  baseline, or a same-day A0 arm on all 75, ~14 h; recommended: the same-day
-  arm as primary, 112 reported beside). No IMAGINE, no contact goals (§7.3).
-  Course: final report Mon 7 Dec.
+  - **Dev sweep 2** (4-5 Nov, prereg 7a, `dev-sweep-2.md`): **PASS**. GB (S5
+    v2, pooled book) 72 levels vs A0-fresh (the same agent with no guide, run
+    in the same sweep) 67 on 8 dev games x seeds 3-6 (6 better / 24 same / 2
+    worse), no game worse on all 4 seeds; 64 of 64 runs at the cap; paused
+    08:03-12:41 at Matt's request (prereg §11 entry 8). Small against the
+    noise: +5 is ~1.6 standard deviations of two unguided arms' gap (nine
+    unguided 8-game seed totals, SD ~1.1). Every win and loss is on vc33, dc22
+    and cd82, where the guide changed the most moves; the other 20 pairs tied
+    (tu93, tr87 0.0% changed). Online: 87 colours carried, 12 dropped (all
+    m0r0), 6 rules demoted, in 3.16 M moves; 38.6 vs 38.8 act/s. Runs
+    `results/glassbox/dev2/online/`.
+- **Next: G4, the confirm** (plan §6.3; dev sweep 2 passed 5 Nov). It runs GB
+  (S5 v2, book `pool_g0b_g1`; GB has no book outside the 8 dev games and plays
+  there as GB-free) against **a same-day A0 arm on all 75 runs** (Matt, 5 Nov;
+  A0's 27 Sep runs, 112 levels, reported beside): 25 games x seeds 0-2 x 100k,
+  150 runs, ~27-30 h. Rule: `--rule confirm --expect 75` (strictly more levels,
+  wins > losses, no game worse on all 3 seeds), held-out per-game rows sealed
+  (`--seal`). In order (plan §7.4 item 17): (1) tooling: `gb_sweep --g4` (today
+  it refuses held-out games), `--games all`, held-out levels kept out of the
+  log, the verdicts, `make gb-g4`, tests; (2) a seen-game smoke (ls20, lp85,
+  20k; GPU, ask Matt); (3) prereg §7 written with the tooling's commit and
+  registered (with §1, §2, §8, §9 recommended); push; (4) G4 on Matt's word;
+  (5) `g4-confirm.md` by ~Tue 10 Nov; buffer to Tue 17 Nov (dev sweep 2's
+  agent's-mask replay, the funnel table, figures). No IMAGINE, no contact goals
+  (§7.3). Course: final report Mon 7 Dec.
 - **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
