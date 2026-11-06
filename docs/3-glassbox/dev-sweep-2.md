@@ -113,10 +113,19 @@ count too.
   (S4's online wait, retried at twice the moves), 6 demotions, 0 rule processes
   switched off.
 - **Goal hints:** 54 set, 25 dropped after 2,000 moves without effect.
-- **Not yet done:** section 7a also reports the colours carried online against
-  S5 v2's agent's-mask replay of the same recordings (as `s5-v2.md` did for the
-  smoke). It is a CPU replay of the 32 GB recordings, left for the next session
-  (no new run was started after the sweep, at Matt's request).
+- **Online carries against the replay** (section 7a's last reported item;
+  added 5 Nov evening, CPU, 11 min; `results/glassbox/dev2_replay/run.sh`,
+  output `results/glassbox/dev2_replay_agent/s5_act/replay_summary.md`). S5 v2
+  replayed the 32 GB recordings with the pooled book and the agent's own mask
+  rebuilt from each recording (`replay_mask = "agent"`). **On all 32 the
+  replay carries exactly the colours the run carried online, each at the same
+  level: 87 of 87** (vc33 28, m0r0 27, dc22 15, ft09 10, cd82 7; none on tu93,
+  tr87, g50t). So online S5 v2 did what its replay says, with no lag; v1's lag
+  (`dc22-noop-check.md`) is gone. The replay's waste numbers here are not 5a's:
+  GB's recordings are already guided, so they count only the covered no-ops the
+  guide let through at its 0.1 weight, in each new level's first 2,000 actions:
+  vc33 29.1%, ft09 7.3%, dc22 2.6%, cd82 1.3%, m0r0 1.1%, g50t 0.3%, tu93 and
+  tr87 0; masking only on m0r0 (4 moves, 0.03%).
 
 ## What it means
 

@@ -115,8 +115,9 @@ on any held-out game); **S5 v2 built 3 Nov**; **dev sweep 2 (7a) run 4-5 Nov: PA
 (GB 72 vs a same-day A0's 67), so **G4 runs next**. Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
 Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
 5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 7a (dev sweep 2)
-registered 4 Nov and run 4-5 Nov (PASS); 1, 2, 8–10 still drafts; 7 (G4) not
-written yet (its comparator settled 5 Nov: a same-day A0 arm on all 75).
+registered 4 Nov and run 4-5 Nov (PASS); 1, 2, 8–10 still drafts; **7 (G4)
+written 5 Nov, NOT registered** (Matt to review; code `0edd38c`; comparator a
+same-day A0 arm on all 75).
 
 - **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
   1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
@@ -197,10 +198,13 @@ written yet (its comparator settled 5 Nov: a same-day A0 arm on all 75).
     after §5b is registered, `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1` dev sweep 2
     only after §7a is registered (`--dev2`: GB vs A0-fresh under `--rule dev`;
     comparisons with A0's 27 Sep runs skipped when they lack the seeds),
+    `make gb-g4 BOOK=pool_g0b_g1 G4=1 [RESUME=1]` G4 only after §7 is
+    registered (`--g4`: all 25 games, the whole run set or nothing, held-out
+    levels printed as `sealed`, verdicts `--rule confirm --expect 75 --seal`),
     `make gb-a0-fresh` A0 run again); verdicts
     `tools/gb_gate.py`.
 - **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
-  gb-g0b-control`. 252 live tests.
+  gb-g0b-control`. 256 live tests.
 - **Results** (each written up in `docs/3-glassbox/`):
   - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
     a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
@@ -273,7 +277,9 @@ written yet (its comparator settled 5 Nov: a same-day A0 arm on all 75).
     unguided 8-game seed totals, SD ~1.1). Every win and loss is on vc33, dc22
     and cd82, where the guide changed the most moves; the other 20 pairs tied
     (tu93, tr87 0.0% changed). Online: 87 colours carried, 12 dropped (all
-    m0r0), 6 rules demoted, in 3.16 M moves; 38.6 vs 38.8 act/s. Runs
+    m0r0), 6 rules demoted, in 3.16 M moves; 38.6 vs 38.8 act/s; replayed
+    with the agent's mask (5 Nov evening), the 32 GB recordings carry exactly
+    those 87 colours, each at the same level. Runs
     `results/glassbox/dev2/online/`.
 - **Next: G4, the confirm** (plan §6.3; dev sweep 2 passed 5 Nov). It runs GB
   (S5 v2, book `pool_g0b_g1`; GB has no book outside the 8 dev games and plays
@@ -281,15 +287,24 @@ written yet (its comparator settled 5 Nov: a same-day A0 arm on all 75).
   A0's 27 Sep runs, 112 levels, reported beside): 25 games x seeds 0-2 x 100k,
   150 runs, ~27-30 h. Rule: `--rule confirm --expect 75` (strictly more levels,
   wins > losses, no game worse on all 3 seeds), held-out per-game rows sealed
-  (`--seal`). In order (plan §7.4 item 17): (1) tooling: `gb_sweep --g4` (today
-  it refuses held-out games), `--games all`, held-out levels kept out of the
-  log, the verdicts, `make gb-g4`, tests; (2) a seen-game smoke (ls20, lp85,
-  20k; GPU, ask Matt); (3) prereg §7 written with the tooling's commit and
-  registered (with §1, §2, §8, §9 recommended); push; (4) G4 on Matt's word;
-  (5) `g4-confirm.md` by ~Tue 10 Nov; buffer to Tue 17 Nov (dev sweep 2's
-  agent's-mask replay, the funnel table, figures). No IMAGINE, no contact goals
-  (§7.3). Course: final report Mon 7 Dec.
-- **Still OPEN, Matt's:** register sections 1, 2, 8–10; confirm "explained" as
+  (`--seal`). Done 5 Nov evening (plan §7.4 item 18): (1) tooling, `0edd38c`
+  (`gb_sweep --g4`, `--games all`, `levels=sealed`, the verdicts, `make
+  gb-g4`, 4 tests); (2) the seen-game smoke (G4's two arms on ls20 and lp85,
+  20k: no errors, S5 v2 with no rules there, equal act/s;
+  `results/glassbox/g4_smoke/`); (3) prereg §7 written. **Noise:** the gap
+  between two 75-run totals is within ±11 levels 90% of the time (lp85 alone
+  ±8), so the confirm rule passes 36% by chance and ~54% if dev sweep 2's gain
+  is real (`results/glassbox/g4_noise/`). Next: (4) Matt registers §7 (with §1,
+  §2, §8, §9 recommended; §10 "not used"); push; (5) `make gb-g4
+  BOOK=pool_g0b_g1 G4=1` on his word (AC power, GPU idle, `make gb-config` =
+  `8c8e1cb023c827d2`, code unchanged since `0edd38c`); while it runs no CPU
+  jobs, no commits, and no held-out game's levels read from run folders or
+  logs; (6) `g4-confirm.md` by ~Tue 10 Nov; buffer to Tue 17 Nov (the funnel
+  table, figures). No IMAGINE, no contact goals (§7.3). Course: final report
+  Mon 7 Dec.
+- **Still OPEN, Matt's:** register section 7 (G4) and start it; register
+  sections 1, 2, 8–10; when to open G4's sealed held-out rows (recommended:
+  right after the verdict); confirm "explained" as
   the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
   (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in

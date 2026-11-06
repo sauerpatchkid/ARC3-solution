@@ -20,7 +20,7 @@ before the run they affect.
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
-| 7 | G4: the confirm | to be written before G4 runs: 7a passed (5 Nov), so G4 runs GB; comparator a same-day A0 arm on all 75 runs (Matt, 5 Nov) |
+| 7 | G4: the confirm | **WRITTEN 5 Nov, not yet registered** (Matt to review and register): GB (S5 v2, book `pool_g0b_g1`) vs a same-day A0 arm on all 75 runs (Matt, 5 Nov), the confirm rule, held-out per-game rows sealed; code `0edd38c`, config hash `8c8e1cb023c827d2` |
 | 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6. **Run 4-5 Nov** (`3386f77`; paused 08:03-12:41 at Matt's request, section 11 entry 8): **PASS**, GB 72 levels vs A0-fresh 67 (6 / 24 / 2), no game worse on all 4 seeds; result: `dev-sweep-2.md` |
 | 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
 | 9 | Failure taxonomy | DRAFT (16 Oct) |
@@ -668,12 +668,122 @@ result in its own right (reuse is a finding either way).
 
 ## 7. G4: the confirm
 
-*To be written before G4 runs, with the frozen configuration's hash, after 7a's
-verdict. 7a passed on 5 Nov (`dev-sweep-2.md`), so G4 runs GB (S5 v2, book
-`pool_g0b_g1`). Settled by Matt on 5 Nov: the comparator is a same-day A0 arm
-on all 75 runs (A0-fresh, interleaved with GB), with A0's 27 Sep runs (112
-levels) reported beside it, not the plan's §6.3 comparison with the 27 Sep runs
-alone (`a0-fresh.md`: the same agent moved 37 → 33 on 16 of those runs).*
+*Written 5 Nov 2026, after section 7a's verdict (PASS, 5 Nov: GB 72 levels vs
+A0-fresh 67, 6 / 24 / 2; `dev-sweep-2.md`) and before any G4 run. Comparator
+settled by Matt on 5 Nov: a same-day A0 arm on all 75 runs. No OPEN item.*
+
+**Question.** On all 25 games, does Goose guided by S5 v2 complete more levels
+than the adopted Goose run beside it?
+
+**Why this design (a change from plan §6.3, made before registration).** The
+plan judged G4 against A0's 75 confirm runs of 27 Sep (112 levels). The
+unchanged A0, run again on 19 Oct, completed 33 levels on 16 of those runs
+where 27 Sep had 37 (`a0-fresh.md`), and dev sweep 2 was judged against a
+same-day A0 for that reason. So G4's comparator is A0 run in the same sweep,
+arms interleaved; the 27 Sep runs are reported beside it.
+
+**Arms.** A0-fresh: `--agent mb_gated_att`, `EVAL_GB` unset (the adopted Goose,
+unchanged). GB: `EVAL_GB=1 EVAL_GB_BOOK=pool_g0b_g1 --agent mb_gated_att`, S5
+VERSION 2 as in 7a (`colour_judge = "level_end"`, `mask_bars = true`). 25 games
+× seeds 0, 1, 2 × 100,000 actions = 75 runs per arm, 150 in all. Seeds 0-2 are
+A0's confirm seeds, so the 27 Sep runs pair with both arms. What GB is on each
+tier: on the 8 dev games, the book's no-op rules plus colour no-ops and goal
+hints (tuned on these games: G2, dev sweep 2); on the other 17 the book has no
+rules (`s5_act.noop_rules` finds none), so GB is colour no-ops and goal hints
+only, with no LLM output: the same as GB-free. The LLM's rules can reach levels
+only on the dev games.
+
+**What runs.** `make gb-g4 BOOK=pool_g0b_g1 G4=1` (`tools/gb_sweep.py --run g4
+--arms A0-fresh,GB --games all --seeds 0,1,2 --cap 100000 --book pool_g0b_g1
+--g4`), once, the PC on AC power, on a commit where the code it runs is
+unchanged since `0edd38c` (`git diff 0edd38c -- custom_agents tools
+experiments/glassbox run_local.py compute_metrics.py` prints nothing): 150 runs
+in the order seed, game (dev, seen, A/B-offline, untouched, each in `tiers.py`'s
+order), arm (A0-fresh, then GB), 4 at a time on the GPU, each scored by
+`compute_metrics.py` and added to `results/glassbox/g4/online/manifest.tsv` as
+it finishes. A pause (`touch results/glassbox/g4/online/STOP`) or a reboot keeps
+finished runs, and the same command with `RESUME=1` reruns the rest whole.
+`--g4` refuses any other arms, games, seeds or cap, so G4 cannot run in part.
+About 27-30 h (dev sweep 2: 64 runs in 11 h 29 min of running; A0's 75-run
+confirm about 15 h). The sweep's log never shows a held-out game's levels
+(`done ... levels=sealed`); the run folders and per-run logs hold them, and
+nobody reads a held-out game's levels there before the verdict (watching the
+run means the sweep's log and error checks only).
+
+**Adopt** (the plan's confirm rule, §6.3): GB's levels strictly more than
+A0-fresh's; paired wins > losses; no game worse on all 3 seeds; 75 of 75 runs of
+each arm complete (`--expect 75`: one run per game and seed, the same cap, none
+ended on an error). `uv run python tools/paired_compare.py --base
+g4/online/manifest.tsv:A0-fresh --new g4/online/manifest.tsv:GB --rule confirm
+--expect 75 --seal g4/online/verdict_gb_vs_a0_fresh.sealed` (paths under
+`results/glassbox/`; `gb_sweep.py --g4` runs it once every run is in and writes
+`verdict_gb_vs_a0_fresh.md`). The verdict is computed on all 25 games; the
+held-out tiers' per-game rows go to the sealed file and each held-out tier shows
+as one subtotal row. BLOCKED means a run is missing or ended on an error: it is
+rerun (`RESUME=1`) before any verdict is read.
+
+**Reported, not gating.** Levels by tier (dev, seen, A/B-offline, untouched;
+the untouched tier is the clean held-out number); GB against A0's 27 Sep runs
+(112 levels) under the same rule, and A0-fresh against them (drift since 27 Sep),
+each with its own sealed file (`gb_vs_a0.md`, `a0_fresh_vs_a0.md`); games with
+at least one level; levels of 2 and above; per-game rows for the dev and seen
+games; S5 online: moves the guide changed, colours carried and dropped, rules
+re-bound and demoted, actions per second of each arm. S5's numbers on held-out
+games are given by tier until their rows are opened (a colour is carried only
+at a level-up, so per-game counts would show levels). Held-out per-game rows
+are sealed (section 8) and opened only after the verdict, on Matt's word, with
+`paired_compare --open-sealed <file> --reason "..."` (logged in
+`artifacts/registry.json`).
+
+**Caveats, stated with the result.** On the dev games S5 v2 and the book are
+tuned (labelled so). GPU runs are not reproducible past the first training
+step: arms are compared as distributions over seeds. The dev games' seeds 0-1
+were played before (G2, A0 run again) and their seed 0 recordings wrote the
+book; that reuses seeds, not runs. A0's 27 Sep recordings are the older kind
+(levels unaffected). lp85 is noisy: by chance alone, its 3-run gap falls within
+±8 levels 90% of the time (below).
+
+**Known before registration.** 7a's verdict (PASS: GB 72 vs A0-fresh 67 on the
+8 dev games, seeds 3-6; every win and loss on vc33, dc22, cd82); 7a's last
+reported item (5 Nov evening, CPU): replayed with the agent's own mask, dev
+sweep 2's 32 GB recordings carry exactly the colours those runs carried online,
+each at the same level (87 of 87; `dev-sweep-2.md`); S5 v2's offline check and
+online smoke (`s5-v2.md`); the seen-game smoke (5 Nov, code
+`0edd38c`, `results/glassbox/g4_smoke/`: `gb_sweep.py` with G4's two arms on
+ls20 and lp85, seed 0, 20,000 actions, one run each, not evidence of levels): no
+errors, all 4 runs at the cap; GB's runs record S5 VERSION 2 with `level_end`
+and `mask_bars` and no rules (the book has none for these games); on lp85 the
+guide changed 12.4% of moves, carried 5 colours and dropped 1 (one covered
+click changed a live cell), on ls20 (no clicks) it changed none; GB 44.4 vs
+A0-fresh 44.5 act/s on lp85, 36.0 vs 36.0 on ls20; levels lp85 5 and 5, ls20 1
+and 1. A0's own 27 Sep results on all 25 games (published 28 Sep,
+`upgrade-confirm-results.md`) were used for the noise estimate below
+(`results/glassbox/g4_noise/`). No G4 run, and no online S5 run on a held-out
+game, has been made.
+
+**Expectation, written before running.** GB within noise of A0-fresh. The
+guide prunes dead clicks on click games (the counterfactual: vc33 60.1%, ft09
+22.9%); on the 17 games without a book it has only colour no-ops and goal hints.
+The noise was estimated by drawing each arm's runs, with replacement, from each
+game's measured unguided runs (A0's 27 Sep seeds on every game; on the dev games
+also A0 run again and dev sweep 2's A0-fresh): with no effect anywhere, the gap
+between the two arms' 75-run totals falls within ±11 levels 90% of the time
+(lp85 alone, on which A0 completed 5, 7 and 2 levels, ±8), and the confirm rule
+passes 36% of the time by chance; if dev sweep 2's gain on the dev games is real
+(GB's dev-game runs drawn from its dev sweep 2 runs) and nothing changes
+elsewhere, it passes 54%. So the verdict will say little on its own, either
+way: read it with the tier totals and with whether the dev tier repeats dev
+sweep 2. Adoption: about 45% (rough).
+
+**Settings.** `experiments/glassbox/glassbox.toml` config hash
+`8c8e1cb023c827d2`, `[act]` `bcf6c0c0e4c8bd94`, `[carry]` `893dcab4f6e33df8`
+(as 7a); S5 VERSION 2 with 7a's settings; the agent's settings are
+`mb_gated_att`'s (`presets.py`), unchanged.
+
+**Void.** If a GB run uses a different book, code or settings than above; if a
+run ends on an error and is not rerun before the verdict; if the PC sleeps or
+reboots and the interrupted runs are not rerun whole; if a sealed file is opened
+before the verdict.
 
 ### 7a. Dev sweep 2: GB against the same-day A0 (G4's precondition)
 
