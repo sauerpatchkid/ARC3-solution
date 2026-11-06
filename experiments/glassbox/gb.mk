@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-dev2 gb-a0-fresh gb-catalog gb-g3
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-dev2 gb-g4 gb-a0-fresh gb-catalog gb-g3
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -53,6 +53,9 @@ gb-help:
 	@echo "                     8 dev games x seeds 0-1 x 100k, then paired_compare --rule dev --expect 16 (GPU)"
 	@echo "  make gb-dev2 BOOK=<run> DEV2=1  dev sweep 2 (prereg 7a; DEV2=1 only after it is registered): GB and"
 	@echo "                     the same-day A0, 8 dev games x seeds 3-6 x 100k, GB vs A0-fresh --rule dev (GPU, ~12 h)"
+	@echo "  make gb-g4 BOOK=<run> G4=1 [RESUME=1]  G4, the confirm (prereg 7; G4=1 only after it is registered):"
+	@echo "                     GB and the same-day A0, all 25 games x seeds 0-2 x 100k, GB vs A0-fresh --rule confirm"
+	@echo "                     --expect 75, held-out games' levels sealed (GPU, ~27-30 h; RESUME=1 after a pause)"
 	@echo "  make gb-a0-fresh [SEEDS=0,1]  A0 (mb_gated_att, no S5) run again on the 8 dev games x 100k:"
 	@echo "                     the drift and noise control, compared with A0's 27 Sep runs (GPU, ~3 h)"
 	@echo "  make gb-catalog     H3's version-1 catalog from pool_g0b_g1 and smoke_lp85 (dev and seen games)"
@@ -173,6 +176,18 @@ gb-dev2:
 	setsid nohup uv run python tools/gb_sweep.py --run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 --cap 100000 \
 	  --book $(BOOK) $(if $(DEV2),--dev2) >> results/glassbox/dev2/dev2_log.txt 2>&1 < /dev/null &
 	@echo "started detached; log: results/glassbox/dev2/dev2_log.txt   pause: touch results/glassbox/dev2/online/STOP"
+
+# G4, the confirm, pre-registration section 7: GB (BOOK's no-op rules, S5 as glassbox.toml sets it) against the
+# same-day A0 (A0-fresh), all 25 games x seeds 0-2 x 100k, arms interleaved; judged by the confirm rule, with the
+# held-out games' levels kept out of the log and their per-game rows sealed. G4=1 only after that section is
+# registered; RESUME=1 continues after a pause or reboot. Backgrounded: ~27-30 h on the GPU.
+gb-g4:
+	$(if $(G4),,$(error G4=1 only after pre-registration section 7 is registered))
+	$(if $(BOOK),,$(error give BOOK=<the book section 7 registers>))
+	mkdir -p results/glassbox/g4
+	setsid nohup uv run python tools/gb_sweep.py --run g4 --arms A0-fresh,GB --games all --seeds 0,1,2 --cap 100000 \
+	  --book $(BOOK) --g4 $(if $(RESUME),--resume) >> results/glassbox/g4/g4_log.txt 2>&1 < /dev/null &
+	@echo "started detached; log: results/glassbox/g4/g4_log.txt   pause: touch results/glassbox/g4/online/STOP"
 
 # A0 run again (mb_gated_att, EVAL_GB unset): is today's Goose A0's 27 Sep Goose, and how far do seeds spread?
 # Not a gate. Backgrounded: ~3 h on the GPU for seeds 0-1.

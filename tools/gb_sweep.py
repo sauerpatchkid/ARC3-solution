@@ -6,6 +6,8 @@
     uv run python tools/gb_sweep.py --run a0_fresh --arms A0-fresh --games dev --seeds 0,1   # A0 run again
     uv run python tools/gb_sweep.py --run dev2 --arms A0-fresh,GB --games dev --seeds 3,4,5,6 \
         --book pool_g0b_g1 --dev2                          # dev sweep 2 (prereg 7a)
+    uv run python tools/gb_sweep.py --run g4 --arms A0-fresh,GB --games all --seeds 0,1,2 \
+        --book pool_g0b_g1 --g4                            # G4, the confirm (prereg 7)
     uv run python tools/gb_sweep.py ... --dry-run          # the plan and an ETA, nothing run
     uv run python tools/gb_sweep.py ... --resume           # skip runs already in the run's manifest
 
@@ -30,13 +32,21 @@ writes the verdicts: GB against A0 (--rule dev --expect N, G2's rule), and,
 reported, GB-free against A0, GB against GB-free, A0-fresh against A0, and GB and
 GB-free against A0-fresh. With --dev2 (dev sweep 2) the verdict is instead GB
 against the same-day A0-fresh, under the same rule (verdict_gb_vs_a0_fresh.md).
+With --g4 (G4) it is GB against A0-fresh under the confirm rule (--rule confirm
+--expect 75), with GB and A0-fresh against A0's 27 Sep runs reported beside it.
 Comparisons against A0's 27 Sep runs are skipped when they lack some of the games
 and seeds asked (they have seeds 0-2 only), since --expect would block them.
 
-With S5 (GB, GB-free), dev games need --g2 (G2, pre-registration section 5b) or
---dev2 (dev sweep 2, section 7a), each for after its section is registered.
-A0-fresh has no S5 and runs on dev games without either. Seen games (lp85, ls20)
-run without them, for smoke tests. Held-out games are refused.
+With S5 (GB, GB-free), dev games need --g2 (G2, pre-registration section 5b),
+--dev2 (dev sweep 2, section 7a) or --g4 (G4, section 7), each for after its
+section is registered. A0-fresh has no S5 and runs on dev games without them.
+Seen games (lp85, ls20) run without them, for smoke tests. Held-out games run
+only inside G4, and --g4 runs G4 whole or not at all: --arms A0-fresh,GB
+--games all --seeds 0,1,2 --cap 100000 (`--games all` is the four tiers in
+order: dev, seen, A/B-offline, untouched). Under --g4 a held-out game's levels
+are never printed (`done ... levels=sealed`), and every comparison writes the
+held-out tiers' per-game rows to a sealed file beside it (paired_compare --seal;
+pre-registration section 8). The runs' own folders and logs still hold them.
 
 Copied in pattern from legacy/goose_experiments/upgrade_screen/screen.py (live
 code never imports legacy/).
@@ -61,6 +71,8 @@ from manifest import read_manifest  # noqa: E402
 AGENT = "mb_gated_att"
 SPEED = {1: 140, 2: 155, 3: 158, 4: 162}     # total act/s across parallel runs, measured (screen.py)
 TRANSITIONS = re.compile(r"^\[run_local\] transitions: (.+)$", re.M)
+ALL = tiers.DEV + tiers.SEEN + tiers.AB_OFFLINE + tiers.UNTOUCHED   # `--games all`: the 25 games, tier by tier
+G4 = dict(arms=["A0-fresh", "GB"], games=list(ALL), seeds=["0", "1", "2"], cap=100_000)   # the one G4 run set
 
 
 def arm_env(arm, book):
@@ -96,35 +108,50 @@ def write_a0(out, games, seeds):
     return path, len(rows)
 
 
-def verdicts(out, a0, n, n_a0, arms, dev2=False):
+def verdicts(out, a0, n, n_a0, arms, dev2=False, g4=False):
     """paired_compare's verdicts (module doc). `n` runs per arm; `n_a0` of A0's 27 Sep runs
     match the games and seeds asked (all of them, or the comparisons with A0 are skipped)."""
     m = os.path.join(out, "manifest.tsv")
     dev = ["--rule", "dev", "--expect", str(n)]
     plan = []
-    if dev2:                                    # dev sweep 2 (prereg 7a): GB against the same-day A0
-        plan.append((f"{m}:A0-fresh", f"{m}:GB", dev, "verdict_gb_vs_a0_fresh.md"))
-    if n_a0 == n:
-        if "GB" in arms and not dev2:
-            plan.append((f"{a0}:{AGENT}", f"{m}:GB", dev, "verdict_gb_vs_a0.md"))
-        if "GB-free" in arms:
-            plan.append((f"{a0}:{AGENT}", f"{m}:GB-free", dev, "gb_free_vs_a0.md"))
-        if "A0-fresh" in arms:
-            plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
-    else:
+    if n_a0 != n:
         print(f"=== A0's 27 Sep runs cover {n_a0} of these {n} game x seed pairs: comparisons with them skipped",
               flush=True)
-    if {"GB", "GB-free"} <= set(arms):
-        plan.append((f"{m}:GB-free", f"{m}:GB", ["--expect", str(n)], "gb_vs_gb_free.md"))
-    if "A0-fresh" in arms:
-        for arm in ("GB", "GB-free"):
-            if arm in arms and not (dev2 and arm == "GB"):
-                plan.append((f"{m}:A0-fresh", f"{m}:{arm}", ["--expect", str(n)],
-                             f"{arm.lower().replace('-', '_')}_vs_a0_fresh.md"))
+    if g4:                                      # G4 (prereg 7): GB against the same-day A0, the confirm rule
+        confirm = ["--rule", "confirm", "--expect", str(n)]
+        plan.append((f"{m}:A0-fresh", f"{m}:GB", confirm, "verdict_gb_vs_a0_fresh.md"))
+        if n_a0 == n:                           # reported beside it: A0's 27 Sep runs (112 levels)
+            plan.append((f"{a0}:{AGENT}", f"{m}:GB", confirm, "gb_vs_a0.md"))
+            plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
+    else:
+        if dev2:                                # dev sweep 2 (prereg 7a): GB against the same-day A0
+            plan.append((f"{m}:A0-fresh", f"{m}:GB", dev, "verdict_gb_vs_a0_fresh.md"))
+        if n_a0 == n:
+            if "GB" in arms and not dev2:
+                plan.append((f"{a0}:{AGENT}", f"{m}:GB", dev, "verdict_gb_vs_a0.md"))
+            if "GB-free" in arms:
+                plan.append((f"{a0}:{AGENT}", f"{m}:GB-free", dev, "gb_free_vs_a0.md"))
+            if "A0-fresh" in arms:
+                plan.append((f"{a0}:{AGENT}", f"{m}:A0-fresh", ["--expect", str(n)], "a0_fresh_vs_a0.md"))
+        if {"GB", "GB-free"} <= set(arms):
+            plan.append((f"{m}:GB-free", f"{m}:GB", ["--expect", str(n)], "gb_vs_gb_free.md"))
+        if "A0-fresh" in arms:
+            for arm in ("GB", "GB-free"):
+                if arm in arms and not (dev2 and arm == "GB"):
+                    plan.append((f"{m}:A0-fresh", f"{m}:{arm}", ["--expect", str(n)],
+                                 f"{arm.lower().replace('-', '_')}_vs_a0_fresh.md"))
     for base, new, extra, name in plan:
+        if g4:                                  # held-out per-game rows into a sealed file beside the .md
+            extra = extra + ["--seal", os.path.join(out, name.replace(".md", ".sealed"))]
         print(f"=== {name}", flush=True)
         subprocess.run([sys.executable, "tools/paired_compare.py", "--base", base, "--new", new, *extra,
                         "--out", os.path.join(out, name)], cwd=ROOT)
+
+
+def done_line(arm, game, seed, levels, secs, g4=False):
+    """The log line for a finished run. Under --g4 a held-out game's levels are not shown."""
+    shown = "sealed" if g4 and game in tiers.HELD_OUT else levels
+    return f"done {arm:<8} {game} s{seed}  levels={shown}  {secs:5.0f}s"
 
 
 def main():
@@ -132,7 +159,7 @@ def main():
     ap.add_argument("--run", required=True, help="results/glassbox/<run>/online/ holds everything")
     ap.add_argument("--arms", default="GB,GB-free")
     ap.add_argument("--book", default="", help="the offline run whose book GB carries (EVAL_GB_BOOK)")
-    ap.add_argument("--games", default="dev", help="comma-separated, or a tier name (dev, seen)")
+    ap.add_argument("--games", default="dev", help="comma-separated, a tier name (dev, seen), or all (G4 only)")
     ap.add_argument("--seeds", default="0,1")
     ap.add_argument("--cap", type=int, default=100_000)
     ap.add_argument("--jobs", type=int, default=4)
@@ -141,9 +168,17 @@ def main():
     ap.add_argument("--g2", action="store_true", help="allow dev games: only after prereg section 5b is registered")
     ap.add_argument("--dev2", action="store_true",
                     help="dev sweep 2: allow dev games, verdict GB vs A0-fresh; only after prereg section 7a is registered")
+    ap.add_argument("--g4", action="store_true",
+                    help="G4, the confirm: allow every game, verdict GB vs A0-fresh under the confirm rule, held-out "
+                         "levels sealed; the whole run set only; only after prereg section 7 is registered")
     a = ap.parse_args()
 
-    games = list(tiers.TIERS[a.games]) if a.games in tiers.TIERS else [g for g in a.games.split(",") if g]
+    if a.games == "all":
+        games = list(ALL)
+    elif a.games in tiers.TIERS:
+        games = list(tiers.TIERS[a.games])
+    else:
+        games = [g for g in a.games.split(",") if g]
     seeds = [s for s in a.seeds.split(",") if s]
     arms = [x for x in a.arms.split(",") if x]
     for arm in arms:
@@ -152,13 +187,19 @@ def main():
         sys.exit("arm GB needs --book <offline run>")
     if a.book and not os.path.isdir(os.path.join(A.results_dir(), a.book)):
         sys.exit(f"--book: no run {a.book} under {A.results_dir()}")
+    if a.g4 and (a.g2 or a.dev2):
+        sys.exit("--g4 is a run of its own: not with --g2 or --dev2")
+    if a.g4 and dict(arms=arms, games=games, seeds=seeds, cap=a.cap) != G4:
+        sys.exit("--g4 runs G4 whole or not at all (pre-registration section 7): "
+                 "--arms A0-fresh,GB --games all --seeds 0,1,2 --cap 100000")
     held = [g for g in games if g in tiers.HELD_OUT]
-    if held:
-        sys.exit(f"{', '.join(held)}: held-out games are never run here")
+    if held and not a.g4:
+        sys.exit(f"{', '.join(held)}: held-out games run only inside G4 (--g4, pre-registration section 7, "
+                 "for after it is registered)")
     dev = [g for g in games if g in tiers.DEV]
-    if dev and not (a.g2 or a.dev2) and {"GB", "GB-free"} & set(arms):
-        sys.exit(f"{', '.join(dev)}: with S5, dev games are G2 (--g2, pre-registration section 5b) or dev sweep 2 "
-                 "(--dev2, section 7a), each for after its section is registered")
+    if dev and not (a.g2 or a.dev2 or a.g4) and {"GB", "GB-free"} & set(arms):
+        sys.exit(f"{', '.join(dev)}: with S5, dev games are G2 (--g2, pre-registration section 5b), dev sweep 2 "
+                 "(--dev2, section 7a) or G4 (--g4, section 7), each for after its section is registered")
     if a.dev2 and not {"GB", "A0-fresh"} <= set(arms):
         sys.exit("--dev2 compares GB with the same-day A0: --arms needs GB and A0-fresh")
 
@@ -216,7 +257,7 @@ def main():
         with lock:
             with open(manifest, "a") as f:
                 f.write(f"{rundir}\t{g}\t{s}\t{arm}\n")
-        print(f"done {arm:<8} {g} s{s}  levels={levels}  {time.time() - t0:5.0f}s", flush=True)
+        print(done_line(arm, g, s, levels, time.time() - t0, a.g4), flush=True)
 
     running, stopped = [], False
     for job in jobs:
@@ -239,7 +280,7 @@ def main():
     if missing:
         print(f"=== {len(missing)} runs missing (see logs); rerun with --resume before the verdict", flush=True)
         return
-    verdicts(out, a0, len(games) * len(seeds), n_a0, arms, a.dev2)   # --expect blocks if an arm lacks a run
+    verdicts(out, a0, len(games) * len(seeds), n_a0, arms, a.dev2, a.g4)   # --expect blocks if an arm lacks a run
 
 
 if __name__ == "__main__":

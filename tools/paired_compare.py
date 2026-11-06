@@ -22,7 +22,8 @@ all three; part 1 is:
   confirm  levels new >  base, wins >  losses             Rulebook 25-game confirms
 With --rule left out, verdicts are computed and printed exactly as before.
 
---seal PATH (Rulebook v2 confirms, docs/2-llm-history/rulebook-v2-prereg.md section 5.3):
+--seal PATH (confirms: Rulebook v2's, docs/2-llm-history/rulebook-v2-prereg.md section 5.3, and
+Glassbox's G4, docs/3-glassbox/glassbox-prereg.md sections 7 and 8):
 per-game rows of the held-out tiers (A/B-offline and untouched) are NOT printed.
 They are written to PATH, packed so that they are not read by accident, and
 each held-out tier is shown as one subtotal row. The verdict is unchanged: it
@@ -123,8 +124,9 @@ def seal(path, rows, meta):
     import zlib
     blob = base64.b64encode(zlib.compress(json.dumps({"meta": meta, "rows": rows}).encode())).decode()
     with open(path, "w") as f:
-        f.write("SEALED per-game held-out results (docs/2-llm-history/rulebook-v2-prereg.md section 5.3).\n"
-                "Do not open before the CP3 artifacts are frozen and registered. Open with:\n"
+        f.write("SEALED per-game held-out results of a confirm (A/B-offline and untouched tiers).\n"
+                "Open only when its pre-registration allows (Rulebook v2: section 5.3, after CP3's artifacts\n"
+                "are registered; Glassbox G4: sections 7 and 8, after the verdict). Open with:\n"
                 "  uv run python tools/paired_compare.py --open-sealed <this file> --reason \"...\"\n\n"
                 + blob + "\n")
 
