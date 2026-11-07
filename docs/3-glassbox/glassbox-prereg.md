@@ -13,18 +13,18 @@ before the run they affect.
 
 | Section | Covers | Status |
 |---|---|---|
-| 1 | Rulebook v2 is closed | DRAFT (16 Oct): Matt to review, then mark registered |
-| 2 | Game tiers | DRAFT (16 Oct), copied unchanged from v2 |
+| 1 | Rulebook v2 is closed | **REGISTERED 7 Nov 2026** (Matt, 7 Nov: "lets go with what you said ... you can push everything and start the run now"), with section 7; text unchanged since 16 Oct |
+| 2 | Game tiers | **REGISTERED 7 Nov 2026**, with section 7; copied unchanged from v2 (the lists drawn 7 Oct, `tiers.py`) |
 | 3 | G0: guard rescue (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0 run: the as-built procedure, config hash `44a9ce1b5ebe03ad`, code `c051e50`. **Run 16 Oct** (`341ebec`); result: `g0-guard-rescue.md` |
 | 3b | G0b: the bar mask (a diagnostic) | **REGISTERED 16 Oct 2026** (Matt), before any G0b run: config hash `2f789d8dca149dfe`, code `78c461c`; its control equals CP1 on all 8 games. **Run 16 Oct** (`763d253`); result: `g0b-bar-mask.md` |
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
-| 7 | G4: the confirm | **WRITTEN 5 Nov, not yet registered** (Matt to review and register): GB (S5 v2, book `pool_g0b_g1`) vs a same-day A0 arm on all 75 runs (Matt, 5 Nov), the confirm rule, held-out per-game rows sealed; code `0edd38c`, config hash `8c8e1cb023c827d2` |
+| 7 | G4: the confirm | **REGISTERED 7 Nov 2026** (Matt, 7 Nov: "lets go with what you said ... you can push everything and start the run now"), before any G4 run: code `9b1ac79`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2; GB vs a same-day A0 arm on all 25 games x seeds 0-2 x 100k, the confirm rule, held-out per-game rows sealed |
 | 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6. **Run 4-5 Nov** (`3386f77`; paused 08:03-12:41 at Matt's request, section 11 entry 8): **PASS**, GB 72 levels vs A0-fresh 67 (6 / 24 / 2), no game worse on all 4 seeds; result: `dev-sweep-2.md` |
-| 8 | Honesty rules | DRAFT (16 Oct): v2's, plus one new rule |
-| 9 | Failure taxonomy | DRAFT (16 Oct) |
-| 10 | Frontier showcase limits | DRAFT (16 Oct), copied unchanged from v2's section 7.2 |
+| 8 | Honesty rules | **REGISTERED 7 Nov 2026**, with section 7; text unchanged since 16 Oct: v2's, plus one new rule |
+| 9 | Failure taxonomy | **REGISTERED 7 Nov 2026**, with section 7; text unchanged since 16 Oct |
+| 10 | Frontier showcase limits | **NOT USED**: the showcase was cut on 3 Nov (plan §7.4 item 16); the text stays as drafted on 16 Oct |
 | 11 | Changes after registration | entries 1-8 |
 
 ---
@@ -668,9 +668,14 @@ result in its own right (reuse is a finding either way).
 
 ## 7. G4: the confirm
 
-*Written 5 Nov 2026, after section 7a's verdict (PASS, 5 Nov: GB 72 levels vs
-A0-fresh 67, 6 / 24 / 2; `dev-sweep-2.md`) and before any G4 run. Comparator
-settled by Matt on 5 Nov: a same-day A0 arm on all 75 runs. No OPEN item.*
+*REGISTERED 7 Nov 2026 (Matt: "lets go with what you said ... you can push
+everything and start the run now"), before any G4 run; the commit that marks
+this section registered in the table above is its timestamp. Written 5 Nov,
+after section 7a's verdict (PASS, 5 Nov: GB 72 levels vs A0-fresh 67, 6 / 24 /
+2; `dev-sweep-2.md`). Comparator settled by Matt on 5 Nov: a same-day A0 arm on
+all 75 runs. Pausing added on 7 Nov, before registration, at Matt's request ("I
+wont be able to run the full 27 hours straight, so lets make sure that
+everything is able to be paused"). No OPEN item.*
 
 **Question.** On all 25 games, does Goose guided by S5 v2 complete more levels
 than the adopted Goose run beside it?
@@ -696,16 +701,23 @@ only on the dev games.
 **What runs.** `make gb-g4 BOOK=pool_g0b_g1 G4=1` (`tools/gb_sweep.py --run g4
 --arms A0-fresh,GB --games all --seeds 0,1,2 --cap 100000 --book pool_g0b_g1
 --g4`), once, the PC on AC power, on a commit where the code it runs is
-unchanged since `0edd38c` (`git diff 0edd38c -- custom_agents tools
+unchanged since `9b1ac79` (`git diff 9b1ac79 -- custom_agents tools
 experiments/glassbox run_local.py compute_metrics.py` prints nothing): 150 runs
 in the order seed, game (dev, seen, A/B-offline, untouched, each in `tiers.py`'s
 order), arm (A0-fresh, then GB), 4 at a time on the GPU, each scored by
 `compute_metrics.py` and added to `results/glassbox/g4/online/manifest.tsv` as
-it finishes. A pause (`touch results/glassbox/g4/online/STOP`) or a reboot keeps
-finished runs, and the same command with `RESUME=1` reruns the rest whole.
-`--g4` refuses any other arms, games, seeds or cap, so G4 cannot run in part.
-About 27-30 h (dev sweep 2: 64 runs in 11 h 29 min of running; A0's 75-run
-confirm about 15 h). The sweep's log never shows a held-out game's levels
+it finishes. `--g4` refuses any other arms, games, seeds or cap, so G4 cannot
+run in part. About 27-30 h of running (dev sweep 2: 64 runs in 11 h 29 min of
+running; A0's 75-run confirm about 15 h), **in as many parts as needed**: `make
+gb-pause` (no new run starts; the sweep stops when the runs in progress finish)
+or `make gb-stop` (the sweep and its runs in progress are killed now) or a
+reboot each keep every finished run, and `make gb-g4 BOOK=pool_g0b_g1 G4=1
+RESUME=1` continues. A run enters the manifest only when it ends normally, so a
+run cut by a stop or a reboot is in no manifest and is rerun whole (its partial
+folder stays where it is). The PC is never put to sleep with a run in progress
+(S5's rule process has a 5 s timeout); it is stopped or paused first. `make
+gb-status` shows runs done, runs in progress and the time left, and no levels.
+The sweep's log never shows a held-out game's levels
 (`done ... levels=sealed`); the run folders and per-run logs hold them, and
 nobody reads a held-out game's levels there before the verdict (watching the
 run means the sweep's log and error checks only).
@@ -756,7 +768,14 @@ and `mask_bars` and no rules (the book has none for these games); on lp85 the
 guide changed 12.4% of moves, carried 5 colours and dropped 1 (one covered
 click changed a live cell), on ls20 (no clicks) it changed none; GB 44.4 vs
 A0-fresh 44.5 act/s on lp85, 36.0 vs 36.0 on ls20; levels lp85 5 and 5, ls20 1
-and 1. A0's own 27 Sep results on all 25 games (published 28 Sep,
+and 1; the pausing check (7 Nov, `results/glassbox/pause_test/`: a seen-game
+sweep launched as `make gb-g4` launches, 2 arms x ls20, lp85 x seeds 0-1 x
+2,000 actions): a stop mid-run took 1 s and left no process running; resumed,
+then paused mid-run (the 4 runs in progress finished and were kept), then
+resumed to the end: every run in the manifest once, the cut runs in none. From
+`0edd38c` (the smoke's code) to `9b1ac79` only `gb_sweep.py`'s `--status`,
+`--pause` and `--stop` were added; no run's play differs. A0's own 27 Sep
+results on all 25 games (published 28 Sep,
 `upgrade-confirm-results.md`) were used for the noise estimate below
 (`results/glassbox/g4_noise/`). No G4 run, and no online S5 run on a held-out
 game, has been made.
@@ -924,6 +943,10 @@ transfer). Glassbox adds:
 | template coincidence | a template is trusted on a held-out game's training level but wrong at T1 |
 
 ## 10. Frontier showcase limits
+
+*Not used (marked 7 Nov 2026, with section 7's registration): the showcase was cut
+on 3 Nov (plan §7.4 item 16). The text below stays as drafted on 16 Oct; it
+would bind only if the showcase came back.*
 
 Copied unchanged from v2's section 7.2 (registered 13 Oct 2026). Read its
 "sections 3 to 6" as this file's sections 3 to 7, and "the playbook or CP5's
