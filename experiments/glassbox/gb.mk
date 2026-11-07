@@ -13,7 +13,7 @@
 #   make gb-report  RUN=<name> [COMPARE=<run>]      S6 SHOW
 #   make gb-case    RUN=<name> CASE=<id>            one case through S1-S4, every step printed
 
-.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-dev2 gb-g4 gb-a0-fresh gb-catalog gb-g3
+.PHONY: gb-help gb-config gb-test gb-import-cp1 gb-report gb-mask gb-see gb-write gb-check gb-carry gb-guards gb-g0b gb-g0b-control gb-g1 gb-pool gb-replay gb-cf gb-online gb-g2 gb-dev2 gb-g4 gb-status gb-pause gb-stop gb-a0-fresh gb-catalog gb-g3
 
 gb-help:
 	@echo "Glassbox (custom_agents/gb/README.md, docs/3-glassbox/):"
@@ -56,6 +56,9 @@ gb-help:
 	@echo "  make gb-g4 BOOK=<run> G4=1 [RESUME=1]  G4, the confirm (prereg 7; G4=1 only after it is registered):"
 	@echo "                     GB and the same-day A0, all 25 games x seeds 0-2 x 100k, GB vs A0-fresh --rule confirm"
 	@echo "                     --expect 75, held-out games' levels sealed (GPU, ~27-30 h; RESUME=1 after a pause)"
+	@echo "  make gb-status | gb-pause | gb-stop [SWEEP=g4]   an online sweep (default G4): runs done, in progress"
+	@echo "                     and time left | stop once the runs in progress finish | stop now (the runs in"
+	@echo "                     progress are killed and rerun whole). Continue with the sweep's command + RESUME=1"
 	@echo "  make gb-a0-fresh [SEEDS=0,1]  A0 (mb_gated_att, no S5) run again on the 8 dev games x 100k:"
 	@echo "                     the drift and noise control, compared with A0's 27 Sep runs (GPU, ~3 h)"
 	@echo "  make gb-catalog     H3's version-1 catalog from pool_g0b_g1 and smoke_lp85 (dev and seen games)"
@@ -187,7 +190,22 @@ gb-g4:
 	mkdir -p results/glassbox/g4
 	setsid nohup uv run python tools/gb_sweep.py --run g4 --arms A0-fresh,GB --games all --seeds 0,1,2 --cap 100000 \
 	  --book $(BOOK) --g4 $(if $(RESUME),--resume) >> results/glassbox/g4/g4_log.txt 2>&1 < /dev/null &
-	@echo "started detached; log: results/glassbox/g4/g4_log.txt   pause: touch results/glassbox/g4/online/STOP"
+	@echo "started detached; log: results/glassbox/g4/g4_log.txt   progress: make gb-status   pause: make gb-pause"
+	@echo "stop now: make gb-stop   continue after either: make gb-g4 BOOK=$(BOOK) G4=1 RESUME=1"
+
+# Pausing an online sweep (tools/gb_sweep.py --status/--pause/--stop): G4 does not run its ~27-30 h in one go.
+# gb-pause: no new run starts, and the sweep stops when the runs in progress finish (up to ~50 min at 100k).
+# gb-stop: the sweep and its runs in progress are killed now; those runs are in no manifest and rerun whole.
+# SWEEP names the sweep's run (default g4); its log is results/glassbox/<SWEEP>/<SWEEP>_log.txt.
+SWEEP ?= g4
+gb-status:
+	@uv run python tools/gb_sweep.py --run $(SWEEP) --status
+
+gb-pause:
+	@uv run python tools/gb_sweep.py --run $(SWEEP) --pause
+
+gb-stop:
+	@uv run python tools/gb_sweep.py --run $(SWEEP) --stop
 
 # A0 run again (mb_gated_att, EVAL_GB unset): is today's Goose A0's 27 Sep Goose, and how far do seeds spread?
 # Not a gate. Backgrounded: ~3 h on the GPU for seeds 0-1.

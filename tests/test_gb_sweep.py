@@ -1,5 +1,8 @@
-"""tools/gb_sweep.py: each arm's environment, and which arms may run on dev games."""
+"""tools/gb_sweep.py: each arm's environment, which arms may run on dev games, G4's run set and
+verdicts, and pausing a sweep (--status, --pause, --stop)."""
 import os
+import signal
+import subprocess
 import sys
 
 import pytest
@@ -119,3 +122,104 @@ def test_g4s_log_never_shows_a_held_out_games_levels():
     for game in gb_sweep.tiers.DEV + gb_sweep.tiers.SEEN:                               # dev and seen as before
         assert "levels=3" in gb_sweep.done_line("GB", game, "1", 3, 2570.4, g4=True)
     assert gb_sweep.done_line("A0-fresh", "vc33", "3", 4, 2570.4) == "done A0-fresh vc33 s3  levels=4   2570s"
+
+
+# ---- pausing ----------------------------------------------------------------------------------------
+def test_in_progress_forgets_the_runs_a_stop_cut_short():
+    log = "\n".join([
+        "=" * 72, " GLASSBOX ONLINE  2 arms (A0-fresh, GB) x 25 games x 3 seeds x 100,000 actions; book pool_g0b_g1",
+        " runs to do: 150 (already done: 0)   parallel jobs: 4   ETA ~26.3 h (~162 act/s total)",
+        "start A0-fresh tu93 s0  10:00:01", "start GB       tu93 s0  10:00:02", "start A0-fresh tr87 s0  10:00:04",
+        "done A0-fresh tu93 s0  levels=4   2570s", "!! GB       tu93 s0: no recording (see x.log)",
+        "start GB       tr87 s0  10:43:00"])
+    assert gb_sweep.in_progress(log) == {("A0-fresh", "tr87", "s0"): "10:00:04", ("GB", "tr87", "s0"): "10:43:00"}
+    log += "\n GLASSBOX ONLINE  2 arms\nstart A0-fresh tr87 s0  12:00:00"      # stopped, then resumed
+    assert gb_sweep.in_progress(log) == {("A0-fresh", "tr87", "s0"): "12:00:00"}
+
+
+def test_status_counts_runs_and_shows_no_levels(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gb_sweep.A, "results_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(gb_sweep, "sweep_pids", lambda run: [1])
+    out = tmp_path / "g4" / "online"
+    out.mkdir(parents=True)
+    (out / "manifest.tsv").write_text("/r/a\ttu93\t0\tA0-fresh\n/r/b\tbp35\t0\tGB\n")
+    (out / "STOP").write_text("")
+    (tmp_path / "g4" / "g4_log.txt").write_text("\n".join([
+        " GLASSBOX ONLINE  2 arms", " runs to do: 150 (already done: 0)   parallel jobs: 4   ETA ~26.3 h",
+        "start A0-fresh tu93 s0  10:00:01", "start GB       bp35 s0  10:00:02", "start GB       tu93 s0  10:00:03",
+        "done A0-fresh tu93 s0  levels=4   2400s", "done GB       bp35 s0  levels=sealed   2700s"]))
+    gb_sweep.status("g4", str(out))
+    text = capsys.readouterr().out
+    assert "g4: 2 runs done of 150; the sweep is RUNNING" in text and "pausing" in text
+    assert "in progress: GB       tu93 s0  since 10:00:03" in text
+    assert "about 26.2 h of running left" in text                      # 148 runs x 2,550 s / 4 at a time
+    assert "levels" not in text
+
+
+def test_pause_writes_the_stop_file_only_for_a_running_sweep(tmp_path, monkeypatch):
+    monkeypatch.setattr(gb_sweep, "sweep_pids", lambda run: [])
+    assert not gb_sweep.pause("g4", str(tmp_path)) and not (tmp_path / "STOP").exists()
+    monkeypatch.setattr(gb_sweep, "sweep_pids", lambda run: [12345])
+    assert gb_sweep.pause("g4", str(tmp_path)) and (tmp_path / "STOP").exists()
+
+
+FAKE = ("import subprocess, sys, time\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+        "print(c.pid, flush=True)\n"
+        "time.sleep(120)\n")
+
+
+def fake_sweep(run, own_group=True):
+    """A process whose arguments are a sweep's for `run`, with a child (like one of its runs)."""
+    p = subprocess.Popen([sys.executable, "-c", FAKE, "tools/gb_sweep.py", "--run", run],
+                         stdout=subprocess.PIPE, text=True, start_new_session=own_group)
+    return p, int(p.stdout.readline())
+
+
+def alive(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            stat = f.read()
+    except OSError:
+        return False
+    return stat[stat.rindex(")") + 2] != "Z"
+
+
+def test_stop_kills_the_sweeps_whole_group_and_nothing_else(monkeypatch):
+    real_killpg = os.killpg
+    sweep, its_run = fake_sweep("test_stop_g4")
+    other, other_run = fake_sweep("test_stop_g4x")                     # another sweep: must survive
+    signalled = []
+
+    def killpg(group, sig):
+        assert group == sweep.pid, "only the stopped sweep's own group is ever signalled"
+        signalled.append(sig)
+        real_killpg(group, sig)
+    monkeypatch.setattr(gb_sweep.os, "killpg", killpg)
+    try:
+        assert gb_sweep.sweep_pids("test_stop_g4") == [sweep.pid]
+        assert gb_sweep.stop("test_stop_g4", wait=10)
+        sweep.wait(timeout=10)
+        assert signalled[0] == signal.SIGTERM and not alive(its_run)
+        assert alive(other.pid) and alive(other_run)
+        assert gb_sweep.sweep_pids("test_stop_g4") == [] and not gb_sweep.stop("test_stop_g4")
+    finally:
+        for p in (sweep, other):
+            try:
+                real_killpg(p.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            p.wait()
+
+
+def test_stop_refuses_a_sweep_that_does_not_lead_its_own_group(monkeypatch):
+    sweep, its_run = fake_sweep("test_stop_shared", own_group=False)  # in pytest's group: hands off
+    monkeypatch.setattr(gb_sweep.os, "killpg", lambda group, sig: pytest.fail("signalled a shared group"))
+    try:
+        with pytest.raises(SystemExit):
+            gb_sweep.stop("test_stop_shared")
+        assert alive(sweep.pid) and alive(its_run)
+    finally:
+        os.kill(its_run, signal.SIGKILL)
+        sweep.kill()
+        sweep.wait()
