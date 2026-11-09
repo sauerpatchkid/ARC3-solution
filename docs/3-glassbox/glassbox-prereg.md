@@ -20,12 +20,12 @@ before the run they affect.
 | 4 | G1: the offline rule test | **REGISTERED 17 Oct 2026** (Matt), before any G1 run: mask on, judged against G0b; config hash `5b7a7b2684e37ce5`, code `bd0552b`, vocabulary `glassbox_vocab_v1`. **Run 17 Oct** (`af208c7`): FAIL, 3 of 8, safety met; result: `g1-offline-rules.md` |
 | 5 | The offline counterfactual and G2 | **5a REGISTERED 18 Oct 2026** (Matt: "go with your recommendations ... register 5a and run it"), before any replay of a dev game: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18 Oct** (`d9a6c80`): waste met on ft09 (22.9%) and vc33 (60.1%), not on m0r0 (5.4%); masking <= 0.05%; result: `cf-counterfactual.md`. **5b REGISTERED 18 Oct 2026** (Matt: "register 5b and start G2"), before any G2 run: book `pool_g0b_g1`, config hash `6c5d95983cf6fa97`, code `d111172`. **Run 18-19 Oct** (`4174874`): **FAIL**, GB 34 levels vs A0 37 (1 / 12 / 3), no game worse on both seeds; GB-free 35; result: `g2-online.md` |
 | 6 | G3: templates on held-out games | **REGISTERED 2 Nov 2026** (Matt: "Register now and push"), before any G3 run: code `734600b`, config hash `6c5d95983cf6fa97`, catalog `glassbox_templates_v1` (registry hash `0ba3d961eda68c23`; the file's sha256 `c263262ecffd8d75`), one answer cache (`G3_SHARE=1`, SETTLED (a)). **Run 2-3 Nov** (`ebba7e1`): **FAIL**, 0 of 8 (no template adopted: 0 of 792 tries); wrong and overrun equal; result: `g3-templates.md` |
-| 7 | G4: the confirm | **REGISTERED 7 Nov 2026** (Matt, 7 Nov: "lets go with what you said ... you can push everything and start the run now"), before any G4 run: code `9b1ac79`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2; GB vs a same-day A0 arm on all 25 games x seeds 0-2 x 100k, the confirm rule, held-out per-game rows sealed |
+| 7 | G4: the confirm | **REGISTERED 7 Nov 2026** (Matt, 7 Nov: "lets go with what you said ... you can push everything and start the run now"), before any G4 run: code `9b1ac79`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2; GB vs a same-day A0 arm on all 25 games x seeds 0-2 x 100k, the confirm rule, held-out per-game rows sealed. **Run 7-8 Nov** (`11d76cb`; paused 08:29-11:25 on 8 Nov at Matt's request, section 11 entry 9): **ADOPT**, GB 110 levels vs A0-fresh 101 (12 / 57 / 6), no game worse on all 3 seeds; beside it, A0's 27 Sep runs 112 (GB 10 / 53 / 12); sealed rows opened after the verdict; result: `g4-confirm.md` |
 | 7a | Dev sweep 2: GB vs the same-day A0 (G4's precondition) | **REGISTERED 4 Nov 2026** (Matt: "register 7a and start"), before any dev sweep 2 run: code `ecae24b`, config hash `8c8e1cb023c827d2`, book `pool_g0b_g1`, S5 VERSION 2, seeds 3-6. **Run 4-5 Nov** (`3386f77`; paused 08:03-12:41 at Matt's request, section 11 entry 8): **PASS**, GB 72 levels vs A0-fresh 67 (6 / 24 / 2), no game worse on all 4 seeds; result: `dev-sweep-2.md` |
 | 8 | Honesty rules | **REGISTERED 7 Nov 2026**, with section 7; text unchanged since 16 Oct: v2's, plus one new rule |
 | 9 | Failure taxonomy | **REGISTERED 7 Nov 2026**, with section 7; text unchanged since 16 Oct |
 | 10 | Frontier showcase limits | **NOT USED**: the showcase was cut on 3 Nov (plan §7.4 item 16); the text stays as drafted on 16 Oct |
-| 11 | Changes after registration | entries 1-8 |
+| 11 | Changes after registration | entries 1-9 |
 
 ---
 
@@ -1033,3 +1033,17 @@ started.)*
    `8c8e1cb023c827d2` and the PC was on AC power. Section 7a allows a pause
    ("a pause or reboot keeps finished runs"). All 64 runs record `3386f77+dirty`,
    as in entry 1 only because of the `ARC-AGI-3-Agents` submodule's local edits.
+9. **8 Nov 2026, section 7, after G4 ran (no change to its text or
+   numbers).** The sweep was paused at Matt's request with `make gb-pause`
+   (asked Sun 8 Nov 08:09): the 4 runs in progress finished and were kept, so
+   none was cut short (130 of 150 done at 08:29). It was resumed at 11:25 with
+   `RESUME=1`, after checking that the code was unchanged since `9b1ac79`
+   (`git diff 9b1ac79 -- custom_agents tools experiments/glassbox run_local.py
+   compute_metrics.py` printed nothing), HEAD was still `11d76cb`, the config
+   hash was `8c8e1cb023c827d2`, the PC was on AC power and the GPU was idle.
+   Section 7 allows this. The PC neither slept nor rebooted during the sweep
+   (up since 7 Nov 09:04), and no rules process was switched off. All 150 runs
+   record `11d76cb+dirty`, as in entry 1 only because of the `ARC-AGI-3-Agents`
+   submodule's local edits. The three sealed files were opened after the
+   verdict (8 Nov, logged in `artifacts/registry.json`), as Matt asked on
+   7 Nov (plan §7.4 item 19).

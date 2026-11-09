@@ -224,5 +224,21 @@
    }
   }
  ],
- "events": []
+ "events": [
+  {
+   "date": "2026-11-08",
+   "what": "sealed results opened",
+   "detail": "results/glassbox/g4/online/verdict_gb_vs_a0_fresh.sealed: G4 verdict written 8 Nov 14:59 (ADOPT); Matt, 7 Nov, approved opening G4's sealed held-out rows right after the verdict (G4 is the last gate; nothing is built after it; for the report)"
+  },
+  {
+   "date": "2026-11-08",
+   "what": "sealed results opened",
+   "detail": "results/glassbox/g4/online/gb_vs_a0.sealed: G4 verdict written 8 Nov 14:59 (ADOPT); Matt, 7 Nov, approved opening G4's sealed held-out rows right after the verdict (G4 is the last gate; nothing is built after it; for the report)"
+  },
+  {
+   "date": "2026-11-08",
+   "what": "sealed results opened",
+   "detail": "results/glassbox/g4/online/a0_fresh_vs_a0.sealed: G4 verdict written 8 Nov 14:59 (ADOPT); Matt, 7 Nov, approved opening G4's sealed held-out rows right after the verdict (G4 is the last gate; nothing is built after it; for the report)"
+  }
+ ]
 }
