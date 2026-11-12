@@ -11,7 +11,8 @@ The README, the docs and the folders all follow these four, so keep new work in 
    online which actions change the screen), and the semester-2 improvements to
    it. 54 → 79 → 112 levels on 25 games × 3 seeds × 100k.
    Code: `custom_agents/action.py`, `canon.py`, `return_map.py`, `upgrades.py`,
-   `presets.py` (index: `custom_agents/README.md`). Docs: `docs/1-goose-upgrades/`.
+   `carry.py`, `presets.py` (index: `custom_agents/README.md`). Docs:
+   `docs/1-goose-upgrades/`.
    Launchers: `legacy/goose_experiments/`.
 2. **Glassbox (current)**: Goose plus a local LLM that writes small rules,
    each replay-checked, in separate stages that each fix one problem.
@@ -76,6 +77,7 @@ uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<
     [--rule adopt|dev|confirm] [--expect N]
 uv run python tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--games a,b] [--by-game]             # WHEN levels came: by budget, AULC, level races; no verdict
+uv run python tools/gb_funnel.py --runs g1,pool_g0b_g1,g3_gb   # what each Glassbox stage did, per game (CPU)
 uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
 uv run python -m pytest tests -q              # live tests (~85 s)
@@ -109,14 +111,14 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | `200` / `250` | the online decoration mask |
 | `EVAL_RETURN_MAP` | off | `custom_agents/return_map.py` |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | `200` / `20` / `100` / `1` | map tuning (`docs/1-goose-upgrades/option-1-return-map.md`) |
-| `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick` |
+| `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted) |
 | `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (10 Nov 2026)
+## Where things stand (12 Nov 2026)
 
 **Goose upgrades: done** (`mb_gated_att` adopted 28 Sep, 112 levels).
 **Previously tried methods: closed** (Coach NO-GO; Rulebook v1 FAIL, 2 of 8;
@@ -148,6 +150,7 @@ the running log is plan §7.4 (`docs/3-glassbox/glassbox-plan.md`).
 | Dev sweep 2 (7a) | 4-5 Nov | **PASS** | GB 72 vs a same-day A0's 67 on 8 dev games x seeds 3-6 (6 / 24 / 2); ~1.6 SD | `dev-sweep-2.md` |
 | **G4 (7)** | 7-8 Nov | **ADOPT** | GB 110 vs a same-day A0's 101 on 25 games x seeds 0-2 (12 / 57 / 6), no game worse on all 3 seeds | `g4-confirm.md` |
 | Time to level | 10 Nov | exploratory | finished runs re-scored: by budget GB leads the same-day A0 by +1 / +2 / +6 / +9 at 2k / 10k / 30k / 100k (two unguided arms differ by 11 at 100k); level by level, GB finished levels 2 and up in fewer actions on 36 vs 17 in G4 and 23 vs 16 in dev sweep 2 (unguided vs unguided 24 vs 27; level 1 23 vs 28); G2's LLM-free arm 14 vs 7, as the guided one | `time-to-level.md` |
+| The funnel, and G4's replay | 12 Nov | report table | mean over 8 games, share of a level's changing cases: S1 describes 83%, an admitted rule gets 57%, the book gets the whole screen on 28% (pooled book, dev); 78% / 40% / 5% on the held-out games; rule survival online 92%; G4's replay carries the 66 colours the runs carried, 65 at the same level | `funnel.md` |
 
 **How to read G4.** +9 is ~1.1 standard deviations of chance (the rule passes
 36% with no effect); the same-day A0 came in 11 below A0's 27 Sep runs (same
@@ -160,7 +163,7 @@ changes there were mostly goal hints (s5i5 +3, r11l +2). G4 had no LLM-free arm.
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 270 live tests.
+status, `make gb-help` each command. 284 live tests.
 
 | Piece | File | State |
 |---|---|---|
@@ -202,33 +205,43 @@ Nov** (Matt, 3 Nov), then 2-3 weeks of write-up. Course: final report Mon 7 Dec.
 Cut: the online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
 uninformative) and the frontier showcase (only if the buffer allows).
 
-### Now (10 Nov)
+### Now (12 Nov)
 
-- **The repo was tidied on 10 Nov** (Matt): the README in four parts,
-  `custom_agents/README.md`, `future/`, and a results clean-up
-  (`results/DELETED_2026-11-10.md`). No agent file was touched.
-- **This week's list, in order** (Matt, 10 Nov; `future/README.md` has the
-  detail and the build notes). GPU runs are asked for one by one:
+- **Committed, not pushed** (Matt, 12 Nov: "do the commits"): the tidy-up
+  (`26ddcb6`), the small fixes (`e4f0f77`), the re-score and probes
+  (`2443dd3`), then the buffer's CPU jobs and the carry upgrade (see `git log`).
+- **This week's list** (Matt, 10 Nov; changed by him on 12 Nov; `future/README.md`
+  has the detail). GPU runs are asked for one by one:
   1. ~~Re-score G4 and dev sweep 2 on time-to-level~~ **done 10 Nov**
-     (`docs/3-glassbox/time-to-level.md`, `tools/levels_by_budget.py`, tables in
-     `results/glassbox/time_to_level/`): the guide's LLM-free carry makes levels
-     after the first come sooner; the level count stays inside the noise.
-  2. ~~Count frozen runs in G4's 150 recordings~~ and 3. ~~probe the engine~~
-     **done 10 Nov** (`docs/1-goose-upgrades/input-probes.md`;
-     `tools/frozen_moves.py`, `tools/probe_engine.py`): no run is frozen (a
-     reset watchdog could have cut 179 of 7.39 M moves); ACTION7 is an undo on
-     sk48, ar25, bp35, does nothing on sb26 and su15, and is something else on
-     lf52; in-between frames hide something on ft09, sc25, cd82 only.
-  4. Goose: a reset watchdog and ACTION7 (undo). **On hold: items 2 and 3
-     found little for either to act on.** Matt decides whether "carry inside
-     Goose" (the review's List 1, item 2) takes its place.
-  5. "LLM plays first, Goose takes over": a pilot on the dev games. It differs
-     from the 2 Nov idea statement, so the instructor has to allow it first.
-  6. Owed for the report (plan §7.4 item 20): G4's GB recordings on the dev
-     games replayed with the agent's mask (as
-     `results/glassbox/dev2_replay/run.sh`, with `--seeds 0,1,2` and the g4
-     manifest; CPU, dev games only); the funnel table (plan §6.1, §11) from G1,
-     the pool, G3 and the counterfactual; S6 pages for figures.
+     (`docs/3-glassbox/time-to-level.md`, `tools/levels_by_budget.py`): the
+     guide's LLM-free carry makes levels after the first come sooner; the level
+     count stays inside the noise.
+  2. ~~Frozen runs~~ and 3. ~~the engine probe~~ **done 10 Nov**
+     (`docs/1-goose-upgrades/input-probes.md`): no run is frozen; ACTION7 is an
+     undo on three of its six games; in-between frames matter on ft09, sc25 and
+     cd82 only.
+  4. **Carry inside Goose** (it replaced "a reset watchdog and ACTION7"; Matt,
+     12 Nov). `custom_agents/carry.py`, switches `carry_noops` and
+     `carry_hints` in `EVAL_UPGRADES`: colour no-ops and goal hints carried
+     from one level to the next, with no LLM. It is a port of S5 v2 with no
+     rule book (GB-free). **Built 12 Nov.** `cpu_check`
+     (`results/cpu_check/2026-11-12_carry/`): with the switches off,
+     `goose`/ft09 and `mb_gated_att`/tu93 are identical on every move (1,970
+     and 1,960); with them on, Goose makes GB-free's moves on ft09 (2,934 of
+     2,934 over 3,000 actions; the upgrade changed 1,114 of them).
+     **Its test is drafted, not registered, not run, and waits for Matt's go**
+     (`docs/1-goose-upgrades/carry-inside-goose.md`): arms `A5` (the adopted
+     Goose by flag) and `A6` (A5 + carry) through `sweep.sh`, 7 dev and seen
+     games x seeds 7-10 x 100k = 56 runs, about 11 GPU-hours; primary = level
+     races on levels 2 and up, safety = the dev rule on levels. Not adopted,
+     no preset yet.
+  5. "LLM plays first, Goose takes over": **on hold** (Matt, 12 Nov).
+  6. ~~Owed for the report~~ **done 12 Nov**: G4's 24 dev-game GB recordings
+     replayed with the agent's mask (66 colours, 65 at the same level; the
+     66th is a threshold case, `g4-confirm.md` "S5 online"); the funnel table
+     (`docs/3-glassbox/funnel.md`, `tools/gb_funnel.py`); S6 pages for
+     `pool_g0b_g1` and `g3_gb`, with the three funnel figures copied to
+     `docs/3-glassbox/figures/`.
 - The `glassbox` preset is skipped for now (Matt, 8 Nov). No IMAGINE, no
   contact goals (§7.3). Last handoff: `results/handoff/2026-11-08_g4_done.md`.
 
@@ -236,8 +249,8 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 - **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; its book lives
   under `results/`, outside git); the instructor's OK for item 5 above, and
-  which model it uses; whether the time-to-level result moves "carry inside
-  Goose" (the review's List 1, item 2) onto this week's list; confirm "explained" as the perception number; plan §10
+  which model it uses (on hold); **the go for the carry test** (about 11
+  GPU-hours) and whether it may also use the held-out games; confirm "explained" as the perception number; plan §10
   (a) (advisor and the 30 Oct draft) and (b) (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
   `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings

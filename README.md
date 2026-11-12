@@ -39,6 +39,7 @@ one switch.
 | Return map | Remembers which move leads where, and walks back to untried places when stuck | `return_map.py` (`EVAL_RETURN_MAP=1`) | 45 vs 32 on dev games | not adopted alone |
 | Upgrade screens | Nine small candidates in two rounds. Winners: `bars` (progress bars masked), `map_gated` (walk back only while it pays), `attempt` (half credit for a screen new this attempt) | `upgrades.py` (`EVAL_UPGRADES=...`) | | winners bundled |
 | **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
+| Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | not tested yet | built 12 Nov; [its test](docs/1-goose-upgrades/carry-inside-goose.md) waits for a go |
 
 `mb_gated_att` is **A0**, the reference every later result is compared with.
 File by file: [`custom_agents/README.md`](custom_agents/README.md). Three
@@ -77,6 +78,7 @@ The problem each stage fixes, and each one's status:
 | Dev sweep 2 (5 Nov) | S5 v2 against a same-day A0, 8 dev games × 4 seeds | **PASS**: 72 vs 67 |
 | G4 (8 Nov) | The confirm on all 25 games × 3 seeds | **ADOPT**: 110 vs 101 (12 better, 57 same, 6 worse) |
 | Time to level (10 Nov, exploratory) | Does the guide finish levels sooner? | After level 1, yes: it finished a level in fewer actions on 36 against 17 in G4 (two unguided arms: 24 against 27) |
+| The funnel (12 Nov) | Where are a game's cases lost? | Not at seeing: S1 describes 83% of changing cases, an admitted rule gets 57%, the book gets the whole screen on 28% (5% on held-out games) |
 
 **How to read G4.** The gain is about one standard deviation of chance, and
 the guided agent is level with A0's own 27 Sep runs (110 vs 112). Outside the
@@ -245,7 +247,7 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | the online decoration mask: warm-up / recompute cadence | `200` / `250` |
 | `EVAL_RETURN_MAP` | the return map | off |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning | `200` / `20` / `100` / `1` |
-| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick` | unset |
+| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` | unset |
 | `EVAL_GB` / `EVAL_GB_BOOK` | Glassbox's guide in the agent; the offline run whose book it carries (unset: no LLM rules) | off / unset |
 
 `--agent mb_gated_att` fixes `EVAL_LABEL=novel EVAL_RETURN_MAP=1
@@ -272,6 +274,7 @@ ARC3-solution/
 │   ├── canon.py               #   Goose upgrade: screen fingerprints, the novelty label
 │   ├── return_map.py          #   Goose upgrade: the return map
 │   ├── upgrades.py            #   Goose upgrades: bars / attempt / map_gated / deadclick
+│   ├── carry.py               #   Goose upgrade: colour no-ops and goal hints carried between levels
 │   ├── presets.py             #   --agent mb_gated_att, the adopted Goose
 │   ├── gridtools.py, random_agent.py, view_utils.py   # shared helpers, the random floor
 │   └── gb/                    #   GLASSBOX: one file per stage (README.md inside)
@@ -300,7 +303,8 @@ ARC3-solution/
 ├── artifacts/                 # registry.json and the frozen artifacts it names
 ├── tools/                     # paired_compare.py (verdicts), levels_by_budget.py (when levels came),
 │                              #   cpu_check.py (did it change?), frozen_moves.py, probe_engine.py
-│                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py (Glassbox)
+│                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py,
+│                              #   gb_funnel.py (Glassbox)
 ├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
 ├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest

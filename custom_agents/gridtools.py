@@ -6,6 +6,7 @@ copy with its own bugs to find. Everything here is pure numpy, has no state and
 knows nothing about agents, flags or the LLM, so any module may import it.
 
     border_band(width)              the outer band of the screen, where bars live
+    complete_bars(mask)             a decoration mask with each bar run to the screen's edges
     tick_cells(diff)                changed cells in a changed blob of <= 2 cells
     connected_components(mask)      8-connected blobs of a bool mask (cell lists)
     label_components(grid, valid)   4-connected single-colour regions (label image)
@@ -35,6 +36,33 @@ def border_band(width=BAR_BORDER):
     band[:width, :] = band[-width:, :] = True
     band[:, :width] = band[:, -width:] = True
     return band
+
+
+def complete_bars(mask, band=BAR_BORDER, min_length=8):
+    """`mask` with each bar run to the screen's edges. A bar is a run of at least
+    `min_length` masked cells along a row within `band` cells of the top or bottom
+    edge, or along a column within `band` cells of the left or right edge; every
+    such row or column is masked in full. A detector that learns a bar from the
+    cells that change often misses its last cells, which change once per attempt
+    and late. Rows and columns are judged on `mask` itself, so a bar along one edge
+    never extends a bar along another. (Glassbox's S0 has the same rule with its
+    own settings, gb/s0_mask.complete_bars; tests/test_carry.py checks they agree.)"""
+    out = mask.copy()
+    edge = list(range(band)) + list(range(GRID - band, GRID))
+
+    def longest(line):
+        run = best = 0
+        for v in line:
+            run = run + 1 if v else 0
+            best = max(best, run)
+        return best
+    for y in edge:
+        if longest(mask[y, :]) >= min_length:
+            out[y, :] = True
+    for x in edge:
+        if longest(mask[:, x]) >= min_length:
+            out[:, x] = True
+    return out
 
 
 def _neighbour_sum(m):

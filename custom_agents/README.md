@@ -18,6 +18,7 @@ still the semester-1 baseline.
 | `return_map.py` | Return map: remember which move leads where, and walk back to untried places when stuck or after a game over | `EVAL_RETURN_MAP=1` | 45 vs 32 on the dev games; not adopted alone |
 | `upgrades.py` | `bars` (progress bars masked), `attempt` (half credit for a screen new this attempt), `map_gated` (walk back only while it pays), `deadclick` (not adopted) | `EVAL_UPGRADES=bars,map_gated,attempt` | screened in two rounds |
 | `presets.py` | **`mb_gated_att`, the adopted Goose (A0)**: the three switches above, fixed under one name | `--agent mb_gated_att` | **112 levels**, adopted 28 Sep |
+| `carry.py` | Carry: colours that do nothing when clicked (`carry_noops`) and what shrank before a win (`carry_hints`), carried to the next level. No LLM; the same moves as Glassbox's LLM-free arm | `EVAL_UPGRADES=...,carry_noops,carry_hints` | built 12 Nov, not tested yet, not adopted |
 
 Levels are on all 25 public games × 3 seeds × 100,000 actions. Write-ups:
 [`docs/1-goose-upgrades/`](../docs/1-goose-upgrades/).

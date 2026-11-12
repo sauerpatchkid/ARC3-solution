@@ -1,3 +1,26 @@
+"""
+Action Learner - Learns to predict which actions cause frame changes for efficient exploration.
+
+Architecture:
+- CNN with 16 input channels (one-hot encoded colors 0-15)
+- Two-headed output: action head (5 logits for ACTION1-ACTION5) + click head (4096 logits for 64x64 positions;
+  a click is ACTION6)
+- Binary classification: predicts if each action will change the current frame
+
+Training:
+- Supervised learning on (state, action) -> frame_changed labels
+  (or, with EVAL_LABEL=novel, -> "reached a canonical state not seen before in
+  this level"; see docs/1-goose-upgrades/plan-B-goose-novelty.md and canon.py)
+- Action head always trained, click head only trained when ACTION6 is selected
+- Experience buffer cleared when score increases (new level)
+
+Sampling:
+- Hierarchical: first sample action type using softmax over action logits
+- If ACTION6 selected, then sample click position using softmax over click logits
+- Stochastic exploration biased toward actions predicted to cause changes
+
+This enables more efficient exploration than random, especially for coordinate-based actions.
+"""
 import atexit
 import random
 import time
@@ -25,29 +48,6 @@ from view_utils import save_action_visualization
 from canon import OnlineCanonicalizer, LevelMemory, DEFAULT_WARMUP, DEFAULT_REFRESH
 from return_map import ReturnMap  # [return-map] Option 1, see custom_agents/return_map.py
 from upgrades import Upgrades  # [upgrades] upgrade screen, see custom_agents/upgrades.py
-
-"""
-Action Learner - Learns to predict which actions cause frame changes for efficient exploration.
-
-Architecture:
-- CNN with 16 input channels (one-hot encoded colors 0-15)
-- Two-headed output: action head (6 logits for ACTION1-ACTION6) + click head (4096 logits for 64x64 positions)
-- Binary classification: predicts if each action will change the current frame
-
-Training:
-- Supervised learning on (state, action) -> frame_changed labels
-  (or, with EVAL_LABEL=novel, -> "reached a canonical state not seen before in
-  this level"; see docs/1-goose-upgrades/plan-B-goose-novelty.md and canon.py)
-- Action head always trained, click head only trained when ACTION6 is selected
-- Experience buffer cleared when score increases (new level)
-
-Sampling:
-- Hierarchical: first sample action type using softmax over action logits
-- If ACTION6 selected, then sample click position using softmax over click logits
-- Stochastic exploration biased toward actions predicted to cause changes
-
-This enables more efficient exploration than random, especially for coordinate-based actions.
-"""
 
 class ActionModel(nn.Module):
     """CNN that predicts which actions will result in new frames with shared conv backbone."""
@@ -179,7 +179,7 @@ class Action(Agent):
         if self.return_map is not None and self.canon is None:  # [return-map]
             self.canon = OnlineCanonicalizer(self.canon_warmup, self.canon_refresh)  # [return-map]
         # Upgrade screen (legacy/goose_experiments/upgrade_screen/): off unless EVAL_UPGRADES is set.  # [upgrades]
-        self.upgrades = Upgrades.from_env() if os.getenv("EVAL_UPGRADES", "").strip() else None  # [upgrades]
+        self.upgrades = Upgrades.from_env(self.seed) if os.getenv("EVAL_UPGRADES", "").strip() else None  # [upgrades]
         if self.upgrades is not None:  # [upgrades]
             self.upgrades.check(getattr(self, "return_map", None) is not None)  # [upgrades]
             if self.canon is None:  # [upgrades]
@@ -449,8 +449,8 @@ class Action(Agent):
 
     def _has_time_elapsed(self) -> bool:
         """Check if 8 hours have elapsed since start."""
-        elapsed_hours = time.time() - self.start_time
-        return elapsed_hours >= 8 * 3600 - 5 * 60 # 8 hours with a 5 minute safety buffer.
+        elapsed_seconds = time.time() - self.start_time
+        return elapsed_seconds >= 8 * 3600 - 5 * 60 # 8 hours with a 5 minute safety buffer.
 
     def is_done(self, frames: list[FrameData], latest_frame: FrameData) -> bool:
         """Decide if the agent is done playing or not."""

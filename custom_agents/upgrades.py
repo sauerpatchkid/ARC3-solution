@@ -33,6 +33,17 @@ behaviour through a subclass, never by editing it):
                two-armed sliding-window UCB bandit per game ("walk back" vs
                "stay") scored by new screens per move in each attempt.
 
+Carry upgrades (what one level teaches about the next; no LLM; the code is in
+custom_agents/carry.py, which says where it comes from and what is known):
+  carry_noops  A colour clicked 20 times or more on a level, with no click ever
+               changing a live cell, is carried as a no-op: on later levels a
+               click on it keeps a tenth of its probability, until one changes
+               something.
+  carry_hints  The two colours that vanished or shrank most before a level was
+               won become goal hints on the next level: a click on one counts
+               double, until 2,000 moves pass without it changing.
+  Not part of the adopted agent. Their test: docs/1-goose-upgrades/carry-inside-goose.md.
+
 REMOVED 2026-10-06: `graded`, `map_objects` and `map_diverse` lost the upgrade
 screen (docs/1-goose-upgrades/upgrade-screen-results.md) and were deleted. Their code and
 tests are at the git tags `upgrade-screen-round1` and `pre-cleanup-2026-10-06`.
@@ -53,12 +64,14 @@ from collections import deque
 import numpy as np
 import xxhash
 
+from carry import Carry
 from gridtools import GRID, BAR_BORDER, border_band, tick_cells
 from return_map import ReturnMap
 
 LABEL_OPTIONS = {"bars", "attempt"}
 MAP_OPTIONS = {"map_gated"}
-KNOWN = LABEL_OPTIONS | MAP_OPTIONS | {"deadclick"}
+CARRY_OPTIONS = {"carry_noops", "carry_hints"}
+KNOWN = LABEL_OPTIONS | MAP_OPTIONS | CARRY_OPTIONS | {"deadclick"}
 REMOVED = {"graded", "map_objects", "map_diverse"}
 
 DEAD_CLICK_TRIES = 4        # BDR-Pro's threshold: >= 4 no-op clicks on one appearance
@@ -191,7 +204,7 @@ class UpgradedReturnMap(ReturnMap):
 # The upgrades object the agent talks to
 # --------------------------------------------------------------------------------
 class Upgrades:
-    def __init__(self, names, rng=None):
+    def __init__(self, names, rng=None, seed=0):
         names = {n.strip() for n in names if n.strip()}
         gone = names & REMOVED
         if gone:
@@ -203,6 +216,8 @@ class Upgrades:
         self.names = names
         self.rng = rng if rng is not None else np.random
         self.bars = BarDetector() if "bars" in names else None
+        # carry.py: its own generator, seeded from the agent's seed, so Goose's stream is untouched
+        self.carry = Carry("carry_noops" in names, "carry_hints" in names, seed) if names & CARRY_OPTIONS else None
         self.label_on = bool(names & LABEL_OPTIONS)
         self.visits = {}
         self.seen_attempt = set()
@@ -214,15 +229,18 @@ class Upgrades:
                       "attempt_rewards": 0, "bar_growths": 0}
 
     @classmethod
-    def from_env(cls):
-        return cls(os.getenv("EVAL_UPGRADES", "").split(","))
+    def from_env(cls, seed=0):
+        return cls(os.getenv("EVAL_UPGRADES", "").split(","), seed=seed)
 
     def check(self, map_on):
         if self.names & MAP_OPTIONS and not map_on:
             raise SystemExit(f"EVAL_UPGRADES {sorted(self.names & MAP_OPTIONS)} need EVAL_RETURN_MAP=1")
 
     def config(self):
-        return {"upgrades": ",".join(sorted(self.names))}
+        out = {"upgrades": ",".join(sorted(self.names))}
+        if self.carry is not None:
+            out["carry_settings"] = self.carry.settings()
+        return out
 
     def wrap_map(self, m):
         """Replace the return map with the upgraded subclass (same settings)."""
@@ -243,6 +261,8 @@ class Upgrades:
     def observe(self, prev_raw, cur_raw, shared_mask, prev_action):
         """Every decision frame. prev_raw is None right after a reset / level
         change / skipped frame (no transition to learn from)."""
+        if self.carry is not None:      # before the bars take this move: the order S5 saw moves in
+            self.carry.step(prev_raw, prev_action, cur_raw, self.carry.live_mask(shared_mask, self.bars))
         if self.bars is not None and prev_raw is not None:
             before = self.bars.growths
             self.bars.update(prev_raw, cur_raw)
@@ -278,6 +298,14 @@ class Upgrades:
         return default if self.label is None else float(self.label)
 
     def override(self, action_idx, coords, coord_idx, all_probs, cur_raw):
+        """Goose's sampled move, after `deadclick` and then the carry upgrades have had
+        their say (each returns the move unchanged when it is off)."""
+        move = self._dead_click(action_idx, coords, coord_idx, all_probs, cur_raw)
+        if self.carry is not None:
+            move = self.carry.override(*move, all_probs, cur_raw)
+        return move
+
+    def _dead_click(self, action_idx, coords, coord_idx, all_probs, cur_raw):
         """deadclick: if Goose picked a click proven dead on this appearance,
         resample from its own distribution with every dead click removed."""
         if "deadclick" not in self.names or action_idx != 5 or not self.blocked:
@@ -300,6 +328,8 @@ class Upgrades:
         self.prev_key = None
 
     def on_level(self):
+        if self.carry is not None:
+            self.carry.on_level()
         self.visits = {}
         self.seen_attempt = set()
         self.dead = {}
@@ -307,7 +337,10 @@ class Upgrades:
         self.prev_key = None
 
     def summary(self):
-        return dict(self.stats, bar_cells=int(self.bars.sticky.sum()) if self.bars is not None else 0)
+        out = dict(self.stats, bar_cells=int(self.bars.sticky.sum()) if self.bars is not None else 0)
+        if self.carry is not None:
+            out["carry"] = self.carry.summary()
+        return out
 
     def dump(self, path, return_map=None):
         out = dict(self.summary(), **self.config())
