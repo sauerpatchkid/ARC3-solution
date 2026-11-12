@@ -48,8 +48,9 @@ On 12 Nov 2026: [carry inside Goose](1-goose-upgrades/carry-inside-goose.md).
 The part of Glassbox's guide that needs no LLM (colour no-ops and goal hints
 carried between levels) became a Goose upgrade, `custom_agents/carry.py`, two
 switches, off by default. It makes the same moves as Glassbox's LLM-free arm
-(checked move for move on the CPU: 2,934 of 2,934 on ft09). Its test is drafted
-and not run.
+(checked move for move on the CPU: 2,934 of 2,934 on ft09). Its test was
+registered and started on 12 Nov: 56 runs, level races on levels 2 and up as
+the primary measure.
 
 `mb_gated_att` is **A0**, the reference every Glassbox result is compared
 against. Its 75 confirm runs (`results/confirm_upgrade/20260927_221915/`) are

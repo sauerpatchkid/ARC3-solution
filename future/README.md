@@ -19,7 +19,7 @@ one.
 | 1 | Re-score G4 (150 runs) and dev sweep 2 (64 runs) on time-to-level: levels by 2,000, 10,000 and 30,000 actions, and AULC | List 2, item 3a | CPU only | **done 10 Nov**: [`time-to-level.md`](../docs/3-glassbox/time-to-level.md) |
 | 2 | Count frozen runs in the 150 G4 recordings | Suggested order, step 1 | CPU only | **done 10 Nov**: [`input-probes.md`](../docs/1-goose-upgrades/input-probes.md) |
 | 3 | Probe which games return more than one frame per move, and what ACTION7 does | List 1, item 3 | CPU only (random moves on the engine) | **done 10 Nov**: the same write-up |
-| 4 | Goose: carry colour no-ops and goal hints inside Goose. It replaced "a reset watchdog and ACTION7" (Matt, 12 Nov), which items 2 and 3 found little use for | List 1, item 2 | `cpu_check`; about 11 GPU-hours for its test | **built and checked on the CPU 12 Nov; its test waits for Matt's go**: [`carry-inside-goose.md`](../docs/1-goose-upgrades/carry-inside-goose.md) |
+| 4 | Goose: carry colour no-ops and goal hints inside Goose. It replaced "a reset watchdog and ACTION7" (Matt, 12 Nov), which items 2 and 3 found little use for | List 1, item 2 | `cpu_check`; about 11 GPU-hours for its test | **built and checked on the CPU 12 Nov; its test is registered and running** (`bash experiments/goose/carry_test.sh status`): [`carry-inside-goose.md`](../docs/1-goose-upgrades/carry-inside-goose.md) |
 | 5 | LLM plays first, Goose takes over: a pilot on the dev games | List 3, item 1 | the instructor's OK (it differs from the 2 Nov idea statement); a model | **on hold** (Matt, 12 Nov) |
 | 6 | Owed for the report: G4's GB recordings replayed with the agent's mask; the funnel table; S6 pages for figures | plan §7.4 item 20 | CPU only | **done 12 Nov**: [`funnel.md`](../docs/3-glassbox/funnel.md), and "S5 online" in [`g4-confirm.md`](../docs/3-glassbox/g4-confirm.md) |
 
@@ -44,7 +44,7 @@ for it.
 | Idea | In the review | Work | GPU-hours | This week? |
 |---|---|---|---|---|
 | ACTION7 (undo) and a reset watchdog | List 1, item 1 | 1 day | 6 to 7 | no: taken off the list on 12 Nov, the probes found little to act on |
-| Carry colour no-ops and goal hints inside Goose; keep the network across levels | List 1, item 2 | 1 to 2 days | about 11 | **yes** (item 4): the carry is built, its test is drafted; "keep the network" is not built |
+| Carry colour no-ops and goal hints inside Goose; keep the network across levels | List 1, item 2 | 1 to 2 days | about 11 | **yes** (item 4): the carry is built, its test is running; "keep the network" is not built |
 | Animation frames and the ends of bars | List 1, item 3 | 1 to 2 days | 4 to 8 | the probe, done (item 3): frames matter on sc25 at most, and would hurt on ft09 |
 | A stronger rule writer through a hosted API | List 2, item 1 | 0.5 to 1 day | none | no (needs an exception to "everything is the local model") |
 | An LLM-written, replay-checked goal test | List 2, item 2 | 2 to 3 days | about 12 | no (only worth it after the stronger writer) |
@@ -80,10 +80,10 @@ What the code looks like today at the places each item touches.
 `results/glassbox/dev2/online/manifest.tsv`. The metric was chosen after the
 runs, so the write-up is labelled exploratory.
 
-**Item 4, the carry.** Plan, checks and the drafted test:
+**Item 4, the carry.** Plan, checks and the registered test:
 [`carry-inside-goose.md`](../docs/1-goose-upgrades/carry-inside-goose.md). The
 code is `custom_agents/carry.py`; the arms of its test are `A5` and `A6` in
-`sweep.sh`.
+`sweep.sh`; `experiments/goose/carry_test.sh` starts, pauses and resumes it.
 
 **ACTION7 and the watchdog (not built; these notes are kept).**
 

@@ -39,7 +39,7 @@ one switch.
 | Return map | Remembers which move leads where, and walks back to untried places when stuck | `return_map.py` (`EVAL_RETURN_MAP=1`) | 45 vs 32 on dev games | not adopted alone |
 | Upgrade screens | Nine small candidates in two rounds. Winners: `bars` (progress bars masked), `map_gated` (walk back only while it pays), `attempt` (half credit for a screen new this attempt) | `upgrades.py` (`EVAL_UPGRADES=...`) | | winners bundled |
 | **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
-| Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | not tested yet | built 12 Nov; [its test](docs/1-goose-upgrades/carry-inside-goose.md) waits for a go |
+| Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | test running | built 12 Nov; [its test](docs/1-goose-upgrades/carry-inside-goose.md) was registered and started 12 Nov |
 
 `mb_gated_att` is **A0**, the reference every later result is compared with.
 File by file: [`custom_agents/README.md`](custom_agents/README.md). Three
@@ -305,6 +305,7 @@ ARC3-solution/
 │                              #   cpu_check.py (did it change?), frozen_moves.py, probe_engine.py
 │                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py,
 │                              #   gb_funnel.py (Glassbox)
+├── experiments/goose/         # carry_test.sh: the carry test, started, paused and resumed
 ├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
 ├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest

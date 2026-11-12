@@ -77,6 +77,7 @@ uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<
     [--rule adopt|dev|confirm] [--expect N]
 uv run python tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--games a,b] [--by-game]             # WHEN levels came: by budget, AULC, level races; no verdict
+bash experiments/goose/carry_test.sh status   # the carry test (GPU): status | pause | stop | resume | verdict
 uv run python tools/gb_funnel.py --runs g1,pool_g0b_g1,g3_gb   # what each Glassbox stage did, per game (CPU)
 uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
@@ -207,9 +208,12 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (12 Nov)
 
-- **Committed, not pushed** (Matt, 12 Nov: "do the commits"): the tidy-up
-  (`26ddcb6`), the small fixes (`e4f0f77`), the re-score and probes
-  (`2443dd3`), then the buffer's CPU jobs and the carry upgrade (see `git log`).
+- **Committed and pushed** (Matt, 12 Nov): the tidy-up (`26ddcb6`), the small
+  fixes (`e4f0f77`), the re-score and probes (`2443dd3`), the buffer's CPU
+  jobs (`44dbcbe`), the carry upgrade (`c2f8d85`), the carry test's launcher
+  (`a9fec48`) and its registration.
+- **THE CARRY TEST IS RUNNING (started 12 Nov). Make no commit until its
+  verdict:** every run records the commit it ran on. See item 4.
 - **This week's list** (Matt, 10 Nov; changed by him on 12 Nov; `future/README.md`
   has the detail). GPU runs are asked for one by one:
   1. ~~Re-score G4 and dev sweep 2 on time-to-level~~ **done 10 Nov**
@@ -229,12 +233,18 @@ uninformative) and the frontier showcase (only if the buffer allows).
      `goose`/ft09 and `mb_gated_att`/tu93 are identical on every move (1,970
      and 1,960); with them on, Goose makes GB-free's moves on ft09 (2,934 of
      2,934 over 3,000 actions; the upgrade changed 1,114 of them).
-     **Its test is drafted, not registered, not run, and waits for Matt's go**
-     (`docs/1-goose-upgrades/carry-inside-goose.md`): arms `A5` (the adopted
-     Goose by flag) and `A6` (A5 + carry) through `sweep.sh`, 7 dev and seen
-     games x seeds 7-10 x 100k = 56 runs, about 11 GPU-hours; primary = level
-     races on levels 2 and up, safety = the dev rule on levels. Not adopted,
-     no preset yet.
+     **Its test is registered (12 Nov, code `a9fec48`) and was started that
+     day** (`docs/1-goose-upgrades/carry-inside-goose.md`): arms `A5` (the
+     adopted Goose by flag) and `A6` (A5 + carry) through `sweep.sh`, vc33,
+     ft09, cd82, dc22, m0r0, lp85 and tu93 (a placebo) x seeds 7-10 x 100k =
+     56 runs, one at a time, about 11 to 13 GPU-hours; primary = level races on
+     levels 2 and up of the six click games, safety = the dev rule on levels.
+     It runs in parts: `bash experiments/goose/carry_test.sh status | pause |
+     stop | resume | verdict` (pause = after the run in progress; stop = now,
+     that run is rerun whole; both tried on `results/carry_smoke/`). When all
+     56 runs are in: `verdict`, then the write-up
+     `docs/1-goose-upgrades/carry-results.md`; on a PASS, a preset `mb_carry`.
+     Not adopted, no preset yet.
   5. "LLM plays first, Goose takes over": **on hold** (Matt, 12 Nov).
   6. ~~Owed for the report~~ **done 12 Nov**: G4's 24 dev-game GB recordings
      replayed with the agent's mask (66 colours, 65 at the same level; the
@@ -249,8 +259,7 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 - **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; its book lives
   under `results/`, outside git); the instructor's OK for item 5 above, and
-  which model it uses (on hold); **the go for the carry test** (about 11
-  GPU-hours) and whether it may also use the held-out games; confirm "explained" as the perception number; plan §10
+  which model it uses (on hold); confirm "explained" as the perception number; plan §10
   (a) (advisor and the 30 Oct draft) and (b) (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
   `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings
