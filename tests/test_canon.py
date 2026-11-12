@@ -2,19 +2,12 @@
 
     uv run python -m pytest tests/ -q
 """
-import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from canon import OnlineCanonicalizer, LevelMemory  # noqa: E402
-from metrics_common import find_indicator_cells  # noqa: E402
-
+from canon import OnlineCanonicalizer, LevelMemory
+from metrics_common import find_indicator_cells
 
 # --------------------------------------------------------------------------
 # Synthetic games: a static grid, one real object that moves only on demand,
@@ -23,6 +16,8 @@ from metrics_common import find_indicator_cells  # noqa: E402
 # detector only sees a rotating ticker when it ticks ALONE (<=2 cells changed
 # in the whole transition), which is the known caveat in CLAUDE.md.
 # --------------------------------------------------------------------------
+
+
 def make_world():
     base = np.zeros((64, 64), dtype=np.uint8)
     base[10:20, 10:20] = 3          # static block

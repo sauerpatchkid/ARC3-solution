@@ -2,14 +2,10 @@
 when its version, its settings and every input file are unchanged."""
 import json
 import os
-import sys
 
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb import artifacts as A  # noqa: E402
+from gb import artifacts as A
 
 
 @pytest.fixture

@@ -13,29 +13,24 @@ candidates are never touched here, because the fitter's first run on them IS G0
 """
 import json
 import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import artifacts as A  # noqa: E402
-from gb import s1_see, s3_check, s4_carry  # noqa: E402
-from gb import s3_guards as G  # noqa: E402
-from gb.core import bind as B  # noqa: E402
-from gb.core import contract as C  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
-from gb.core.lint import lint  # noqa: E402
-from test_gb_see import BG, board  # noqa: E402
+from gb import artifacts as A
+from gb import s1_see, s3_check, s4_carry
+from gb import s3_guards as G
+from gb.core import bind as B
+from gb.core import contract as C
+from gb.core.evidence import LevelEvidence
+from gb.core.lint import lint
+from test_gb_see import BG, board
 
 ZERO = np.zeros((64, 64), bool)
 
-
 # ---- the search, on hand-made bits ---------------------------------------------------------------------
+
+
 def fit(names, rows, wrong, **kw):
     bits = np.array(rows, bool)
     right = [k for k in range(len(bits)) if k not in wrong]

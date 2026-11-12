@@ -1,18 +1,13 @@
 """S2 POOL (custom_agents/gb/s2_pool.py): candidates of finished runs pooled, with no LLM."""
 import json
 import os
-import sys
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb import artifacts as A  # noqa: E402
-from gb import s2_pool as P  # noqa: E402
+from gb import artifacts as A
+from gb import s2_pool as P
 
 
 def make_source(root, name, cands, groups, guarded=(), evidence=b"same"):

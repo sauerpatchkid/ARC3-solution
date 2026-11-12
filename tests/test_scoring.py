@@ -4,20 +4,16 @@ count from run_end.json) and tools/paired_compare.py (--expect, bootstrap).
     uv run python -m pytest tests/ -q
 """
 import json
-import os
 import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "tools"))
-
-from compute_metrics import apply_run_end, compute  # noqa: E402
-from paired_compare import bootstrap_delta, expect_check, load, rule_one  # noqa: E402
-
+from compute_metrics import apply_run_end, compute
+from paired_compare import bootstrap_delta, expect_check, load, rule_one
 
 # ---- compute_metrics: run_end.json ------------------------------------------------
+
+
 def _corpus(tmp_path, levels):
     """A tiny run folder: transitions/shard_00000.npz with one transition per
     entry in `levels` (action_num 1..n), every frame different."""

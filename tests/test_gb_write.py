@@ -4,23 +4,17 @@ the guard step that saves a call, and that S3 and S4 take S2's files."""
 import json
 import os
 import re
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import artifacts as A  # noqa: E402
-from gb import h1_vocab as H  # noqa: E402
-from gb import s1_see, s3_check, s4_carry  # noqa: E402
-from gb import s2_write as W  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
-from gb.core.llm import ChatClient  # noqa: E402
-from test_gb_guards import ZERO, maze, move_rule  # noqa: E402
+from gb import artifacts as A
+from gb import h1_vocab as H
+from gb import s1_see, s3_check, s4_carry
+from gb import s2_write as W
+from gb.core.evidence import LevelEvidence
+from gb.core.llm import ChatClient
+from test_gb_guards import ZERO, maze, move_rule
 
 NEAR = move_rule(3, 0, -1, False)                      # ACTION3: wrong where the mover is blocked
 EXACT = move_rule(1, -1, 0, True)                      # ACTION1: checks for itself

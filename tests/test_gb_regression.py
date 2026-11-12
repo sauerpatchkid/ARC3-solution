@@ -13,17 +13,12 @@ CP1's registered results (results/ is not in git), so it is skipped without them
 """
 import os
 import shutil
-import sys
 
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-import registry  # noqa: E402
-from gb import artifacts as A  # noqa: E402
-from gb import cp1_import  # noqa: E402
+import registry
+from gb import artifacts as A
+from gb import cp1_import
 
 GAMES = ("tu93", "vc33", "ft09", "dc22")
 pytestmark = pytest.mark.skipif(not os.path.isdir(cp1_import.CP1_DIR),

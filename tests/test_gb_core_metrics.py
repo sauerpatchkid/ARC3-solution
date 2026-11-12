@@ -5,20 +5,14 @@ registry tests are in test_tiers_registry.py; write_corpus is copied from
 test_wm_offline.py).
 """
 import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb.core.check import baseline_memory, book_status, check_rule  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
-from gb.core.metrics import cell_coverage, changed_cells, claimed_grade, three_numbers, transfer_t0  # noqa: E402
-from test_gb_core import GOOD_MOVE, NOOP, OFF_BY_ONE, play  # noqa: E402
+from gb.core.check import baseline_memory, book_status, check_rule
+from gb.core.evidence import LevelEvidence
+from gb.core.metrics import cell_coverage, changed_cells, claimed_grade, three_numbers, transfer_t0
+from test_gb_core import GOOD_MOVE, NOOP, OFF_BY_ONE, play
 
 
 def write_corpus(d):

@@ -5,23 +5,17 @@ do not reproduce stops the build."""
 import json
 import os
 import re
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import artifacts as A  # noqa: E402
-from gb import s6_show  # noqa: E402
-from gb.core import bind as B  # noqa: E402
-from gb.core import book as K  # noqa: E402
-from gb.core.check import EXACT, UNKNOWN, WRONG  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
-from test_gb_core import GOOD_CLICK, OFF_BY_ONE, play  # noqa: E402
+from gb import artifacts as A
+from gb import s6_show
+from gb.core import bind as B
+from gb.core import book as K
+from gb.core.check import EXACT, UNKNOWN, WRONG
+from gb.core.evidence import LevelEvidence
+from test_gb_core import GOOD_CLICK, OFF_BY_ONE, play
 
 RULES = {0: ("click on colour 5 (black)", GOOD_CLICK), 1: ("ACTION1", OFF_BY_ONE)}   # id: (group, code)
 

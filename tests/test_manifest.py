@@ -1,12 +1,8 @@
 """The one manifest reader (manifest.py)."""
-import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from manifest import arm_name, read_manifest  # noqa: E402
+from manifest import arm_name, read_manifest
 
 
 def test_rows_keep_file_order_and_text_seeds(tmp_path):

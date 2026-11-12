@@ -1,19 +1,15 @@
 """S4 CARRY version 1 (custom_agents/gb/s4_carry.py): the role tie-break and the online
 wait. The re-binding itself is CP1's (tests/test_gb_regression.py checks it on dc22)."""
-import os
-import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb import s4_carry as S  # noqa: E402
+from gb import s4_carry as S
 
 MOVER_RULE = '''
 RULE = "the agent moves along the track"
 PARAMS = {"agent": Colour(), "track": Colour(), "step": Int(1, 8)}
+
+
 def applies(board, act, api, p):
     return act.action == 1
 def predict(board, act, api, p):

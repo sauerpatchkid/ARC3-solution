@@ -2,21 +2,17 @@
 use by S2; version 0's smoke catalog and guard."""
 import json
 import os
-import sys
 from types import SimpleNamespace
 
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import h3_templates as H  # noqa: E402
-from test_gb_guards import move_rule  # noqa: E402
+from gb import h3_templates as H
+from test_gb_guards import move_rule
 
 RULE = move_rule(1, -1, 0, True)
 BIND_CLEAN = RULE + '''
+
+
 def bind(board0, api):
     return {"agent": int(board0.max())}
 '''

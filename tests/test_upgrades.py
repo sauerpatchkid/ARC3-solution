@@ -2,24 +2,19 @@
 
     uv run python -m pytest tests/ -q
 """
-import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from canon import OnlineCanonicalizer  # noqa: E402
-from gridtools import tick_cells, label_components, screen_objects  # noqa: E402
-from upgrades import Upgrades, UpgradedReturnMap, BarDetector, DEAD_CLICK_TRIES  # noqa: E402
+from canon import OnlineCanonicalizer
+from gridtools import tick_cells, label_components, screen_objects
+from upgrades import Upgrades, UpgradedReturnMap, BarDetector, DEAD_CLICK_TRIES
 
 NO_MASK = np.zeros((64, 64), dtype=bool)
 
-
 # ---- decorations ------------------------------------------------------------------
+
+
 def test_tick_cells_finds_small_components_only():
     d = np.zeros((64, 64), dtype=bool)
     d[5, 5] = True                    # size 1

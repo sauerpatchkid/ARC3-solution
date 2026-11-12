@@ -1,21 +1,14 @@
 """H1 VOCAB (custom_agents/gb/h1_vocab.py) on hand-made boards: the sandbox finds
 the same subject as S1's labelled objects, works out the same facts S1 records,
 and is reachable from rule code through gb/core/contract.py."""
-import os
-import sys
 import time
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import h1_vocab as H  # noqa: E402
-from gb.core import contract as C  # noqa: E402
-from gb.core.evidence import Act, LevelEvidence  # noqa: E402
-from test_gb_see import BG, LIVE, board, wall_level  # noqa: E402
+from gb import h1_vocab as H
+from gb.core import contract as C
+from gb.core.evidence import Act, LevelEvidence
+from test_gb_see import BG, LIVE, board, wall_level
 
 
 def random_board(seed):

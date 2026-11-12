@@ -1,13 +1,9 @@
 """tools/gb_gate.py: G3's verdict (pre-registration section 6) on two fake runs."""
 import json
 import os
-import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
-
-import gb_gate  # noqa: E402
-import tiers  # noqa: E402
+import gb_gate
+import tiers
 
 
 def fake_run(root, name, games, coverage, trusted, wrong, ran_out, answers, templates=0):

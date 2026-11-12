@@ -6,17 +6,11 @@ Screens are synthetic 64x64 frames; a "screen id" is painted into one cell so
 distinct ids give distinct keys. The live decoration mask is all-False unless a
 test says otherwise.
 """
-import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from return_map import ReturnMap, DEAD  # noqa: E402
+from return_map import ReturnMap, DEAD
 
 NO_MASK = np.zeros((64, 64), dtype=bool)
 BUTTONS = [1, 2, 3, 4]          # ACTION1-4 available, no clicks (values, as the frame lists them)

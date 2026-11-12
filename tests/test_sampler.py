@@ -6,16 +6,10 @@ Builds a bare Action object without running __init__ (no dirs, no
 TensorBoard), which is enough to exercise the sampler.
 """
 import logging
-import os
-import sys
 
 import numpy as np
 import pytest
 import torch
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 
 import run_local  # noqa: E402
 run_local._install_minimal_agents_pkg()          # provides agents.structs

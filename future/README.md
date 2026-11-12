@@ -51,8 +51,8 @@ Found while reading the code on 10 Nov. None changes what an agent does.
 | `glassbox.toml`: the 35 settings no code reads are now labelled `[unread]` (comments only: the config hash is unchanged) | done 10 Nov |
 | `make local` ignored `AGENT` (it always ran `goose`); `make metrics` labelled every row `goose` | done 10 Nov |
 | `sweep.sh`'s comments named arms and a make target that were removed | done 10 Nov |
-| `tests/conftest.py` in place of the same `sys.path` lines in 26 test files | to do |
-| `gb/s5_act.py` builds its settings twice with the same expression: one helper | to do |
+| `tests/conftest.py` in place of the same `sys.path` lines in 26 test files (54 lines gone; 261 tests pass) | done 10 Nov |
+| `gb/s5_act.py` built its settings twice with the same expression: one helper, `settings_from()` | done 10 Nov |
 | `action.py`: the module docstring sits after the imports and says 6 action outputs (there are 5); `_has_time_elapsed` calls seconds "hours" | to do, with item 4 (one `cpu_check` covers both) |
 
 ## Build notes for the chosen items

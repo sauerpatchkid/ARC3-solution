@@ -1,19 +1,12 @@
 """S1 SEE (custom_agents/gb/s1_see.py) on hand-made boards: what each kind of
 change is called, what an object leaves behind, and when a change counts as
 explained. One test documents a known limit (a two-colour sprite is two objects)."""
-import os
-import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-
-from gb import s1_see as S  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
-from test_gb_core import play  # noqa: E402
+from gb import s1_see as S
+from gb.core.evidence import LevelEvidence
+from test_gb_core import play
 
 BG = 5                                         # black, the commonest colour on every board here
 LIVE = np.ones((64, 64), bool)

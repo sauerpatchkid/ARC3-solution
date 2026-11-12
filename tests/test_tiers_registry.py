@@ -3,19 +3,18 @@
 Copied from Rulebook v2's tests (legacy/rulebook/tests/test_wm_v2.py) when the
 two modules moved to the repo root on 16 Oct 2026."""
 import os
-import sys
 
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
 
 import benchmark  # noqa: E402
 import registry  # noqa: E402
 import tiers  # noqa: E402
 
-
 # ---- tiers ----------------------------------------------------------------------------
+
+
 def test_every_public_game_is_in_exactly_one_tier():
     listed = [g for games in tiers.TIERS.values() for g in games]
     assert sorted(listed) == sorted(benchmark.ALL_GAMES) and len(set(listed)) == 25

@@ -1,12 +1,7 @@
 """The adopted Goose as a named agent (custom_agents/presets.py)."""
 import os
-import sys
 
 import pytest
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
 
 import run_local  # noqa: E402
 run_local._install_minimal_agents_pkg()          # provides agents.structs

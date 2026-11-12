@@ -7,10 +7,7 @@ import sys
 
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
-
-import gb_sweep  # noqa: E402
+import gb_sweep
 
 
 def test_arm_envs():

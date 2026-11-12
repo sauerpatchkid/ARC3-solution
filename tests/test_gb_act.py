@@ -2,24 +2,20 @@
 the rules' child process, the map's part, the online bookkeeping and the replay.
 Synthetic boards only; no GPU, no LLM, no recorded game.
 """
-import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb import s5_act as S  # noqa: E402
-from return_map import ReturnMap  # noqa: E402
+from gb import s5_act as S
+from return_map import ReturnMap
 
 NO_MASK = np.zeros((64, 64), bool)
 
 # A v1 rule: a click on colour 4 changes nothing (it claims the clicked cell, unchanged).
 CLICK4_NOOP = '''
 RULE = "clicking colour 4 does nothing"
+
+
 def applies(board, act, api):
     return act.action == 6 and board[act.click] == 4
 def predict(board, act, api):

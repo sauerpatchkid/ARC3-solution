@@ -1,15 +1,10 @@
 """Unit tests for custom_agents/gridtools.py (shared 64x64 screen helpers).
 The tick_cells / label_components / screen_objects cases written with the
 upgrade screen are in tests/test_upgrades.py."""
-import os
-import sys
 
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gridtools import GRID, border_band, connected_components, tick_cells  # noqa: E402
+from gridtools import GRID, border_band, connected_components, tick_cells
 
 
 def test_border_band_is_the_outer_ring():

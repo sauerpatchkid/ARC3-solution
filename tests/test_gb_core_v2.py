@@ -6,15 +6,9 @@ legacy/rulebook/tests/test_wm_cp1.py on 16 Oct 2026 (imports changed only).
     uv run python -m pytest tests/test_gb_core_v2.py -q
 """
 import os
-import sys
 
 import numpy as np
 import pytest
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
 
 from test_gb_core import GOOD_MOVE, play  # noqa: E402
 from gb.core.check import baseline_memory, check_rule  # noqa: E402
@@ -22,8 +16,9 @@ from gb.core.evidence import LevelEvidence, read_level, read_moves, screen_hash 
 from gb.core.metrics import (gate_interval, memory_hash, moves_right, nothing_hash, resample_units,  # noqa: E402
                         v1_book_hash)
 
-
 # ---- the order of the moves (pre-registration 4.4) ---------------------------------------
+
+
 def record(d, n=400, over_every=40, flagged=False, level_up_at=None, with_nums=True):
     """One recorded run of the toy game with a game over every `over_every`
     moves. Old style (flagged=False): the move that ended the attempt is not in

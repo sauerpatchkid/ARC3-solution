@@ -571,6 +571,15 @@ class Online:
         self.guide.close()
 
 
+def settings_from(config):
+    """S5's settings from a loaded glassbox.toml: DEFAULTS, then `[act]`, then the three
+    `[carry]` settings S5 shares with S4. The online guide and the replay both use this,
+    so they cannot be configured differently."""
+    return dict(DEFAULTS, **{k: v for k, v in config.get("act", {}).items() if k in DEFAULTS},
+                **{k: v for k, v in config.get("carry", {}).items()
+                   if k in ("noop_min_clicks", "online_min_cases", "online_max_wait")})
+
+
 def from_env(game_id, seed, out_dir):
     """The online guide for one run: EVAL_GB_BOOK names an offline run under
     results/glassbox/ (or a path) whose book's no-op rules are carried; unset, the guide
@@ -584,10 +593,7 @@ def from_env(game_id, seed, out_dir):
         if not os.path.isdir(book_dir):
             raise SystemExit(f"EVAL_GB_BOOK: no such run {book_dir}")
         rules, level = noop_rules(book_dir, game)
-    config = A.load_config()
-    settings = dict(DEFAULTS, **{k: v for k, v in config.get("act", {}).items() if k in DEFAULTS},
-                    **{k: v for k, v in config.get("carry", {}).items()
-                       if k in ("noop_min_clicks", "online_min_cases", "online_max_wait")})
+    settings = settings_from(A.load_config())
     os.makedirs(out_dir, exist_ok=True)
     g = Guide(game, rules, level, settings, seed=seed + 7919, log_path=os.path.join(out_dir, "events.jsonl"))
     g._event("start", book=book, rules=[r["id"] for r in rules], train_level=level,
@@ -695,9 +701,7 @@ def replay_run(run, game, seed, corpus, book_dir=None, log=print):
     """One recorded run replayed into <run>/s5_act/<game>_s<seed>.replay.json: per level
     (module doc, REPLAY) and the guide's events. `book_dir` None: no rules (GB-free)."""
     rules, level = noop_rules(book_dir, game) if book_dir else ([], None)
-    settings = dict(DEFAULTS, **{k: v for k, v in run.config.get("act", {}).items() if k in DEFAULTS},
-                    **{k: v for k, v in run.config.get("carry", {}).items()
-                       if k in ("noop_min_clicks", "online_min_cases", "online_max_wait")})
+    settings = settings_from(run.config)
     guide = Guide(game, rules, level, settings, seed=seed + 7919)
     try:
         rows = replay(guide, corpus, log=log)

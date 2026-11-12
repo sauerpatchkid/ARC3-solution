@@ -1,18 +1,13 @@
 """S0 MASK (custom_agents/gb/s0_mask.py): bars run to the screen's edges, nothing
 else changes, and with the step switched off the evidence is CP1's exactly."""
 import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb import cp1_import  # noqa: E402
-from gb import s0_mask as M  # noqa: E402
-from gb.core.evidence import LevelEvidence  # noqa: E402
+from gb import cp1_import
+from gb import s0_mask as M
+from gb.core.evidence import LevelEvidence
 
 ON, OFF = M.DEFAULTS, dict(M.DEFAULTS, complete_bars=False)
 

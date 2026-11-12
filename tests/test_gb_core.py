@@ -6,24 +6,20 @@ legacy/rulebook/tests/test_wm_core.py on 16 Oct 2026 (imports changed only).
     uv run python -m pytest tests/ -q
 """
 import os
-import sys
 
 import numpy as np
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "custom_agents"))
-
-from gb.core.check import (EXACT, UNKNOWN, WRONG, book_status, check_rule, coverage, grade,  # noqa: E402
+from gb.core.check import (EXACT, UNKNOWN, WRONG, book_status, check_rule, coverage, grade,
                       pick_book, transfer)
-from gb.core.evidence import Act, LevelEvidence, frozen_moves, group_of, ticker_mask  # noqa: E402
-from gb.core.sandbox import compile_functions, validate  # noqa: E402
+from gb.core.evidence import Act, LevelEvidence, frozen_moves, group_of, ticker_mask
+from gb.core.sandbox import compile_functions, validate
 
 NO_MASK = np.zeros((64, 64), bool)
 
-
 # ---- a synthetic game ----------------------------------------------------------------
+
+
 def step(board, a):
     """ACTION1 slides the 2x2 colour-3 block one column right unless at the wall;
     ACTION2 does nothing; clicking a colour-5 cell turns its whole 2x2 tile to 6."""
