@@ -15,26 +15,40 @@ asked for one by one.
 
 | # | Item | From | Needs | Status |
 |---|---|---|---|---|
-| 1 | Re-score G4 (150 runs) and dev sweep 2 (64 runs) on time-to-level: levels by 2,000, 10,000 and 30,000 actions, and AULC | List 2, item 3a | CPU only | next |
-| 2 | Count frozen runs in the 150 G4 recordings | Suggested order, step 1 | CPU only | to do |
-| 3 | Probe which games return more than one frame per move | List 1, item 3 | CPU only (the random agent) | to do |
-| 4 | Goose: a reset watchdog and ACTION7 (undo), each behind its own flag | List 1, item 1 | `cpu_check`; about 7 GPU-hours | to do |
+| 1 | Re-score G4 (150 runs) and dev sweep 2 (64 runs) on time-to-level: levels by 2,000, 10,000 and 30,000 actions, and AULC | List 2, item 3a | CPU only | **done 10 Nov**: [`time-to-level.md`](../docs/3-glassbox/time-to-level.md) |
+| 2 | Count frozen runs in the 150 G4 recordings | Suggested order, step 1 | CPU only | **done 10 Nov**: [`input-probes.md`](../docs/1-goose-upgrades/input-probes.md) |
+| 3 | Probe which games return more than one frame per move, and what ACTION7 does | List 1, item 3 | CPU only (random moves on the engine) | **done 10 Nov**: the same write-up |
+| 4 | Goose: a reset watchdog and ACTION7 (undo), each behind its own flag | List 1, item 1 | `cpu_check`; about 7 GPU-hours | **on hold**: items 2 and 3 found little for either to act on |
 | 5 | LLM plays first, Goose takes over: a pilot on the dev games | List 3, item 1 | the instructor's OK (it differs from the 2 Nov idea statement); a model | to do |
 | 6 | Owed for the report: G4's GB recordings replayed with the agent's mask; the funnel table; S6 pages for figures | plan §7.4 item 20 | CPU only | to do |
 
 Items 1 to 3 decide how much item 4 deserves: if no run is frozen and no game
 animates, the watchdog and the animation work are not worth their GPU time.
 
+**What items 2 and 3 found:** no G4 run is frozen (a watchdog firing after
+300 frozen moves could have cut 179 of 7.39 million moves). ACTION7 is an undo
+on sk48, ar25 and bp35, does nothing on sb26 and su15, and is something else
+on lf52; under random play it reaches fewer screens on five of the six games.
+In-between frames hide something on ft09 (every dead click flashes), sc25 and
+cd82 only. So item 4 has little to act on.
+
+**What item 1 found** (exploratory): counted by action budget, nothing shows
+early. Counted level by level, the guided agent finished levels after the first
+in fewer actions on 36 against 17 in G4, where two unguided arms split 24
+against 27, and the LLM-free arm did as well as the guided one. That speaks for
+"carry colour no-ops and goal hints inside Goose" in the table below, which is
+not on this week's list: Matt's call.
+
 ## All nine ideas
 
 | Idea | In the review | Work | GPU-hours | This week? |
 |---|---|---|---|---|
-| ACTION7 (undo) and a reset watchdog | List 1, item 1 | 1 day | 6 to 7 | **yes** (item 4) |
-| Carry colour no-ops and goal hints inside Goose; keep the network across levels | List 1, item 2 | 1 to 2 days | about 9 | no |
-| Animation frames and the ends of bars | List 1, item 3 | 1 to 2 days | 4 to 8 | the probe only (item 3) |
+| ACTION7 (undo) and a reset watchdog | List 1, item 1 | 1 day | 6 to 7 | on hold (item 4): the probes found little to act on |
+| Carry colour no-ops and goal hints inside Goose; keep the network across levels | List 1, item 2 | 1 to 2 days | about 9 | no (item 1's result speaks for it) |
+| Animation frames and the ends of bars | List 1, item 3 | 1 to 2 days | 4 to 8 | the probe, done (item 3): frames matter on sc25 at most, and would hurt on ft09 |
 | A stronger rule writer through a hosted API | List 2, item 1 | 0.5 to 1 day | none | no (needs an exception to "everything is the local model") |
 | An LLM-written, replay-checked goal test | List 2, item 2 | 2 to 3 days | about 12 | no (only worth it after the stronger writer) |
-| Time-to-level re-score; the LLM-free arm on the 6 rule games | List 2, item 3 | 0.5 day | 3.5 | **the re-score, yes** (item 1); the arm, no |
+| Time-to-level re-score; the LLM-free arm on the 6 rule games | List 2, item 3 | 0.5 day | 3.5 | **the re-score, done** (item 1); the arm, no |
 | LLM plays first, Goose takes over | List 3, item 1 | 2 to 3 days | 4 to 8 | **yes, as a pilot** (item 5) |
 | LLM plans at stalls, checked by the game | List 3, item 2 | 3 to 4 days | about 12 | no |
 | A small prior trained on solved-level traces | List 3, item 3 | 1 to 2 weeks | Colab | no (future work) |

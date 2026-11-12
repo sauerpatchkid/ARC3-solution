@@ -41,7 +41,10 @@ one switch.
 | **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
 
 `mb_gated_att` is **A0**, the reference every later result is compared with.
-File by file: [`custom_agents/README.md`](custom_agents/README.md).
+File by file: [`custom_agents/README.md`](custom_agents/README.md). Three
+[probes](docs/1-goose-upgrades/input-probes.md) of 10 Nov sized further ideas
+before building: a reset watchdog has nothing to act on, and ACTION7 is an
+undo that an explorer has little use for.
 
 ## Glassbox
 
@@ -73,6 +76,7 @@ The problem each stage fixes, and each one's status:
 | G3 (3 Nov) | Do rule templates carry to held-out games? | **FAIL**: 0 of 792 tries adopted |
 | Dev sweep 2 (5 Nov) | S5 v2 against a same-day A0, 8 dev games × 4 seeds | **PASS**: 72 vs 67 |
 | G4 (8 Nov) | The confirm on all 25 games × 3 seeds | **ADOPT**: 110 vs 101 (12 better, 57 same, 6 worse) |
+| Time to level (10 Nov, exploratory) | Does the guide finish levels sooner? | After level 1, yes: it finished a level in fewer actions on 36 against 17 in G4 (two unguided arms: 24 against 27) |
 
 **How to read G4.** The gain is about one standard deviation of chance, and
 the guided agent is level with A0's own 27 Sep runs (110 vs 112). Outside the
@@ -211,6 +215,9 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
   every sweep calls it.
 - `tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<arm> --rule adopt|dev|confirm`
   gives a verdict against a pre-registered rule.
+- `tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm>`
+  compares two arms on *when* levels were completed: levels by action budget,
+  AULC, and which arm finished each level in fewer actions. No verdict.
 - **Did my change alter the agent?** GPU runs can't answer that. Record 2,000
   moves on the CPU before and after and compare them move for move:
   `tools/cpu_check.py`.
@@ -291,8 +298,9 @@ ARC3-solution/
 ├── check_repo.py              # make check: isolation, registry, deps, suites
 ├── tiers.py, registry.py      # game tiers (dev / seen / held-out); the frozen-artifact registry
 ├── artifacts/                 # registry.json and the frozen artifacts it names
-├── tools/                     # paired_compare.py (verdicts), cpu_check.py (did it change?),
-│                              #   artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py (Glassbox)
+├── tools/                     # paired_compare.py (verdicts), levels_by_budget.py (when levels came),
+│                              #   cpu_check.py (did it change?), frozen_moves.py, probe_engine.py
+│                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py (Glassbox)
 ├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
 ├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest

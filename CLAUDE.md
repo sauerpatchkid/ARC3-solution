@@ -74,6 +74,10 @@ uv run python compute_metrics.py results/runs/<ts>/ls20/transitions \
     --game ls20 --agent mb_gated_att --seed 0 --suite results/local_suite.csv
 uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--rule adopt|dev|confirm] [--expect N]
+uv run python tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> \
+    [--games a,b] [--by-game]             # WHEN levels came: by budget, AULC, level races; no verdict
+uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
+uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
 uv run python -m pytest tests -q              # live tests (~85 s)
 uv run python -m pytest legacy/rulebook/tests -q   # frozen Rulebook tests (~40 s)
 make gb-config                                # Glassbox's settings and their hashes
@@ -143,6 +147,7 @@ the running log is plan §7.4 (`docs/3-glassbox/glassbox-plan.md`).
 | S5 v2 check | 3 Nov | exploratory | with the agent's mask, v2 carries the counterfactual's colours on all 10 recordings | `s5-v2.md` |
 | Dev sweep 2 (7a) | 4-5 Nov | **PASS** | GB 72 vs a same-day A0's 67 on 8 dev games x seeds 3-6 (6 / 24 / 2); ~1.6 SD | `dev-sweep-2.md` |
 | **G4 (7)** | 7-8 Nov | **ADOPT** | GB 110 vs a same-day A0's 101 on 25 games x seeds 0-2 (12 / 57 / 6), no game worse on all 3 seeds | `g4-confirm.md` |
+| Time to level | 10 Nov | exploratory | finished runs re-scored: by budget GB leads the same-day A0 by +1 / +2 / +6 / +9 at 2k / 10k / 30k / 100k (two unguided arms differ by 11 at 100k); level by level, GB finished levels 2 and up in fewer actions on 36 vs 17 in G4 and 23 vs 16 in dev sweep 2 (unguided vs unguided 24 vs 27; level 1 23 vs 28); G2's LLM-free arm 14 vs 7, as the guided one | `time-to-level.md` |
 
 **How to read G4.** +9 is ~1.1 standard deviations of chance (the rule passes
 36% with no effect); the same-day A0 came in 11 below A0's 27 Sep runs (same
@@ -155,7 +160,7 @@ changes there were mostly goal hints (s5i5 +3, r11l +2). G4 had no LLM-free arm.
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 261 live tests.
+status, `make gb-help` each command. 270 live tests.
 
 | Piece | File | State |
 |---|---|---|
@@ -204,12 +209,19 @@ uninformative) and the frontier showcase (only if the buffer allows).
   (`results/DELETED_2026-11-10.md`). No agent file was touched.
 - **This week's list, in order** (Matt, 10 Nov; `future/README.md` has the
   detail and the build notes). GPU runs are asked for one by one:
-  1. Re-score G4 and dev sweep 2 on time-to-level (levels by 2,000, 10,000 and
-     30,000 actions, AULC). CPU; exploratory, the metric was chosen after the runs.
-  2. Count frozen runs in G4's 150 recordings. CPU.
-  3. Probe which games return more than one frame per move. CPU.
-  4. Goose: a reset watchdog and ACTION7 (undo), each behind a new flag, with a
-     new preset. Needs `cpu_check` and about 7 GPU-hours.
+  1. ~~Re-score G4 and dev sweep 2 on time-to-level~~ **done 10 Nov**
+     (`docs/3-glassbox/time-to-level.md`, `tools/levels_by_budget.py`, tables in
+     `results/glassbox/time_to_level/`): the guide's LLM-free carry makes levels
+     after the first come sooner; the level count stays inside the noise.
+  2. ~~Count frozen runs in G4's 150 recordings~~ and 3. ~~probe the engine~~
+     **done 10 Nov** (`docs/1-goose-upgrades/input-probes.md`;
+     `tools/frozen_moves.py`, `tools/probe_engine.py`): no run is frozen (a
+     reset watchdog could have cut 179 of 7.39 M moves); ACTION7 is an undo on
+     sk48, ar25, bp35, does nothing on sb26 and su15, and is something else on
+     lf52; in-between frames hide something on ft09, sc25, cd82 only.
+  4. Goose: a reset watchdog and ACTION7 (undo). **On hold: items 2 and 3
+     found little for either to act on.** Matt decides whether "carry inside
+     Goose" (the review's List 1, item 2) takes its place.
   5. "LLM plays first, Goose takes over": a pilot on the dev games. It differs
      from the 2 Nov idea statement, so the instructor has to allow it first.
   6. Owed for the report (plan §7.4 item 20): G4's GB recordings on the dev
@@ -224,7 +236,8 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 - **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; its book lives
   under `results/`, outside git); the instructor's OK for item 5 above, and
-  which model it uses; confirm "explained" as the perception number; plan §10
+  which model it uses; whether the time-to-level result moves "carry inside
+  Goose" (the review's List 1, item 2) onto this week's list; confirm "explained" as the perception number; plan §10
   (a) (advisor and the 30 Oct draft) and (b) (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
   `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings

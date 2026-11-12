@@ -38,6 +38,12 @@ and switch, off by default. The adopted bundle is `--agent mb_gated_att`.
 | Upgrade screen | Nine small candidate upgrades screened in two rounds | `upgrades.py` (`EVAL_UPGRADES=...`) | winner: map + bars + map_gated + attempt | [round 1](1-goose-upgrades/upgrade-screen.md) ([results](1-goose-upgrades/upgrade-screen-results.md)), [round 2](1-goose-upgrades/upgrade-screen2.md) ([results](1-goose-upgrades/upgrade-screen2-results.md)) |
 | Upgrade confirm | The winner as one agent | `presets.py` (`--agent mb_gated_att`) | **adopted:** 112 levels, 22 games; 31 better / 36 same / 8 worse | [plan](1-goose-upgrades/upgrade-confirm.md), [results](1-goose-upgrades/upgrade-confirm-results.md) |
 
+After the adoption, on 10 Nov 2026: [three probes before building](1-goose-upgrades/input-probes.md)
+(no agent changed, no GPU). A reset watchdog has nothing to act on (179 of 7.39
+million moves in G4's 75 unguided runs); ACTION7 is an undo on three of its six
+games and does nothing on two; the engine's in-between frames hide something on
+ft09 (every dead click flashes), sc25 and cd82 only.
+
 `mb_gated_att` is **A0**, the reference every Glassbox result is compared
 against. Its 75 confirm runs (`results/confirm_upgrade/20260927_221915/`) are
 reused, never re-run.
@@ -86,6 +92,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [S5 v2, colour no-ops judged at the level's end](3-glassbox/s5-v2.md) (3 Nov, exploratory, tuned on dev games): a replay that rebuilds the agent's own mask reproduces what G2's online runs carried; with v2 it carries what the counterfactual carries on all 10 recordings (m0r0 7 and 3 colours instead of 1 and 0) and gives prereg 5a's numbers exactly. Dev sweep 2's candidate.
 - [Dev sweep 2: GB against the same-day A0](3-glassbox/dev-sweep-2.md) (5 Nov, prereg 7a): **PASS**, GB (S5 v2) 72 levels vs A0-fresh 67 on 8 dev games x 4 seeds (6 / 24 / 2), no game worse on all seeds; small against the noise (~1.6 standard deviations), all on vc33, dc22 and cd82. Online, S5 v2 carried exactly the colours its replay says (87 of 87). So G4 runs, against a same-day A0 arm (prereg §7 registered 7 Nov).
 - [G4, the confirm on all 25 games](3-glassbox/g4-confirm.md) (8 Nov, prereg §7): **ADOPT**, Goose with S5 v2 110 levels vs 101 for the adopted Goose run beside it on 25 games x 3 seeds (12 better, 57 same, 6 worse), no game worse on every seed; untouched tier 14 vs 13. Weak evidence: +9 is about one standard deviation of chance, the same-day A0 came in 11 below A0's 27 Sep runs, and GB ties those (110 vs 112). Outside the dev tier the guide used no LLM output; its gains there sit where its goal hints changed the most moves.
+- [Time to level: what the guide changes](3-glassbox/time-to-level.md) (10 Nov, exploratory, finished runs re-scored): by action budget nothing shows early (GB against the same-day A0: +1 by 2,000 actions, +2 by 10,000, +6 by 30,000, +9 by 100,000, where two unguided arms differ by 11). Level by level, GB finished levels after the first in fewer actions on 36 against 17 in G4 and 23 against 16 in dev sweep 2; two unguided arms split 24 against 27, and level 1, where nothing is carried, splits evenly. G2's LLM-free arm does as well as the guided one.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
 ## 4. What may come next
