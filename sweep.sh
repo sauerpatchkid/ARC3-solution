@@ -55,7 +55,7 @@ set -u
 # Leave BENCH unset for an ad-hoc exploratory sweep with your own GAMES/SEEDS.
 BENCH="${BENCH:-}"
 AGENT="${AGENT:-goose}"          # any name in custom_agents/__init__.py REGISTRY
-ARMS="${ARMS:-}"                 # Plan B arms, e.g. "A0 A1 A2 A3"; empty = reset arms
+ARMS="${ARMS:-}"                 # labelled arms, e.g. "A0 A1 A4"; empty = reset arms
 RESULTS="${EVAL_RESULTS_DIR:-results}"
 SUITE_CSV="${SUITE_CSV:-$RESULTS/local_suite.csv}"
 
@@ -87,7 +87,7 @@ else
   : > "$MANIFEST"
 fi
 
-# Graceful pause: `touch $SWEEPDIR/STOP` (make planb-pause). Checked between
+# Graceful pause: `touch $SWEEPDIR/STOP`. Checked between
 # runs, so the run in progress finishes and is recorded; nothing is lost.
 # Resume with RESUME=<manifest>.
 STOP_FILE="$SWEEPDIR/STOP"
@@ -97,7 +97,7 @@ check_stop () {
   rm -f "$STOP_FILE"
   echo ""
   echo "=== STOP requested - pausing after the last finished run ($(date +%H:%M:%S))"
-  echo "=== resume with: RESUME=$MANIFEST (make planb-dev RESUME=... / make planb-confirm RESUME=...)"
+  echo "=== resume with the same command and RESUME=$MANIFEST"
   exit 0
 }
 

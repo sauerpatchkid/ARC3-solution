@@ -28,10 +28,10 @@ help:
 	@echo "                                      semester-1 baseline, AGENT=mb_gated_att the adopted Goose"
 	@echo "  make bench-fg SUITE=smoke           same, in the foreground"
 	@echo "  make compare M1=<manifest> M2=<..>  put two agents side by side"
-	@echo "  make local GAME=ft09 CAP=2000       one ad-hoc run"
+	@echo "  make local GAME=ft09 CAP=2000 AGENT=x   one ad-hoc run"
 	@echo ""
 	@echo "Analysis:"
-	@echo "  make metrics DIR=<transitions> GAME=x   score one run"
+	@echo "  make metrics DIR=<transitions> GAME=x AGENT=x   score one run"
 	@echo "  make curves MANIFEST=<manifest>         levels-vs-budget, AULC"
 	@echo "  make tensorboard"
 	@echo ""
@@ -43,6 +43,8 @@ help:
 	@echo "Archive (frozen, see legacy/README.md):"
 	@echo "  make -f legacy/goose_experiments/experiments.mk <target>   Plan B, Option 1, upgrade screens"
 	@echo "  legacy/rulebook/   Rulebook v1 and v2;  legacy/coach_track/   the Coach;  legacy/llm_track/   semester 1"
+	@echo ""
+	@echo "Future methods (not built): future/README.md"
 	@echo ""
 	@echo "Add your own agent: see custom_agents/__init__.py and TEMPLATE.py"
 
@@ -86,7 +88,7 @@ compare:
 # Local engine, one game (fast dev path, ~120 act/s).
 local:
 	PYTHONHASHSEED=0 EVAL_SEED=$(SEED) EVAL_MAX_ACTIONS=$(CAP) \
-	uv run python run_local.py --game=$(GAME)
+	uv run python run_local.py --game=$(GAME) --agent=$(AGENT)
 
 # Persistent-brain curriculum across several games (cross-game transfer).
 curriculum:
@@ -126,7 +128,7 @@ curves:
 # Score a finished run's corpus and append a row to results/local_suite.csv.
 metrics:
 	uv run python compute_metrics.py $(DIR) \
-	--game=$(GAME) --seed=$(SEED) --suite $(RESULTS)/local_suite.csv
+	--game=$(GAME) --agent=$(AGENT) --seed=$(SEED) --suite $(RESULTS)/local_suite.csv
 
 tensorboard:
 	.venv/bin/tensorboard --logdir=$(RESULTS)/runs --port=6006

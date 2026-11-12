@@ -3,21 +3,31 @@
 What is true now and what must not be broken. History lives in `docs/` (map:
 `docs/README.md`); finished code lives in `legacy/` (index: `legacy/README.md`).
 
-## The project in three parts
+## The project in four parts
 
-The repo, the docs and the archive all follow this order, so keep new work in it:
+The README, the docs and the folders all follow these four, so keep new work in them:
 
 1. **Goose upgrades (no LLM)**: the exploring agent, Goose (a CNN that learns
    online which actions change the screen), and the semester-2 improvements to
    it. 54 → 79 → 112 levels on 25 games × 3 seeds × 100k.
    Code: `custom_agents/action.py`, `canon.py`, `return_map.py`, `upgrades.py`,
-   `presets.py`. Docs: `docs/1-goose-upgrades/`. Launchers: `legacy/goose_experiments/`.
-2. **LLM history**: the judge, the Coach, Rulebook v1 and v2. All stopped at
-   their gates. Docs: `docs/2-llm-history/`. Code: frozen in `legacy/`.
-3. **Glassbox (current)**: Goose plus a local LLM that writes small rules,
+   `presets.py` (index: `custom_agents/README.md`). Docs: `docs/1-goose-upgrades/`.
+   Launchers: `legacy/goose_experiments/`.
+2. **Glassbox (current)**: Goose plus a local LLM that writes small rules,
    each replay-checked, in separate stages that each fix one problem.
    Code: `custom_agents/gb/` (one file per stage; `gb/README.md` has the
    problem each fixes). Docs: `docs/3-glassbox/`.
+3. **Previously tried methods**: the judge, the Coach, Rulebook v1 and v2. All
+   stopped at their gates. Docs: `docs/2-llm-history/`. Code: frozen in `legacy/`.
+4. **Future methods**: ideas that are not built. `future/README.md` has this
+   week's list, the nine ideas of the 10 Nov review
+   (`future/improvement-lists-2026-11-10.md`) and the small fixes still open.
+   An idea is built in its real home (`custom_agents/` or `custom_agents/gb/`),
+   off by default behind its own flag; its write-up goes to `docs/` once it has
+   a result.
+
+The `docs/` folders are numbered in the order things happened (1 Goose
+upgrades, 2 LLM history, 3 Glassbox), which is why Glassbox's folder is `3-`.
 
 **Simplicity and readability come first** (Matt, 16 Oct). A reader should be
 able to see what each step changed and why: one problem per stage, one stage
@@ -102,216 +112,120 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (8 Nov 2026)
+## Where things stand (10 Nov 2026)
 
-**Part 1 is done:** `mb_gated_att` adopted 28 Sep (112 levels). **Part 2 is
-closed:** Coach NO-GO; Rulebook v1 FAIL (2 of 8); Rulebook v2 closed after CP1
-(FAIL 2 of 8, 0.0% wrong at T1). **Part 3, Glassbox, is on its calendar, in
-M3 (2-13 Nov):** G0, G0b, G1 run (M1 done); M2 built; the offline counterfactual
-(prereg 5a) run 18 Oct; **G2 (5b) run 18-19 Oct: FAIL** (34 vs 37 levels);
-three follow-ups done (19 Oct - 2 Nov: A0 run again, dc22's no-op rules, the
-book on every later level); **G3 (6) run 2-3 Nov: FAIL** (no template adopted
-on any held-out game); **S5 v2 built 3 Nov**; **dev sweep 2 (7a) run 4-5 Nov: PASS**
-(GB 72 vs a same-day A0's 67); **G4 (7) run 7-8 Nov: ADOPT** (GB 110 vs a
-same-day A0's 101; within noise; A0's 27 Sep runs 112). Plan: `docs/3-glassbox/glassbox-plan.md` (§7.4 is the running log).
-Gates: `docs/3-glassbox/glassbox-prereg.md`: sections 3 (G0), 3b (G0b), 4 (G1),
-5a (counterfactual), 5b (G2) and 6 (G3) registered and run; 7a (dev sweep 2)
-registered 4 Nov and run 4-5 Nov (PASS); **7 (G4) registered 7 Nov** (code
-`9b1ac79`; comparator a same-day A0 arm on all 75) and run 7-8 Nov (ADOPT), with
-1, 2, 8 and 9 registered beside it; 10 not used (showcase cut).
+**Goose upgrades: done** (`mb_gated_att` adopted 28 Sep, 112 levels).
+**Previously tried methods: closed** (Coach NO-GO; Rulebook v1 FAIL, 2 of 8;
+Rulebook v2 closed after CP1: FAIL 2 of 8, 0.0% wrong at T1). **Glassbox: every
+gate is run**, and G4 adopted it on weak evidence. **Now: the buffer, to Tue
+17 Nov**, then the report (final Mon 7 Dec). The history is in `docs/`; this
+section holds only what a new session needs.
 
-- **Timeline (Matt, 16 Oct):** every part tested at least once by about **Sun
-  1 Nov** (soft); every gate run by **Fri 27 Nov** (hard). Course dates: Fri 30
-  Oct full draft, Mon 2 Nov idea statement, Mon 7 Dec final. Plan §7.
-  **Moved up 3 Nov (Matt): everything in the plans finished by Tue 17 Nov**, then
-  2-3 weeks of write-up: S5 v2 (3-4 Nov, done), dev sweep 2 (4-5 Nov, done:
-  PASS), G4 (7-8 Nov, done: ADOPT; 150 runs, 26 h 44 min of
-  running in two parts), its write-up (8 Nov, done), buffer to 17 Nov. **Cut:** the
-  online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
-  uninformative) and the frontier showcase (only if the buffer allows).
-- **Built** (`custom_agents/gb/`, one file per stage; `gb/README.md` has each
-  one's status, `make gb-help` its command):
-  - **S0 MASK** `s0_mask.py`: each bar in the decoration mask run to the
-    screen's edges (`[mask] complete_bars`); off, it rebuilds CP1's evidence
-    exactly. Also CP1's level rule for any game.
-  - **S1 SEE** `s1_see.py` (VERSION 3): objects, what happened to them,
-    "explained" (S1's measure; the plan's "closure" cannot fail), relations,
-    feature bits, roles, exploration matrix, facts text (golden test).
-  - **H1 VOCAB** `h1_vocab.py`, **registered `glassbox_vocab_v1`, frozen**: S1's
-    relation code, `features()`, ten primitives, `CARD`. Rules get them through
-    `gb/core/contract.py`.
-  - **S2 WRITE v1** `s2_write.py`: CP1's procedure and budget, plus S1's facts,
-    H1's card, one mechanism per rule, guards before near-miss calls. **S2 POOL**
-    `s2_pool.py` (18 Oct): finished runs' candidates on the same evidence pooled
-    into a new run, no LLM (one source = a clean copy, to re-run S3/S4).
-  - **S3 CHECK**: grading `s3_check.py` (CP1's procedure), guard fitter
-    `s3_guards.py`. Not built: priority composition, trust tiers.
-  - **S4 CARRY v1** `s4_carry.py`: CP1's re-binding; plus (18 Oct) a role
-    tie-break among the exact bindings applying to the most fit cases
-    (`[carry] roles_in_bind`, **off by default**, so `make gb-g0b-control` still
-    equals CP1) and the online wait `ready()`; (2 Nov) `later_levels`
-    (`--stage carry --later --book <run>`): the book re-bound on every later
-    level of a recording, scored on the pairs that level had not seen (mask
-    kept across levels). Not built: repair calls.
-  - **S5 ACT v1** `s5_act.py` (18 Oct): prune (carried colour no-ops, no LLM:
-    >= 20 clicks on a level, none changing; the book's no-op rules, per group
-    the known no-op with most moves, re-bound on EVERY level's own moves after
-    the wait, retried at twice the moves up to 4,000), goal hints (never the
-    background; boost only where a hint click is possible), `GbMap(UpgradedReturnMap)`
-    (buttons a re-bound no-op rule covers count as tried). Weights reach Goose by
-    rejection sampling with the guide's own generator (exactly p*w; Goose's
-    stream untouched). Rules run in one spawned child (`RuleWorker`, timeout ->
-    rules off). The book's CHANGING rules are not used online yet (no probes,
-    no IMAGINE). **Hook:** `EVAL_GB=1` (+ `EVAL_GB_BOOK=<run>`; unset = GB-free),
-    16 lines tagged `# [gb]` in `action.py`; **`cpu_check` with it unset:
-    identical on every move** (goose/ft09 1,970, mb_gated_att/tu93 1,960; 18 Oct).
-    Replay = the offline counterfactual (`--stage replay`, `make gb-replay`,
-    `make gb-cf`), refused on dev games without `--cf`/`CF=1`; it counts masking
-    by colour and rule, and replays other recordings with `--set
-    run.manifest="<manifest>"` and `--arm`.
-  - **S5 ACT v2** (3 Nov, `s5-v2.md`, tuned on dev games; **on in
-    `glassbox.toml`**, off in the code's defaults): `[act] colour_judge =
-    "level_end"` (a colour's changed cells judged at the level's end under the
-    mask with S0's bars completed, not click by click) and `mask_bars = true`
-    (the guide's online mask with S0's bars completed, so a bar's last cell no
-    longer drops a carried colour). The replay's `replay_mask = "agent"`
-    rebuilds the agent's own mask from a recording (`AgentMask`) and lists what
-    an online S5 run carried: v1 that way reproduces G2's online carries on 9 of
-    10 recordings, and v2 that way gives 5a's numbers exactly. No `cpu_check`
-    needed: `action.py` untouched, `s5_act` imported only under `EVAL_GB=1`.
-  - **H3 TEMPLATES v1** `h3_templates.py` (2 Nov): the catalog
-    (`make gb-catalog`: 40 templates from `pool_g0b_g1` + `smoke_lp85`,
-    `artifacts/glassbox_templates_v1.jsonl`, sha256 `c263262ecffd8d75`,
-    **registered `glassbox_templates_v1`, frozen**), the try step (`--stage templates`, no source binding preferred)
-    and S2 started from adopted templates (`[templates] enabled`); A/B-offline games
-    only with `--g3` (every offline stage) and a registered catalog. Seen-game
-    check: ls20 0 of 64 adopted, lp85 only its own rule. v0's smoke (0 of 21)
-    kept as run. G3: `make gb-g3 G3=1 [G3_SHARE=1]`, verdict `gb_gate.py g3`;
-    run 2-3 Nov: 0 of 792 tries adopted (results below).
-  - **S6 SHOW v0** `s6_show.py`: report page (funnel, case viewer) per run.
-  - **Not built:** H2 SCHEDULER (online LLM), S5 probes; IMAGINE and contact goals
-    dropped 2 Nov (plan §7.3).
-  - Drivers: `tools/gb_offline.py` (`--stage mask|see|pool|write|check|carry|
-    guards|replay|templates|show`); online runs `tools/gb_sweep.py` (GB,
-    GB-free and A0-fresh arms, 4 at a time, verdicts vs A0 with a 16-run A0
-    manifest; `make gb-online` seen games, `make gb-g2 BOOK=.. G2=1` dev games only
-    after §5b is registered, `make gb-dev2 BOOK=pool_g0b_g1 DEV2=1` dev sweep 2
-    only after §7a is registered (`--dev2`: GB vs A0-fresh under `--rule dev`;
-    comparisons with A0's 27 Sep runs skipped when they lack the seeds),
-    `make gb-g4 BOOK=pool_g0b_g1 G4=1 [RESUME=1]` G4 only after §7 is
-    registered (`--g4`: all 25 games, the whole run set or nothing, held-out
-    levels printed as `sealed`, verdicts `--rule confirm --expect 75 --seal`),
-    `make gb-status` / `gb-pause` / `gb-stop [SWEEP=g4]` (a sweep's progress; a
-    pause once the runs in progress finish; a stop now, the cut runs rerun whole
-    on `RESUME=1`), `make gb-a0-fresh` A0 run again); verdicts
-    `tools/gb_gate.py`.
+### Glassbox's results
+
+Each row is written up in `docs/3-glassbox/` under the file named, and the
+write-up names its run folder under `results/glassbox/`. Gates are in
+`docs/3-glassbox/glassbox-prereg.md` (sections 1 to 9 registered, 10 not used);
+the running log is plan §7.4 (`docs/3-glassbox/glassbox-plan.md`).
+
+| Test (prereg section) | Run | Verdict | The numbers | Write-up |
+|---|---|---|---|---|
+| G0 (3) | 16 Oct | no rescue | the guard fitter rescued nothing; m0r0's near-misses were a mask gap (row 63's bar) | `g0-guard-rescue.md` |
+| G0b (3b) | 16 Oct | fixed | with S0 all 11 trusted; m0r0 0% → 53.5% of changed cells; T1 51.7% (memory 53.9%) | `g0b-bar-mask.md` |
+| G1 (4) | 17 Oct | **FAIL** | 3 of 8 above G0b, safety met; tu93 0 → 59.0%, tr87 0 → 35.5%, dc22 11.8 → 29.3%; ft09, g50t, vc33, cd82 lost ground | `g1-offline-rules.md` |
+| Pooled book `pool_g0b_g1` | 18 Oct | exploratory | never below the better of G0b and G1; above both on dc22 40.4%, g50t 18.1%, cd82 6.6% | `pool-g0b-g1.md` |
+| Offline counterfactual (5a) | 18 Oct | as registered | carried no-ops would have covered vc33 60.1% and ft09 22.9% of A0's moves in each new level's first 2,000 actions; masking <= 0.05%; GB-free nearly the same | `cf-counterfactual.md` |
+| G2 (5b) | 18-19 Oct | **FAIL** | GB 34 levels vs A0's 37 on the 16 dev runs (1 / 12 / 3); GB-free 35 | `g2-online.md` |
+| A0 run again | 19 Oct | exploratory | unchanged `mb_gated_att` 33 vs its own 37 of 27 Sep; noise ~±2.6 levels per 16 runs | `a0-fresh.md` |
+| dc22's no-op rules | 2 Nov | exploratory | 4,160 moves covered on 9 recordings, 0 changed anything; the level-2 stall is dc22's | `dc22-noop-check.md` |
+| The book on every later level | 2 Nov | exploratory | right wherever it applies only on ft09 L3 and tr87 L2; plan §7.3's IMAGINE precondition is met by no game | `carry-later-levels.md` |
+| G3 (6) | 2-3 Nov | **FAIL** | 0 of 792 template tries adopted on the 8 A/B-offline games; GB there: mean cell coverage 13.8% (G1 on dev 32.0%), 46% of answers out of room | `g3-templates.md` |
+| S5 v2 check | 3 Nov | exploratory | with the agent's mask, v2 carries the counterfactual's colours on all 10 recordings | `s5-v2.md` |
+| Dev sweep 2 (7a) | 4-5 Nov | **PASS** | GB 72 vs a same-day A0's 67 on 8 dev games x seeds 3-6 (6 / 24 / 2); ~1.6 SD | `dev-sweep-2.md` |
+| **G4 (7)** | 7-8 Nov | **ADOPT** | GB 110 vs a same-day A0's 101 on 25 games x seeds 0-2 (12 / 57 / 6), no game worse on all 3 seeds | `g4-confirm.md` |
+
+**How to read G4.** +9 is ~1.1 standard deviations of chance (the rule passes
+36% with no effect); the same-day A0 came in 11 below A0's 27 Sep runs (same
+code), and GB is level with those (110 vs 112). By tier: dev 54 vs 50 (tuned),
+seen 20 vs 19, A/B-offline 22 vs 19, untouched 14 vs 13. The gain sits where
+the guide acted: +7 on the 11 games where it changed >= 5% of moves, +1 on the
+9 where it changed nothing. Outside the dev tier GB used no LLM output; its
+changes there were mostly goal hints (s5i5 +3, r11l +2). G4 had no LLM-free arm.
+
+### What is built
+
+`custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
+status, `make gb-help` each command. 261 live tests.
+
+| Piece | File | State |
+|---|---|---|
+| S0 MASK | `s0_mask.py` | built; `[mask] complete_bars` off rebuilds CP1's evidence exactly |
+| S1 SEE | `s1_see.py` (VERSION 3) | built; "explained" is S1's measure (the plan's "closure" cannot fail) |
+| H1 VOCAB | `h1_vocab.py` | built; **registered `glassbox_vocab_v1`, frozen** |
+| S2 WRITE v1, S2 POOL | `s2_write.py`, `s2_pool.py` | built |
+| S3 CHECK | `s3_check.py`, `s3_guards.py` | grading and the guard fitter built; priorities and trust tiers not built |
+| S4 CARRY v1 | `s4_carry.py` | built, with `--later`; `[carry] roles_in_bind` is off by default, so `make gb-g0b-control` still equals CP1; repair calls not built |
+| S5 ACT v2 | `s5_act.py` (VERSION 2) | built: prune, goal hints, `GbMap`. **v2 is on in `glassbox.toml`, off in the code's defaults.** Probes not built; IMAGINE and contact goals dropped 2 Nov (plan §7.3) |
+| H3 TEMPLATES v1 | `h3_templates.py` | built; the catalog `artifacts/glassbox_templates_v1.jsonl` is **registered `glassbox_templates_v1`, frozen** |
+| S6 SHOW v0 | `s6_show.py` | built: `make gb-report RUN=<run>` |
+| H2 SCHEDULER | (no file) | not built: no LLM runs online |
+
+- **The agent hook:** `EVAL_GB=1` (+ `EVAL_GB_BOOK=<run>`; unset = GB-free, no
+  LLM rules), 16 lines tagged `# [gb]` in `action.py`. With it unset,
+  `cpu_check` is identical on every move (goose/ft09 1,970, mb_gated_att/tu93
+  1,960; 18 Oct). `s5_act` is imported only under `EVAL_GB=1`, so a change to
+  it alone needs no `cpu_check`.
+- **Drivers:** `tools/gb_offline.py` (`--stage mask|see|pool|write|check|carry|
+  guards|replay|templates|catalog|show`); `tools/gb_sweep.py` (online arms GB,
+  GB-free, A0-fresh, 4 at a time; `make gb-status` / `gb-pause` / `gb-stop`,
+  `RESUME=1`); verdicts `tools/gb_gate.py` and `tools/paired_compare.py`.
+- **What the drivers refuse:** the replay on dev games without `--cf`; S5
+  online on dev games without `--g2`, `--dev2` or `--g4`; A/B-offline games
+  without `--g3`; untouched games outside G4 (`--g4` runs G4 whole or not at
+  all). Each flag belongs to a registered section that has been run. A new run
+  on those games needs its own entry in the pre-registration first.
 - **Proven equal to CP1:** `make gb-import-cp1` (437 of 437); `make
-  gb-g0b-control`. 261 live tests.
-- **Results** (each written up in `docs/3-glassbox/`):
-  - **G0** (16 Oct): the guard fitter rescued nothing; m0r0's near-misses were
-    a decoration-mask gap (row 63's bar). **G0b** (16 Oct): with S0, all 11
-    trusted; m0r0 0% → 53.5% of changed cells; T1 51.7% (memory 53.9%).
-  - **G1** (17 Oct, `g1-offline-rules.md`): **FAIL**, 3 of 8 above G0b, safety
-    met. tu93 0 → 59.0%, tr87 0 → 35.5% (first trusted rules ever), dc22 11.8 →
-    29.3%; ft09, g50t, vc33, cd82 lost ground; the new books carry worse.
-  - **Pooled book** (18 Oct, `pool-g0b-g1.md`, exploratory, `pool_g0b_g1`):
-    never below the better of G0b/G1, above both on dc22 40.4%, g50t 18.1%,
-    cd82 6.6%; T1 equals the better source's on every game (beats both
-    baselines on dc22, ft09). Role tie-break: m0r0's G1 rules 6.8% → 26.5% at
-    T1, pooled book unchanged (tuned on dev games, labelled).
-  - **Smoke runs** (18 Oct, online, pooled book, 20k actions each): ft09 x2,
-    g50t, cd82, lp85 runner; no errors, ~85-128 act/s, re-binding pauses 1-3 s.
-    Not evidence of levels.
-  - **Offline counterfactual** (18 Oct, prereg 5a, `cf-counterfactual.md`):
-    carried no-ops would have covered vc33 60.1%, ft09 22.9% of A0's moves in
-    each new level's first 2,000 actions (all did nothing); m0r0 5.4% (only
-    9.7% clicks; expectation missed), dc22 8.4%, cd82 6.3%, g50t 1.3%, tu93 and
-    tr87 0; masking <= 0.05%. GB-free nearly the same (the LLM's no-op rules
-    add <= 3.6 points).
-  - **G2** (18-19 Oct, prereg 5b, `g2-online.md`): **FAIL**. GB 34 levels vs
-    A0's 37 on the 16 dev runs (1 better / 12 same / 3 worse), no game worse on
-    both seeds; GB-free 35 (1 / 12 / 3); GB vs GB-free 34 vs 35. The guide
-    changed 0% of moves on tu93/tr87 yet tr87 lost a level in each arm: ~1
-    level per game is seed noise. dc22 s0 (GB 1, GB-free 4, A0 3) is the one
-    loss the book's no-op rules may have caused. Runs, manifests, verdicts:
-    `results/glassbox/g2/online/`.
-  - **A0 run again** (run 19 Oct, `a0-fresh.md`, exploratory): unchanged
-    `mb_gated_att` on G2's 16 runs: **33 levels vs 37 on 27 Sep** (1 / 12 / 3;
-    dc22 worse on both seeds). G2's arms are above it (GB 34: 2 / 12 / 2, would
-    pass the dev rule; GB-free 35: 3 / 9 / 4). Nine 8-game seed totals all 16-19;
-    noise ~±2.6 levels per 16-run total; telling +2 levels per seed from noise
-    needs ~4 seeds per arm, +1 per seed ~14. G2's verdict stands.
-  - **dc22's no-op rules** (2 Nov, `dc22-noop-check.md`): over whole levels, 9
-    recordings, 4,160 moves covered, 0 changed anything; the level-2 stall is
-    dc22's (4 of 9 runs, 3 unguided). Online, colours are carried later than the
-    replay says (vc33 a level late, m0r0 1 of 7, cd82 0 of 3; ft09 exact): S5
-    judges a click under the agent's mask at that moment (empty for its first
-    200 moves), so 5a overstates online prune.
-  - **The book on every later level** (2 Nov, `carry-later-levels.md`): where
-    Goose stops, the re-bound book is right wherever it applies on ft09 L3
-    (20.4% of new changing pairs) and tr87 L2 (25.6%), partly on dc22, cd82
-    (23-39%), never on tu93 L5 (other blocks move: new mechanics), g50t L2,
-    m0r0 L3 (wrong wherever it applies), vc33 (no rule re-binds). It never
-    claims every live cell: **plan §7.3's IMAGINE precondition is met by no
-    game** (the 18 Oct reading was the weaker "whole screen right").
-  - **G3** (2-3 Nov, prereg 6, `g3-templates.md`): **FAIL**, as expected. On
-    the 8 A/B-offline games H3 adopted no template (0 of 792 tries; none got a
-    changed cell right), so GB+T equals GB on every game (its S2 replayed GB's
-    285 calls from the shared cache, no new request). GB, the first held-out
-    test of S1-S4: mean cell coverage 13.8% (G1 on dev 32.0%), 16 trusted
-    rules, 46% of answers out of room (G1 35%); s5i5's book beats "nothing" and
-    "memory" at T1; tn36's is wrong on 8.1% of changing cases; lf52 is a
-    perception gap (S1 explains 0.0%). Runs `results/glassbox/g3_gb`, `g3_gbt`.
-  - **S5 v2 check** (3 Nov, `s5-v2.md`, exploratory, CPU): replaying G2's
-    GB-free runs with the agent's mask, v2 carries the counterfactual's colours
-    on all 10 (m0r0 7 and 3 instead of 1 and 0, cd82 3 instead of 0, vc33 a
-    level earlier); avoidable waste vc33 29.0 → 38.2%, m0r0 0.1 → 6.5%, dc22
-    1.6 → 5.3%, cd82 0 → 3.1%; masking <= 0.05%. Every drop v2 alone still had
-    was a bar's last cell on row 63 (hence `mask_bars`). Online smoke (vc33,
-    m0r0, seed 0, 20k): carries equal the replay's (6/6, 2/2), no errors. Runs
-    `results/glassbox/s5v2_*`, commands `s5v2_check/run.sh`, `run_b.sh`.
-  - **Dev sweep 2** (4-5 Nov, prereg 7a, `dev-sweep-2.md`): **PASS**. GB (S5
-    v2, pooled book) 72 levels vs A0-fresh (the same agent with no guide, run
-    in the same sweep) 67 on 8 dev games x seeds 3-6 (6 better / 24 same / 2
-    worse), no game worse on all 4 seeds; 64 of 64 runs at the cap; paused
-    08:03-12:41 at Matt's request (prereg §11 entry 8). Small against the
-    noise: +5 is ~1.6 standard deviations of two unguided arms' gap (nine
-    unguided 8-game seed totals, SD ~1.1). Every win and loss is on vc33, dc22
-    and cd82, where the guide changed the most moves; the other 20 pairs tied
-    (tu93, tr87 0.0% changed). Online: 87 colours carried, 12 dropped (all
-    m0r0), 6 rules demoted, in 3.16 M moves; 38.6 vs 38.8 act/s; replayed
-    with the agent's mask (5 Nov evening), the 32 GB recordings carry exactly
-    those 87 colours, each at the same level. Runs
-    `results/glassbox/dev2/online/`.
-  - **G4, the confirm** (7-8 Nov, prereg 7, `g4-confirm.md`): **ADOPT**. GB
-    (S5 v2, pooled book) 110 levels vs A0-fresh (the same agent with no guide,
-    run in the same sweep) 101 on all 25 games x seeds 0-2 (12 better / 57 same
-    / 6 worse), no game worse on all 3 seeds; by tier dev 54 vs 50 (tuned),
-    seen 20 vs 19, A/B-offline 22 vs 19, untouched 14 vs 13. Weak: +9 is ~1.1
-    standard deviations of chance (the rule passes 36% with no effect);
-    A0-fresh came in 11 below A0's 27 Sep runs (4 / 57 / 14; same code), and GB
-    ties those (110 vs 112, 10 / 53 / 12). The gain sits where the guide acted:
-    +7 on the 11 games where it changed >= 5% of moves (8 / 22 / 3), +1 on the
-    9 where it changed nothing (3 / 21 / 3: the noise). Outside the dev tier GB
-    used no LLM output; its changes there were mostly goal hints (s5i5 +3, r11l
-    +2). 150 of 150 runs at the cap, no errors, no rules process off, paused
-    once (prereg §11 entry 9); sealed rows opened after the verdict (logged in
-    the registry). Runs `results/glassbox/g4/online/`, numbers
-    `results/glassbox/g4/analysis/`.
-- **Now: the buffer, to Tue 17 Nov** (plan §7.4 item 20). G4 is done and
-  written up; no gate is left, and commits are allowed again. In order: G4's
-  GB recordings on the dev games replayed with the agent's mask, online
-  carries against the replay's (as `results/glassbox/dev2_replay/run.sh`, with
-  `--seeds 0,1,2` and the g4 manifest; CPU, dev games only); the funnel table
-  for the report (plan §6.1, §11) from G1, the pool, G3 and the
-  counterfactual; S6 pages for figures (`make gb-report RUN=<run>`). The
-  `glassbox` preset is skipped for now (Matt, 8 Nov). Handoff:
-  `results/handoff/2026-11-08_g4_done.md`. No IMAGINE, no contact goals
-  (§7.3). Course: final report Mon 7 Dec.
-- **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; skipped for
-  now, Matt 8 Nov; its book lives under `results/`, outside git); confirm "explained" as
-  the perception number; plan §10 (a) (advisor and the 30 Oct draft) and (b)
-  (teammates' modules in S5).
+  gb-g0b-control`.
+- **Settings:** `experiments/glassbox/glassbox.toml`, hash `8c8e1cb023c827d2`
+  (G4's). 35 of its settings are read by no code and are marked `[unread]`;
+  they stay because the hash is registered.
+
+### Dates
+
+Every gate was run by 8 Nov. **Everything in the plans is finished by Tue 17
+Nov** (Matt, 3 Nov), then 2-3 weeks of write-up. Course: final report Mon 7 Dec.
+Cut: the online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
+uninformative) and the frontier showcase (only if the buffer allows).
+
+### Now (10 Nov)
+
+- **The repo was tidied on 10 Nov** (Matt): the README in four parts,
+  `custom_agents/README.md`, `future/`, and a results clean-up
+  (`results/DELETED_2026-11-10.md`). No agent file was touched.
+- **This week's list, in order** (Matt, 10 Nov; `future/README.md` has the
+  detail and the build notes). GPU runs are asked for one by one:
+  1. Re-score G4 and dev sweep 2 on time-to-level (levels by 2,000, 10,000 and
+     30,000 actions, AULC). CPU; exploratory, the metric was chosen after the runs.
+  2. Count frozen runs in G4's 150 recordings. CPU.
+  3. Probe which games return more than one frame per move. CPU.
+  4. Goose: a reset watchdog and ACTION7 (undo), each behind a new flag, with a
+     new preset. Needs `cpu_check` and about 7 GPU-hours.
+  5. "LLM plays first, Goose takes over": a pilot on the dev games. It differs
+     from the 2 Nov idea statement, so the instructor has to allow it first.
+  6. Owed for the report (plan §7.4 item 20): G4's GB recordings on the dev
+     games replayed with the agent's mask (as
+     `results/glassbox/dev2_replay/run.sh`, with `--seeds 0,1,2` and the g4
+     manifest; CPU, dev games only); the funnel table (plan §6.1, §11) from G1,
+     the pool, G3 and the counterfactual; S6 pages for figures.
+- The `glassbox` preset is skipped for now (Matt, 8 Nov). No IMAGINE, no
+  contact goals (§7.3). Last handoff: `results/handoff/2026-11-08_g4_done.md`.
+
+### Open, known limits
+
+- **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; its book lives
+  under `results/`, outside git); the instructor's OK for item 5 above, and
+  which model it uses; confirm "explained" as the perception number; plan §10
+  (a) (advisor and the 30 Oct draft) and (b) (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in
   `tests/test_gb_vocab.py`); the binding search's time budget leaves bindings
   untried on tr87 when the machine is busy (run S4 on a quiet machine; H3's
@@ -322,8 +236,10 @@ registered 4 Nov and run 4-5 Nov (PASS); **7 (G4) registered 7 Nov** (code
   (dc22's check; fixed in v2). The agent's own mask (`canon.py`, the bars
   upgrade) still lacks bars' last cells; only S5 completes them. S0's mask misses a bar that changes 3 cells a move (tu93 L4;
   `gridtools.tick_cells` too); a mask kept across levels covers it.
-- **Frontier models:** everything is the local model. The only frontier use is
-  an optional showcase in late November (plan §6.5, limits in prereg §10).
+- **Frontier models:** everything so far is the local model (Qwen3.8-27B). The
+  plan's only frontier use, an optional showcase (plan §6.5), was cut (prereg
+  §10 is not used). A hosted model for item 5 above would be new: Matt's
+  decision, with the instructor.
 
 ## Glassbox rules
 
@@ -364,6 +280,12 @@ registered 4 Nov and run 4-5 Nov (PASS); **7 (G4) registered 7 Nov** (code
   `results/rulebook/` (v1/v2, registered), `results/glassbox/` (new).
   **Nothing in `results/` is backed up by git, and nothing there is moved:**
   manifests and the registry name those exact paths.
+  Two deletions were made on 10 Nov 2026 with Matt's OK, listed in
+  `results/DELETED_2026-11-10.md`: the `tensorboard/` folder of every run
+  (levels and metrics come from the `.npz` recordings) and 73 July run folders
+  that no manifest lists. Every manifest row still resolves.
+- `future/` holds ideas that are not built, as pages, never as live code. Built
+  code goes in its real home behind a flag (see "The project in four parts").
 - Manifests (`run_dir<TAB>game<TAB>seed<TAB>arm`) are read through `manifest.py`
   only. Grid helpers come from `custom_agents/gridtools.py` only.
 - `legacy/` is a leaf: it may import the baseline; nothing live imports it, and

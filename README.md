@@ -1,36 +1,111 @@
 # ARC3-solution — Team B (StochasticGoose track)
 
-Team B's fork of the StochasticGoose agent for the ARC-AGI-3 capstone (ARC Prize
-2026). Clone it, drop your agent in, run the frozen benchmark, compare.
-Conventions for contributors (and for Claude Code) are in `CLAUDE.md`.
+Team B's work on ARC-AGI-3 (ARC Prize 2026), built on the StochasticGoose
+agent. Teammates can clone it, drop an agent in, run the frozen benchmark and
+compare. Rules for contributors (and for Claude Code) are in `CLAUDE.md`.
 
-## The project in three parts
-
-```
- 1. GOOSE UPGRADES (no LLM)            2. LLM HISTORY                     3. GLASSBOX (current)
- Goose, semester 1      54 levels      Judge, heuristics   NO-GO          Goose + an LLM that writes
- + novelty label        79 levels      Coach               NO-GO          small rules, each checked
- + map, bars, gated,                   Rulebook v1         FAIL 2 of 8    against every recorded move,
-   attempt = mb_gated_att  112 levels  Rulebook v2         FAIL 2 of 8,   in separate stages that can
-                                                           0.0% wrong     be tested one at a time
-```
-
-Levels are on all 25 public games × 3 seeds × 100,000 actions each.
+## The project in four parts
 
 | Part | What it is | Code | Write-ups |
 |---|---|---|---|
-| **1. Goose upgrades** | The exploring agent and the semester-2 improvements to it. Each upgrade is its own file and switch, off by default; `--agent mb_gated_att` is the adopted bundle and the reference (A0) for everything after it | `custom_agents/action.py` (Goose), `canon.py` (novelty label), `return_map.py`, `upgrades.py`, `presets.py` | [`docs/1-goose-upgrades/`](docs/1-goose-upgrades/) |
-| **2. LLM history** | Earlier attempts to add an LLM: a judge, the Coach, Rulebook v1 and v2. What each tried, what its test showed, and why it stopped | frozen in `legacy/` | [`docs/2-llm-history/`](docs/2-llm-history/) |
-| **3. Glassbox** | The current plan. Rulebook v2 fixed carrying rules between levels but got too few exact rules; Glassbox splits the pipeline into stages that each fix one problem | `custom_agents/gb/` (one file per stage; see its README) | [`docs/3-glassbox/`](docs/3-glassbox/) |
+| **[StochasticGoose improvements](#stochasticgoose-improvements)** | The exploring agent and the upgrades to it. No LLM. **54 → 79 → 112 levels** | [`custom_agents/`](custom_agents/README.md) | [`docs/1-goose-upgrades/`](docs/1-goose-upgrades/) |
+| **[Glassbox](#glassbox)** | The current method: Goose plus a local LLM that writes small rules, each checked against every recorded move. **110 vs 101 levels, within noise** | [`custom_agents/gb/`](custom_agents/gb/README.md) | [`docs/3-glassbox/`](docs/3-glassbox/) |
+| **[Previously tried methods](#previously-tried-methods-legacy)** | A judge, the Coach, Rulebook v1 and v2. Each stopped at its test. Frozen | [`legacy/`](legacy/README.md) | [`docs/2-llm-history/`](docs/2-llm-history/) |
+| **[Future methods](#future-methods-future)** | Ideas we may or may not add. Nothing there is built | [`future/`](future/README.md) | [`future/README.md`](future/README.md) |
 
-**[`docs/README.md`](docs/README.md) is the full map**: every step with its
-result, and the problem each Glassbox stage fixes.
+Levels are counted on all 25 public games × 3 seeds × 100,000 actions each
+(the games hold 183 levels, so 549 over the three seeds). The `docs/` folders
+are numbered in the order things happened; [`docs/README.md`](docs/README.md)
+is the full map, with every step and its result.
 
-Everything new is **off by default**: an unflagged `--agent goose` run is the
-semester-1 baseline, verified action for action. Each feature's hook lines in
-`custom_agents/action.py` carry a tag (`# [return-map]`, `# [upgrades]`, and
-later `# [gb]`); deleting a tag's lines (`sed -i '/\[return-map\]/d' ...`)
-removes that feature.
+**Everything new is off by default.** An unflagged `--agent goose` run is the
+semester-1 baseline, verified move for move. Each feature's lines in
+`custom_agents/action.py` carry a tag (`# [return-map]`, `# [upgrades]`,
+`# [gb]`); deleting a tag's lines (`sed -i '/\[return-map\]/d' ...`) removes
+that feature.
+
+---
+
+## StochasticGoose improvements
+
+Goose is a small CNN that learns, while it plays, which moves do something,
+and samples its moves from that prediction. Each improvement is one file and
+one switch.
+
+| Step | What changed | File (switch) | Levels | Outcome |
+|---|---|---|---|---|
+| Goose, semester 1 | Learns "did this move change the screen?" | `action.py` (`--agent goose`) | 54 | the baseline |
+| Novelty label | Learns "did this move reach a screen not seen before on this level?", with blinking cells masked out | `canon.py` (`EVAL_LABEL=novel`) | 79 | adopted 22 Sep |
+| Return map | Remembers which move leads where, and walks back to untried places when stuck | `return_map.py` (`EVAL_RETURN_MAP=1`) | 45 vs 32 on dev games | not adopted alone |
+| Upgrade screens | Nine small candidates in two rounds. Winners: `bars` (progress bars masked), `map_gated` (walk back only while it pays), `attempt` (half credit for a screen new this attempt) | `upgrades.py` (`EVAL_UPGRADES=...`) | | winners bundled |
+| **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
+
+`mb_gated_att` is **A0**, the reference every later result is compared with.
+File by file: [`custom_agents/README.md`](custom_agents/README.md).
+
+## Glassbox
+
+Goose explores. A local LLM (Qwen3.8-27B) writes small rules about a game from
+Goose's own recordings. Every rule is replayed against every recorded move,
+and only rules that pass may steer Goose. The pipeline is split into stages
+that each fix one problem and can be tested alone, one file per stage:
+
+| Stage | File in `custom_agents/gb/` | What it does | LLM? |
+|---|---|---|---|
+| S0 MASK | `s0_mask.py` | Masks decorations, with each progress bar run to the screen's edge | no |
+| S1 SEE | `s1_see.py` | Describes each move as objects and what happened to them | no |
+| H1 VOCAB | `h1_vocab.py` | Ten tested grid primitives the rules may call (frozen) | no |
+| S2 WRITE | `s2_write.py`, `s2_pool.py` | The LLM writes one mechanism per rule; finished runs can be pooled | **yes** |
+| S3 CHECK | `s3_check.py`, `s3_guards.py` | Replays every rule on every recorded move; picks the book | no |
+| S4 CARRY | `s4_carry.py` | Re-fits the book's rules to each new level by search | no |
+| S5 ACT | `s5_act.py` | Steers Goose online: no-op moves pruned, goal hints (`EVAL_GB=1`) | no |
+| H3 TEMPLATES | `h3_templates.py` | Tries rules from known games on a new game | no |
+| S6 SHOW | `s6_show.py` | One report page per run | no |
+
+The problem each stage fixes, and each one's status:
+[`custom_agents/gb/README.md`](custom_agents/gb/README.md).
+
+| Test (date) | Question | Result |
+|---|---|---|
+| G0, G0b (16 Oct) | Can near-miss rules be rescued? | The misses were a gap in the mask. With bars masked to the edge, m0r0's book went from 0% to 53.5% of changed cells |
+| G1 (17 Oct) | Does the staged pipeline write better rules offline? | **FAIL**: 3 of 8 games above G0b (5 needed) |
+| G2 (19 Oct) | Does the guide add levels on the 8 dev games? | **FAIL**: 34 vs 37 levels, within seed noise |
+| G3 (3 Nov) | Do rule templates carry to held-out games? | **FAIL**: 0 of 792 tries adopted |
+| Dev sweep 2 (5 Nov) | S5 v2 against a same-day A0, 8 dev games × 4 seeds | **PASS**: 72 vs 67 |
+| G4 (8 Nov) | The confirm on all 25 games × 3 seeds | **ADOPT**: 110 vs 101 (12 better, 57 same, 6 worse) |
+
+**How to read G4.** The gain is about one standard deviation of chance, and
+the guided agent is level with A0's own 27 Sep runs (110 vs 112). Outside the
+8 dev games the guide used no LLM output, only colour no-ops carried between
+levels and goal hints, and 5 of the 9 extra levels came from there. G4 had no
+LLM-free arm; in G2 that arm did as well as the guided one (35 vs 34). Plan,
+gates and every write-up: [`docs/3-glassbox/`](docs/3-glassbox/); commands:
+`make gb-help`.
+
+## Previously tried methods (`legacy/`)
+
+Finished work, kept for the record and frozen. Nothing live imports it
+([§7](#7-legacy-archived-and-why-it-cannot-affect-your-baselines)).
+
+| Method | The idea | Result | Code | Write-up |
+|---|---|---|---|---|
+| LLM judge, heuristic writer (semester 1) | An LLM ranks which screen is more promising; an LLM writes scoring code | NO-GO: judge at chance; heuristics never beat a one-line rule | `legacy/llm_track/` | its `README.md` |
+| Coach (3-4 Oct) | When Goose stalls, the LLM reads a summary and suggests what to try | NO-GO: 21 hits vs 21.2 expected by chance | `legacy/coach_track/` | [`docs/2-llm-history/`](docs/2-llm-history/) |
+| Rulebook v1 (4-6 Oct) | The LLM writes the game's rules as code, replayed against recorded moves | FAIL: 2 of 8 games; rules did not carry to the next level | `legacy/rulebook/` | [`docs/2-llm-history/`](docs/2-llm-history/) |
+| Rulebook v2 (7-15 Oct) | Rules take level facts as parameters and are re-fitted per level | FAIL: 2 of 8 games; 0.0% wrong after re-fitting, but too few rules | `legacy/rulebook/` | [`docs/2-llm-history/`](docs/2-llm-history/) |
+| Goose candidates that lost | Tried-action mask; `graded`, `map_objects`, `map_diverse` | dropped by their sweeps | git tags `pre-cleanup-2026-10-06`, `upgrade-screen-round1` | [`docs/1-goose-upgrades/`](docs/1-goose-upgrades/) |
+
+Also there: the semester-1 API-path scripts (`legacy/semester1/`) and the
+launchers of the Goose upgrade experiments (`legacy/goose_experiments/`; the
+upgrades themselves are live code). Index: [`legacy/README.md`](legacy/README.md).
+
+## Future methods (`future/`)
+
+Ideas that are not built. [`future/README.md`](future/README.md) lists this
+week's items, the nine ideas from the 10 Nov review with their cost, and how an
+idea moves from there into the live code. An idea is built in its real home
+(`custom_agents/` or `custom_agents/gb/`), off by default behind its own flag,
+and only then tested.
 
 ---
 
@@ -143,6 +218,9 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
   Anything compared against a teammate goes through `make bench`.
 - Cross-game curriculum (one brain across a game list):
   `uv run python run_curriculum.py --games ft09,dc22,ls20`.
+- Glassbox has its own commands, one per stage: `make gb-help`. The guided
+  agent is `mb_gated_att` with `EVAL_GB=1 EVAL_GB_BOOK=<an offline run>`; the
+  book lives under `results/glassbox/`, outside git.
 - Hosted API path (unchanged, slower): `make action`. It needs
   `git -C ARC-AGI-3-Agents apply ../harness_patches.patch` once. Don't mix API
   and local numbers: the game seed differs.
@@ -156,11 +234,12 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 | `EVAL_LOG_METRICS` / `EVAL_LOG_TRANSITIONS` / `EVAL_SAVE_VIS` | TensorBoard / the corpus / PNG heatmaps | on / on / off |
 | `EVAL_RESET_ON_LEVEL` | reset model, optimizer and buffer at each level (Goose) | on |
 | `EVAL_RESULTS_DIR` | root for all output | `results` |
-| `EVAL_LABEL` | Goose's training label: `change` or `novel` (part 1, Plan B) | `change` |
+| `EVAL_LABEL` | Goose's training label: `change` or `novel` | `change` |
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | the online decoration mask: warm-up / recompute cadence | `200` / `250` |
-| `EVAL_RETURN_MAP` | the return map (part 1, Option 1) | off |
+| `EVAL_RETURN_MAP` | the return map | off |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning | `200` / `20` / `100` / `1` |
-| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick` (part 1, upgrade screen) | unset |
+| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick` | unset |
+| `EVAL_GB` / `EVAL_GB_BOOK` | Glassbox's guide in the agent; the offline run whose book it carries (unset: no LLM rules) | off / unset |
 
 `--agent mb_gated_att` fixes `EVAL_LABEL=novel EVAL_RETURN_MAP=1
 EVAL_UPGRADES=bars,map_gated,attempt`. Always run with `PYTHONHASHSEED=0`.
@@ -177,51 +256,56 @@ index: `0-4` = ACTION1–5, `5 + 64*y + x` = ACTION6 at column x, row y.
 
 ```
 ARC3-solution/
-├── custom_agents/             # ALL AGENTS
+├── README.md, CLAUDE.md       # this map; the rules for contributors
+│
+├── custom_agents/             # ALL LIVE AGENTS (README.md inside)
 │   ├── __init__.py            #   the agent REGISTRY - add yours here
 │   ├── TEMPLATE.py            #   copy this to start a new agent
-│   ├── action.py              #   [1] Goose (the CNN agent); features hook in on tagged lines
-│   ├── canon.py               #   [1] screen fingerprints + per-level memory (novelty label)
-│   ├── return_map.py          #   [1] the return map
-│   ├── upgrades.py            #   [1] bars / attempt / map_gated / deadclick
-│   ├── presets.py             #   [1] --agent mb_gated_att, the adopted bundle
-│   ├── gridtools.py           #   shared 64x64 screen helpers (bars, blobs, objects)
-│   ├── random_agent.py        #   matched uniform-random floor
-│   ├── view_utils.py          #   heatmap rendering
-│   └── gb/                    #   [3] Glassbox: one file per stage, core/ copied from Rulebook v2
-├── run_local.py               # run one agent against the LOCAL engine
+│   ├── action.py              #   Goose (the CNN agent); features hook in on tagged lines
+│   ├── canon.py               #   Goose upgrade: screen fingerprints, the novelty label
+│   ├── return_map.py          #   Goose upgrade: the return map
+│   ├── upgrades.py            #   Goose upgrades: bars / attempt / map_gated / deadclick
+│   ├── presets.py             #   --agent mb_gated_att, the adopted Goose
+│   ├── gridtools.py, random_agent.py, view_utils.py   # shared helpers, the random floor
+│   └── gb/                    #   GLASSBOX: one file per stage (README.md inside)
+├── legacy/                    # PREVIOUSLY TRIED METHODS, frozen (README.md inside)
+├── future/                    # FUTURE METHODS, not built (README.md inside)
+├── docs/                      # every write-up: README.md (the map), 1-goose-upgrades/,
+│                              #   2-llm-history/, 3-glassbox/, reports/
+│
+├── run_local.py               # run one agent on one game (the local engine)
 ├── run_curriculum.py          # several games in a row, one persistent brain
-├── eval_common.py             # the evaluation contract (seeds, caps, corpus)
-├── compute_metrics.py         # score a run's corpus
-├── metrics_common.py          # the shared decoration-cell canonicalizer
-├── analyze_curves.py          # levels-vs-budget curves, AULC, RHAE
-├── benchmark.py               # THE FROZEN TEST SET
-├── compare.py                 # side-by-side table from bench manifests
 ├── sweep.sh                   # benchmark and ad-hoc sweep runner
+├── benchmark.py               # THE FROZEN TEST SET
+├── eval_common.py             # the evaluation contract (seeds, caps, the corpus)
+├── utils.py                   # run folders and the git stamp
+│
+├── compute_metrics.py         # score one run's corpus
+├── metrics_common.py          # the shared decoration-cell detector
+├── analyze_curves.py          # levels against budget, AULC, RHAE
 ├── summarize_overnight.py     # one report per sweep
-├── inspect_corpus.py          # corpus schema validator
+├── compare.py                 # side-by-side table from bench manifests
+├── inspect_corpus.py          # corpus schema check
 ├── manifest.py                # the one reader for sweep manifests
-├── tiers.py, registry.py      # game tiers (dev / seen / held-out) and the frozen-artifact registry
+│
 ├── check_repo.py              # make check: isolation, registry, deps, suites
-├── tools/                     # paired_compare.py (verdicts), cpu_check.py (did it change?), artifacts.py
-├── experiments/glassbox/      # [3] glassbox.toml (every knob) and gb.mk (make gb-help)
-├── experiments/llm/           # [3] the local LLM server and its environment
+├── tiers.py, registry.py      # game tiers (dev / seen / held-out); the frozen-artifact registry
+├── artifacts/                 # registry.json and the frozen artifacts it names
+├── tools/                     # paired_compare.py (verdicts), cpu_check.py (did it change?),
+│                              #   artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py (Glassbox)
+├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
+├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest
-├── docs/                      # README.md (the map), 1-goose-upgrades/, 2-llm-history/, 3-glassbox/, reports/
-├── artifacts/registry.json    # hashes of frozen results and artifacts
-├── legacy/                    # FROZEN: earlier experiments and LLM attempts (see legacy/README.md)
+│
+├── custom_agent.py, harness_patches.patch   # the hosted-API path only (make action)
 ├── ARC-AGI-3-Agents/          # git submodule (arcprize harness) - do not edit
 └── results/                   # ALL run output (gitignored)
 ```
 
-`[1]`, `[3]` mark which part of the project a file belongs to.
-
 ## 7. `legacy/`: archived, and why it cannot affect your baselines
 
-`legacy/` holds finished work kept for the record (index:
-`legacy/README.md`): the semester-1 API-path scripts, the semester-1 LLM track,
-the launchers for the Goose upgrade experiments, the Coach, and Rulebook v1/v2.
-You can ignore it. It is isolated by three mechanisms, all enforced by
+`legacy/` holds the previously tried methods (index: `legacy/README.md`). You
+can ignore it. It is isolated by three mechanisms, all enforced by
 `make check`:
 
 1. **No live file imports it.** The arrow points one way: archived code may

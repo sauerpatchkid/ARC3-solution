@@ -3,7 +3,7 @@
 # torch is PINNED on purpose: the whole point of the comparison is that every
 # agent ran on the same stack. Do not bump it without re-running the baselines.
 # (The LLM track needs a much newer torch, which is exactly why it lives in a
-# separate virtualenv, .venv-llm — see README "LLM track".)
+# separate virtualenv, .venv-llm — see README section 7.)
 numpy==2.3.2
 torch==2.8.0
 tensorboard==2.21.0
@@ -17,5 +17,5 @@ matplotlib==3.11.1  # analyze_curves.py
 
 # NOT installable from here: the local engine (`arcengine`, imported via
 # `arc_agi`) ships as the `arc-agi` package and is not on PyPI. Install it
-# separately; without it run_local.py cannot start. See README section 2.
+# separately; without it run_local.py cannot start. See README section 1.
 #   arc-agi==0.9.9

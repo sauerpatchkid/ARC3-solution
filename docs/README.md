@@ -1,10 +1,14 @@
 # Project map: from Goose to Glassbox
 
-The project has three parts, and the docs folders follow them in order:
+The docs folders are numbered in the order things happened:
 
 1. **[Goose upgrades](1-goose-upgrades/)**: improvements to the exploring agent itself. No LLM.
-2. **[LLM history](2-llm-history/)**: the earlier attempts to add an LLM, and why each one stopped.
-3. **[Glassbox](3-glassbox/)**: the current LLM plan, built on what parts 1 and 2 taught.
+2. **[LLM history](2-llm-history/)**: the previously tried methods, and why each one stopped. Their code is frozen in `legacy/`.
+3. **[Glassbox](3-glassbox/)**: the current method, built on what parts 1 and 2 taught.
+
+What may come next is not here: it is in [`future/`](../future/README.md) until it
+is built and tested, and its write-up then joins folder 1 or 3. The root
+[README](../README.md) has the short version of all four parts.
 
 ```mermaid
 flowchart LR
@@ -83,6 +87,13 @@ It is split into stages that each fix one problem and can be tested alone:
 - [Dev sweep 2: GB against the same-day A0](3-glassbox/dev-sweep-2.md) (5 Nov, prereg 7a): **PASS**, GB (S5 v2) 72 levels vs A0-fresh 67 on 8 dev games x 4 seeds (6 / 24 / 2), no game worse on all seeds; small against the noise (~1.6 standard deviations), all on vc33, dc22 and cd82. Online, S5 v2 carried exactly the colours its replay says (87 of 87). So G4 runs, against a same-day A0 arm (prereg §7 registered 7 Nov).
 - [G4, the confirm on all 25 games](3-glassbox/g4-confirm.md) (8 Nov, prereg §7): **ADOPT**, Goose with S5 v2 110 levels vs 101 for the adopted Goose run beside it on 25 games x 3 seeds (12 better, 57 same, 6 worse), no game worse on every seed; untouched tier 14 vs 13. Weak evidence: +9 is about one standard deviation of chance, the same-day A0 came in 11 below A0's 27 Sep runs, and GB ties those (110 vs 112). Outside the dev tier the guide used no LLM output; its gains there sit where its goal hints changed the most moves.
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
+
+## 4. What may come next
+
+[`future/README.md`](../future/README.md): this week's items (to 17 Nov), the nine
+ideas from the review of 10 Nov 2026
+([`future/improvement-lists-2026-11-10.md`](../future/improvement-lists-2026-11-10.md))
+with their cost, and how an idea moves from there into the live code.
 
 ## Notes
 
