@@ -233,6 +233,22 @@ and for no other game.
   re-bindings, 184 "not re-bound yet" waits, 5 demotions (vc33 3, m0r0 2),
   0 rule processes switched off.
 - **Goal hints:** 86 set; 33 dropped after 2,000 moves without effect.
+- **Online carries against the replay** (the buffer's first job; added 12 Nov,
+  CPU, 8 min; `results/glassbox/g4_replay/run.sh`, output
+  `results/glassbox/g4_replay_agent/s5_act/replay_summary.md`). S5 v2 replayed
+  the 24 GB recordings on the dev games with the pooled book and the agent's
+  own mask rebuilt from each recording (`replay_mask = "agent"`), as for dev
+  sweep 2. **The replay carries the 66 colours those runs carried online, 65 of
+  them at the same level** (vc33 21, m0r0 16, dc22 12, ft09 10, cd82 7; none on
+  tu93, tr87, g50t). The one exception is cd82 seed 1, colour 3: the replay
+  carries it from level 1, the run from level 2. The replay counts the moves
+  that ended an attempt, which the online guide never sees (5,207 moves on
+  that level against 5,155), and one of them was the colour's 20th click, the
+  threshold. So online S5 v2 did what its replay says. The replay's waste
+  numbers, as in dev sweep 2, count only the covered no-ops the guide let
+  through at its 0.1 weight in each new level's first 2,000 actions: vc33
+  26.6%, ft09 7.2%, dc22 2.0%, cd82 1.3%, m0r0 1.1%, g50t 0.2%, tu93 and tr87
+  0; masking only on m0r0 (1 move, 0.01%).
 
 ## What it means
 
@@ -256,9 +272,12 @@ and for no other game.
   - On the 17 other games GB used no LLM output, and gained +5.
   - So G4 is evidence for S5's checked, LLM-free guidance (colour no-ops, goal
     hints) more than for LLM-written rules.
-- **Next** (plan §7.4, buffer to Tue 17 Nov):
+- **Next** (plan §7.4, buffer to Tue 17 Nov), both **done 12 Nov**:
   - replay G4's GB recordings on the dev games with the agent's mask, as for
-    dev sweep 2;
-  - the funnel table and S6 figures for the report.
+    dev sweep 2 (above, "S5 online");
+  - the funnel table and S6 figures for the report (`funnel.md`).
+
+  Added 10 Nov, exploratory: the same runs re-scored on when levels were
+  completed (`time-to-level.md`).
 
   The report (final Mon 7 Dec) gives this result with its noise.
