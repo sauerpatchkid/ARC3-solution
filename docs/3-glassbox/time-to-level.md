@@ -10,6 +10,14 @@ can be carried, splits evenly. The LLM-free arm does as well as the guided one.
 was chosen on 10 Nov, after every run, and changed once that day (see "Limits").
 Nothing here changes a verdict.
 
+**Added 13 Nov: it did not repeat.** The LLM-free carry was then tested by
+itself, registered, on new seeds
+([`carry-results.md`](../1-goose-upgrades/carry-results.md)). On six click
+games the carry arm finished 23 later levels in fewer actions and the plain
+Goose 22 (interval [-15, +18]). Level 1 alone, with two identical agents, split
+13 against 7. Read this page's level races as a lead that a registered test did
+not confirm.
+
 ## Why look
 
 Every verdict counts levels at the end of a run. The guide acts at the start of

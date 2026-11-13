@@ -77,7 +77,7 @@ uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<
     [--rule adopt|dev|confirm] [--expect N]
 uv run python tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--games a,b] [--by-game]             # WHEN levels came: by budget, AULC, level races; no verdict
-bash experiments/goose/carry_test.sh status   # the carry test (GPU): status | pause | stop | resume | verdict
+bash experiments/goose/carry_test.sh verdict  # the carry test (finished 13 Nov, FAIL): its tables again; also status
 uv run python tools/gb_funnel.py --runs g1,pool_g0b_g1,g3_gb   # what each Glassbox stage did, per game (CPU)
 uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
@@ -119,9 +119,10 @@ Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (12 Nov 2026)
+## Where things stand (13 Nov 2026)
 
-**Goose upgrades: done** (`mb_gated_att` adopted 28 Sep, 112 levels).
+**Goose upgrades: done** (`mb_gated_att` adopted 28 Sep, 112 levels; the carry
+upgrade was tested 12-13 Nov and **failed**, so it is not adopted).
 **Previously tried methods: closed** (Coach NO-GO; Rulebook v1 FAIL, 2 of 8;
 Rulebook v2 closed after CP1: FAIL 2 of 8, 0.0% wrong at T1). **Glassbox: every
 gate is run**, and G4 adopted it on weak evidence. **Now: the buffer, to Tue
@@ -150,7 +151,7 @@ the running log is plan §7.4 (`docs/3-glassbox/glassbox-plan.md`).
 | S5 v2 check | 3 Nov | exploratory | with the agent's mask, v2 carries the counterfactual's colours on all 10 recordings | `s5-v2.md` |
 | Dev sweep 2 (7a) | 4-5 Nov | **PASS** | GB 72 vs a same-day A0's 67 on 8 dev games x seeds 3-6 (6 / 24 / 2); ~1.6 SD | `dev-sweep-2.md` |
 | **G4 (7)** | 7-8 Nov | **ADOPT** | GB 110 vs a same-day A0's 101 on 25 games x seeds 0-2 (12 / 57 / 6), no game worse on all 3 seeds | `g4-confirm.md` |
-| Time to level | 10 Nov | exploratory | finished runs re-scored: by budget GB leads the same-day A0 by +1 / +2 / +6 / +9 at 2k / 10k / 30k / 100k (two unguided arms differ by 11 at 100k); level by level, GB finished levels 2 and up in fewer actions on 36 vs 17 in G4 and 23 vs 16 in dev sweep 2 (unguided vs unguided 24 vs 27; level 1 23 vs 28); G2's LLM-free arm 14 vs 7, as the guided one | `time-to-level.md` |
+| Time to level | 10 Nov | exploratory | finished runs re-scored: by budget GB leads the same-day A0 by +1 / +2 / +6 / +9 at 2k / 10k / 30k / 100k (two unguided arms differ by 11 at 100k); level by level, GB finished levels 2 and up in fewer actions on 36 vs 17 in G4 and 23 vs 16 in dev sweep 2 (unguided vs unguided 24 vs 27; level 1 23 vs 28); G2's LLM-free arm 14 vs 7, as the guided one. **Did not repeat** in the registered carry test (13 Nov: 23 vs 22) | `time-to-level.md` |
 | The funnel, and G4's replay | 12 Nov | report table | mean over 8 games, share of a level's changing cases: S1 describes 83%, an admitted rule gets 57%, the book gets the whole screen on 28% (pooled book, dev); 78% / 40% / 5% on the held-out games; rule survival online 92%; G4's replay carries the 66 colours the runs carried, 65 at the same level | `funnel.md` |
 
 **How to read G4.** +9 is ~1.1 standard deviations of chance (the rule passes
@@ -160,6 +161,20 @@ seen 20 vs 19, A/B-offline 22 vs 19, untouched 14 vs 13. The gain sits where
 the guide acted: +7 on the 11 games where it changed >= 5% of moves, +1 on the
 9 where it changed nothing. Outside the dev tier GB used no LLM output; its
 changes there were mostly goal hints (s5i5 +3, r11l +2). G4 had no LLM-free arm.
+
+**The carry test (12-13 Nov): FAIL.** The guide's LLM-free part (colour no-ops,
+goal hints), tested alone as a Goose upgrade with a rule registered first:
+`A6` (the adopted Goose + `carry_noops,carry_hints`) against `A5` (the adopted
+Goose) on vc33, ft09, cd82, dc22, m0r0, lp85 and tu93 (placebo) x seeds 7-10 x
+100k = 56 runs. Primary: on levels 2 and up of the six click games A6 finished
+23 levels in fewer actions and A5 22 (+1, 95% interval [-15, +18]). Safety met:
+87 vs 81 levels (8 / 15 / 5), no game worse on every seed; +3 of the +6 is tu93,
+where the carry changed no move. Level 1, where the arms are the same agent,
+split 13 vs 7: chance moves these counts more than the carry did. The carry
+changed 9.4% of A6's moves. **Nothing adopted, no preset.** So the guide's
+effect on levels and on time to level is **not shown**; the 10 Nov lead was
+exploratory and did not repeat. Write-up:
+`docs/1-goose-upgrades/carry-results.md`; tables `results/sweeps/carry_test_*`.
 
 ### What is built
 
@@ -206,20 +221,24 @@ Nov** (Matt, 3 Nov), then 2-3 weeks of write-up. Course: final report Mon 7 Dec.
 Cut: the online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
 uninformative) and the frontier showcase (only if the buffer allows).
 
-### Now (12 Nov)
+### Now (13 Nov)
 
 - **Committed and pushed** (Matt, 12 Nov): the tidy-up (`26ddcb6`), the small
   fixes (`e4f0f77`), the re-score and probes (`2443dd3`), the buffer's CPU
   jobs (`44dbcbe`), the carry upgrade (`c2f8d85`), the carry test's launcher
-  (`a9fec48`) and its registration.
-- **THE CARRY TEST IS RUNNING (started 12 Nov). Make no commit until its
-  verdict:** every run records the commit it ran on. See item 4.
+  (`a9fec48`) and its registration (`57e178c`); and (Matt, 13 Nov) the carry
+  test's result.
+- **The carry test is finished (13 Nov): FAIL, nothing adopted** (item 4).
+  Its write-up (`docs/1-goose-upgrades/carry-results.md`) and the pages that
+  point to it are committed and pushed; no code changed. Matt, 13 Nov:
+  "commit and push, keep the carry switches".
 - **This week's list** (Matt, 10 Nov; changed by him on 12 Nov; `future/README.md`
   has the detail). GPU runs are asked for one by one:
   1. ~~Re-score G4 and dev sweep 2 on time-to-level~~ **done 10 Nov**
      (`docs/3-glassbox/time-to-level.md`, `tools/levels_by_budget.py`): the
-     guide's LLM-free carry makes levels after the first come sooner; the level
-     count stays inside the noise.
+     guide's LLM-free carry seemed to make levels after the first come sooner
+     (exploratory; it did not repeat, item 4); the level count stays inside
+     the noise.
   2. ~~Frozen runs~~ and 3. ~~the engine probe~~ **done 10 Nov**
      (`docs/1-goose-upgrades/input-probes.md`): no run is frozen; ACTION7 is an
      undo on three of its six games; in-between frames matter on ft09, sc25 and
@@ -233,18 +252,13 @@ uninformative) and the frontier showcase (only if the buffer allows).
      `goose`/ft09 and `mb_gated_att`/tu93 are identical on every move (1,970
      and 1,960); with them on, Goose makes GB-free's moves on ft09 (2,934 of
      2,934 over 3,000 actions; the upgrade changed 1,114 of them).
-     **Its test is registered (12 Nov, code `a9fec48`) and was started that
-     day** (`docs/1-goose-upgrades/carry-inside-goose.md`): arms `A5` (the
-     adopted Goose by flag) and `A6` (A5 + carry) through `sweep.sh`, vc33,
-     ft09, cd82, dc22, m0r0, lp85 and tu93 (a placebo) x seeds 7-10 x 100k =
-     56 runs, one at a time, about 11 to 13 GPU-hours; primary = level races on
-     levels 2 and up of the six click games, safety = the dev rule on levels.
-     It runs in parts: `bash experiments/goose/carry_test.sh status | pause |
-     stop | resume | verdict` (pause = after the run in progress; stop = now,
-     that run is rerun whole; both tried on `results/carry_smoke/`). When all
-     56 runs are in: `verdict`, then the write-up
-     `docs/1-goose-upgrades/carry-results.md`; on a PASS, a preset `mb_carry`.
-     Not adopted, no preset yet.
+     **Its test was registered on 12 Nov (code `a9fec48`) and run 12-13 Nov**
+     (`docs/1-goose-upgrades/carry-inside-goose.md`), in two parts, 56 of 56
+     runs on `57e178c`. **Verdict 13 Nov: FAIL** (the numbers are above, under
+     "The carry test"; write-up `docs/1-goose-upgrades/carry-results.md`).
+     **Not adopted: no preset `mb_carry`.** The two switches stay in the code,
+     off by default, like `deadclick` (Matt, 13 Nov: keep them). `bash
+     experiments/goose/carry_test.sh verdict` prints the tables again.
   5. "LLM plays first, Goose takes over": **on hold** (Matt, 12 Nov).
   6. ~~Owed for the report~~ **done 12 Nov**: G4's 24 dev-game GB recordings
      replayed with the agent's mask (66 colours, 65 at the same level; the
@@ -257,8 +271,9 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Open, known limits
 
-- **Still OPEN, Matt's:** the `glassbox` preset (G4 adopted GB; its book lives
-  under `results/`, outside git); the instructor's OK for item 5 above, and
+- **Still OPEN, Matt's:** how the report words G4 now that the carry test
+  failed; the `glassbox` preset (G4 adopted GB; its book lives under
+  `results/`, outside git); the instructor's OK for item 5 above, and
   which model it uses (on hold); confirm "explained" as the perception number; plan §10
   (a) (advisor and the 30 Oct draft) and (b) (teammates' modules in S5).
 - **Known limits:** S1's `sits_on` is read from neighbouring colours (pinned in

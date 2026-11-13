@@ -49,8 +49,15 @@ The part of Glassbox's guide that needs no LLM (colour no-ops and goal hints
 carried between levels) became a Goose upgrade, `custom_agents/carry.py`, two
 switches, off by default. It makes the same moves as Glassbox's LLM-free arm
 (checked move for move on the CPU: 2,934 of 2,934 on ft09). Its test was
-registered and started on 12 Nov: 56 runs, level races on levels 2 and up as
-the primary measure.
+registered on 12 Nov: 56 runs, level races on levels 2 and up as the primary
+measure.
+
+On 13 Nov 2026: [the carry test's results](1-goose-upgrades/carry-results.md).
+**FAIL, not adopted.** On the six click games the carry arm finished 23 later
+levels in fewer actions and the plain Goose 22 (interval [-15, +18]). No levels
+were lost (87 against 81 on seven games, inside the noise). Level 1, where the
+two arms are the same agent, split 13 against 7: that is the size of the noise.
+The lead seen on 10 Nov did not repeat.
 
 `mb_gated_att` is **A0**, the reference every Glassbox result is compared
 against. Its 75 confirm runs (`results/confirm_upgrade/20260927_221915/`) are
@@ -100,7 +107,7 @@ It is split into stages that each fix one problem and can be tested alone:
 - [S5 v2, colour no-ops judged at the level's end](3-glassbox/s5-v2.md) (3 Nov, exploratory, tuned on dev games): a replay that rebuilds the agent's own mask reproduces what G2's online runs carried; with v2 it carries what the counterfactual carries on all 10 recordings (m0r0 7 and 3 colours instead of 1 and 0) and gives prereg 5a's numbers exactly. Dev sweep 2's candidate.
 - [Dev sweep 2: GB against the same-day A0](3-glassbox/dev-sweep-2.md) (5 Nov, prereg 7a): **PASS**, GB (S5 v2) 72 levels vs A0-fresh 67 on 8 dev games x 4 seeds (6 / 24 / 2), no game worse on all seeds; small against the noise (~1.6 standard deviations), all on vc33, dc22 and cd82. Online, S5 v2 carried exactly the colours its replay says (87 of 87). So G4 runs, against a same-day A0 arm (prereg §7 registered 7 Nov).
 - [G4, the confirm on all 25 games](3-glassbox/g4-confirm.md) (8 Nov, prereg §7): **ADOPT**, Goose with S5 v2 110 levels vs 101 for the adopted Goose run beside it on 25 games x 3 seeds (12 better, 57 same, 6 worse), no game worse on every seed; untouched tier 14 vs 13. Weak evidence: +9 is about one standard deviation of chance, the same-day A0 came in 11 below A0's 27 Sep runs, and GB ties those (110 vs 112). Outside the dev tier the guide used no LLM output; its gains there sit where its goal hints changed the most moves.
-- [Time to level: what the guide changes](3-glassbox/time-to-level.md) (10 Nov, exploratory, finished runs re-scored): by action budget nothing shows early (GB against the same-day A0: +1 by 2,000 actions, +2 by 10,000, +6 by 30,000, +9 by 100,000, where two unguided arms differ by 11). Level by level, GB finished levels after the first in fewer actions on 36 against 17 in G4 and 23 against 16 in dev sweep 2; two unguided arms split 24 against 27, and level 1, where nothing is carried, splits evenly. G2's LLM-free arm does as well as the guided one.
+- [Time to level: what the guide changes](3-glassbox/time-to-level.md) (10 Nov, exploratory, finished runs re-scored): by action budget nothing shows early (GB against the same-day A0: +1 by 2,000 actions, +2 by 10,000, +6 by 30,000, +9 by 100,000, where two unguided arms differ by 11). Level by level, GB finished levels after the first in fewer actions on 36 against 17 in G4 and 23 against 16 in dev sweep 2; two unguided arms split 24 against 27, and level 1, where nothing is carried, splits evenly. G2's LLM-free arm does as well as the guided one. **This did not repeat** in the registered [carry test](1-goose-upgrades/carry-results.md) of 13 Nov (23 against 22 on new seeds).
 - [The funnel](3-glassbox/funnel.md) (12 Nov, the report's table, from finished runs): of a dev game's changing cases S1 describes 83%, an admitted rule gets 57% and the book gets the whole screen on 28% (pooled book, mean over 8 games); 78%, 40% and 5% on the held-out games. Seeing is not the main loss; writing exact, trusted rules is. Online, rule survival is 92% and what steers Goose is almost all the LLM-free colour rule. Also there: G4's replay check (the replay carries the 66 colours the runs carried, 65 at the same level).
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 

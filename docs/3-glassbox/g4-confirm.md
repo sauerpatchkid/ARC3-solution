@@ -280,4 +280,12 @@ and for no other game.
   Added 10 Nov, exploratory: the same runs re-scored on when levels were
   completed (`time-to-level.md`).
 
+  Added 13 Nov: the guide's LLM-free part was tested by itself as a Goose
+  upgrade, registered, on new seeds
+  (`docs/1-goose-upgrades/carry-results.md`). **FAIL:** later levels came no
+  sooner (23 level races against 22 on six click games); no levels lost (87
+  against 81, inside the noise). Read the line above, "G4 is evidence for
+  S5's checked, LLM-free guidance", with this: tested alone, that guidance
+  showed no effect.
+
   The report (final Mon 7 Dec) gives this result with its noise.

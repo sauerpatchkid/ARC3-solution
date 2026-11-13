@@ -3,12 +3,13 @@
 **In one line.** The part of Glassbox that helped needs no LLM: colours that
 do nothing when clicked, and what shrank before a level was won, carried to the
 next level. It is now a Goose upgrade, two switches, off by default, and it
-makes the same moves as Glassbox's LLM-free arm. Its test was registered on
-12 Nov and started the same day.
+makes the same moves as Glassbox's LLM-free arm. Its registered test
+**failed** on 13 Nov: later levels came no sooner (23 level races against 22),
+so it is not adopted.
 
-**Status.** Built and checked on the CPU on 12 Nov. **The test is registered
-(12 Nov 2026) and running: 56 runs, about 11 to 13 GPU-hours.** Result: to come
-(`carry-results.md`, once all runs are in).
+**Status.** Built and checked on the CPU on 12 Nov. The test was registered on
+12 Nov and run on 12-13 Nov (56 runs). **Result: FAIL on the primary, safety
+met; nothing adopted, no preset:** [`carry-results.md`](carry-results.md).
 
 ## Why
 
@@ -140,4 +141,14 @@ on.
 
 ## Changes after registration
 
-None.
+No rule, arm, game, seed or budget was changed. Two notes, both written on
+13 Nov after the last run:
+
+1. **"56 of 56 runs at the 100,000-action cap"** should read "played to the
+   cap or to the end of the game". Two lp85 runs finished the game's eighth
+   and last level before the cap (seed 8, A6, at 35,664 actions; seed 9, A5,
+   at 52,998). The registered run-set check (`--expect 28`) counts a won game
+   as a finished run and passed. The other 54 runs played 100,000 actions.
+2. **The test ran in two parts**, as "Running it in parts" allows: paused by
+   Matt after 7 runs (12 Nov, 15:13), resumed at 22:49, finished at 08:02 on
+   13 Nov. The pause fell between runs; no run was cut or run twice.

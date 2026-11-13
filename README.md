@@ -39,7 +39,7 @@ one switch.
 | Return map | Remembers which move leads where, and walks back to untried places when stuck | `return_map.py` (`EVAL_RETURN_MAP=1`) | 45 vs 32 on dev games | not adopted alone |
 | Upgrade screens | Nine small candidates in two rounds. Winners: `bars` (progress bars masked), `map_gated` (walk back only while it pays), `attempt` (half credit for a screen new this attempt) | `upgrades.py` (`EVAL_UPGRADES=...`) | | winners bundled |
 | **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
-| Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | test running | built 12 Nov; [its test](docs/1-goose-upgrades/carry-inside-goose.md) was registered and started 12 Nov |
+| Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | 87 vs 81 on 7 games | **not adopted** (13 Nov): [its registered test](docs/1-goose-upgrades/carry-results.md) failed. Later levels came no sooner (23 level races against 22); no levels lost |
 
 `mb_gated_att` is **A0**, the reference every later result is compared with.
 File by file: [`custom_agents/README.md`](custom_agents/README.md). Three
@@ -77,7 +77,7 @@ The problem each stage fixes, and each one's status:
 | G3 (3 Nov) | Do rule templates carry to held-out games? | **FAIL**: 0 of 792 tries adopted |
 | Dev sweep 2 (5 Nov) | S5 v2 against a same-day A0, 8 dev games × 4 seeds | **PASS**: 72 vs 67 |
 | G4 (8 Nov) | The confirm on all 25 games × 3 seeds | **ADOPT**: 110 vs 101 (12 better, 57 same, 6 worse) |
-| Time to level (10 Nov, exploratory) | Does the guide finish levels sooner? | After level 1, yes: it finished a level in fewer actions on 36 against 17 in G4 (two unguided arms: 24 against 27) |
+| Time to level (10 Nov, exploratory) | Does the guide finish levels sooner? | After level 1 it finished a level in fewer actions on 36 against 17 in G4 (two unguided arms: 24 against 27). **It did not repeat:** the registered [carry test](docs/1-goose-upgrades/carry-results.md) of 13 Nov found 23 against 22 |
 | The funnel (12 Nov) | Where are a game's cases lost? | Not at seeing: S1 describes 83% of changing cases, an admitted rule gets 57%, the book gets the whole screen on 28% (5% on held-out games) |
 
 **How to read G4.** The gain is about one standard deviation of chance, and
