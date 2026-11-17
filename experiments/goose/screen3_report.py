@@ -130,6 +130,24 @@ def main_effect(runs, upgrade, games, t=S.CAP):
     return dict(effect=sum(d), lo=lo, hi=hi, yes=yes, no=no)
 
 
+def added_to(runs, upgrade, games):
+    """What `upgrade` adds to each of the four arms without it: [(arm, arm + upgrade, levels added)]."""
+    eight = [a for a in S.TABLE_ORDER if a != "base2"]
+    out = []
+    for a in eight:
+        if upgrade not in S.ARMS[a][2]:
+            b = next(x for x in eight if set(S.ARMS[x][2]) == set(S.ARMS[a][2]) | {upgrade})
+            out.append((a, b, total(runs, b, games) - total(runs, a, games)))
+    return out
+
+
+def against_both(runs, arm, games):
+    """The arm's levels minus the mean of the two baselines', with the 95% interval."""
+    d = [runs[arm][g]["levels"] - (runs["base"][g]["levels"] + runs["base2"][g]["levels"]) / 2 for g in games]
+    lo, hi = L.bootstrap_delta(d) if d else (0.0, 0.0)
+    return sum(d), lo, hi
+
+
 def effects_agree(combo, effects):
     """Do the main effects point at the same combination: positive for each upgrade the
     combo has, not positive for each it lacks?"""
@@ -393,6 +411,11 @@ def write(out, docs=False):
         eff = table(["Upgrade", "arms with it", "arms without", "mean score with", "mean score without",
                      "main effect", "95% interval", "effect by 1,000 actions", "effect by 2,000 actions"], rows,
                     right=(3, 4, 5))
+        eff += ["", "The same, pair by pair: the levels an upgrade adds to each of the four arms without it "
+                "(the main effect is the mean of the four).", ""]
+        eff += table(["Upgrade", "added to", "", "", ""],
+                     [[name] + [f"`{a}` to `{b}`: {d:+d}" for a, b, d in added_to(runs, u, games)]
+                      for u, name in (("S", "S `map_sched`"), ("O", "O `objclick`"), ("T", "T train more"))])
     else:
         eff = ["Not all eight arms have runs yet: no main effects."]
 
@@ -421,7 +444,18 @@ def write(out, docs=False):
                  f"Its level races are the `base2` row of the table above.",
                  "", "Games where the two differ: "
                  + (", ".join(f"{g} ({runs['base'][g]['levels']} vs {runs['base2'][g]['levels']})" for g in games
-                              if runs["base"][g]["levels"] != runs["base2"][g]["levels"]) or "none") + "."]
+                              if runs["base"][g]["levels"] != runs["base2"][g]["levels"]) or "none") + ".",
+                 "", "Does it matter which of the two runs an arm is compared with? Not part of the rule, which names "
+                 "`base`; shown because every arm above is compared with the same one run.", ""]
+        rows = []
+        for a in order:
+            b2, (both, lo, hi) = against_base(runs, a, games, base="base2"), against_both(runs, a, games)
+            rows.append([f"`{a}`", f"{vs[a]['delta']:+d} [{vs[a]['lo']:+d}, {vs[a]['hi']:+d}]",
+                         f"{vs[a]['better']} / {vs[a]['same']} / {vs[a]['worse']}",
+                         f"{b2['delta']:+d} [{b2['lo']:+d}, {b2['hi']:+d}]", f"{b2['better']} / {b2['same']} / {b2['worse']}",
+                         f"{both:+.1f} [{lo:+.1f}, {hi:+.1f}]"])
+        body += table(["Arm", "vs `base` [95% interval]", "games better / same / worse", "vs `base2` [95% interval]",
+                       "games better / same / worse", "vs the mean of the two [95% interval]"], rows)
     body += ["", "## What each upgrade did", ""] + upgrade_tables(runs, arms)
     fails = [r for r in S.read_tsv(out, "failed.tsv")]
     still = [r for r in fails if r[0] not in runs.get(r[1], {})]

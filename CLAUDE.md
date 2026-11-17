@@ -225,15 +225,27 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (13 Nov)
 
-- **Upgrade screen 3 (Matt's overnight job of 16 Nov): started in the night of
-  16-17 Nov.** Three new Goose upgrades behind switches that are off by default
-  (`map_sched`, `objclick`, `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT`), and a
-  9-arm screen of them, alone and combined: 25 games x seed 0 x 5,000 actions,
-  225 runs. Exploratory; nothing is adopted from it. On branch `goose-screen3`
-  (local commits, not pushed). Plan, checks and rule:
-  `docs/1-goose-upgrades/upgrade-screen3.md`; results go to
-  `upgrade-screen3-results.md`. `uv run python experiments/goose/screen3.py
-  status | resume | report`.
+- **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
+  Exploratory, nothing adopted.** Three new Goose upgrades behind switches
+  that are off by default: S = `map_sched` (a bandit over five map schedules),
+  O = `objclick` (clicks chosen by shape), T = `EVAL_TRAIN_EVERY=1
+  EVAL_TRAIN_RECENT=16` (train more, on fresher data). A 9-arm screen, alone
+  and combined, 25 games x seed 0 x 5,000 actions, 225 of 225 runs, none
+  failed. Levels by 5,000 actions: the adopted Goose 15 and, run again, 15;
+  **`SOT` 22 (+7, 95% interval [+1, +13]), ranked first and clears the noise
+  by the rule written before the runs**; `ST` 21 and `O` 19 clear it too; `T`
+  20, `SO` 19, `OT` 18, `S` 18 are inside it. No main effect is settled (T
+  +2.5, S +2.0, O +1.0, every interval reaching 0), and T costs about 3 times
+  the time per action. One seed: a candidate for a registered confirm, not a
+  result. Plan, checks and rule: `docs/1-goose-upgrades/upgrade-screen3.md`;
+  results: `upgrade-screen3-results.md`; one row per run:
+  `upgrade-screen3-runs.csv`; recordings: `results/screen3/20261116_235041/`.
+  On branch `goose-screen3`, two local commits, **not pushed**. With the new
+  switches off, `cpu_check` is identical on every move (goose/ft09 1,970,
+  the adopted Goose's flags/tu93 1,960; `results/cpu_check/2026-11-16_screen3/`).
+  **Open, Matt's:** whether to run the confirm the results page proposes
+  (`base`, `SO`, `SOT` x seeds 1-3 x 5,000 actions), and whether to push the
+  branch.
 - **Committed and pushed** (Matt, 12 Nov): the tidy-up (`26ddcb6`), the small
   fixes (`e4f0f77`), the re-score and probes (`2443dd3`), the buffer's CPU
   jobs (`44dbcbe`), the carry upgrade (`c2f8d85`), the carry test's launcher

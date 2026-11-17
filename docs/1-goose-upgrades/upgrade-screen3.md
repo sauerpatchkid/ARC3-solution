@@ -5,11 +5,13 @@ default: a bandit over map schedules (S), clicks chosen by shape (O), and more
 training on fresher data (T). A 9-arm screen asks whether any of them, alone or
 combined, lets the adopted Goose complete more levels in 5,000 actions.
 
-**Status.** Built and checked on 16 Nov (the checks are below); the sweep was
-started in the night of 16-17 Nov from the commit that holds this page.
-**Exploratory: one seed, 5,000 actions a game. Nothing is adopted from it: no
-new preset, no changed default.** Results:
-[`upgrade-screen3-results.md`](upgrade-screen3-results.md).
+**Status.** Built and checked on 16 Nov (the checks are below). The sweep ran
+from 16 Nov 23:50 to 17 Nov 04:46 on commit `eefcde8`, the commit that holds
+this page as it was before the first run: 225 of 225 runs, none failed.
+**Result: `SOT` ranked first (22 levels against 15 and 15) and clears the
+noise by the rule below; so do `ST` and `O`.** Exploratory: one seed, 5,000
+actions a game. Nothing is adopted from it: no new preset, no changed default.
+Results: [`upgrade-screen3-results.md`](upgrade-screen3-results.md).
 
 *This is Matt's overnight job of 16 Nov ("upgrade screen 3"). He was asleep
 while it ran, so every choice his brief left open is listed under "Decisions
@@ -309,4 +311,13 @@ untouched was taken.
 
 ## Changes after the start
 
-None yet.
+No arm, upgrade, flag, game or rule was changed, and no run was rerun. Notes
+written on 17 Nov, after the last run:
+
+1. **The Status paragraph at the top** was rewritten with the result. The rest
+   of this page is as it was committed before the first run (`eefcde8`).
+2. **The sweep took 4 h 55 min**, not the 4.1 h projected under "Time": in the
+   sweep the T arms mostly ran beside other T arms. It ended at 04:46.
+3. **Two tables were added to the report** (`screen3_report.py`) after the
+   results were seen: what each upgrade adds pair by pair, and each arm
+   against `base2`. They describe; the rule above is unchanged.

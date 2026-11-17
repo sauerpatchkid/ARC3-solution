@@ -102,6 +102,9 @@ def test_an_arm_that_wins_on_every_game_clears_the_noise_and_the_main_effects_sa
     assert eff["S"]["effect"] == 3 and eff["O"]["effect"] == 0 and eff["T"]["effect"] == 0
     assert sorted(eff["S"]["yes"]) == ["S", "SO", "SOT", "ST"] and "base2" not in eff["S"]["no"]
     assert R.effects_agree("S", eff) and not R.effects_agree("SO", eff)
+    assert R.added_to(runs, "S", GAMES) == [("base", "S", 3), ("O", "SO", 3), ("T", "ST", 3), ("OT", "SOT", 3)]
+    assert R.added_to(runs, "O", GAMES) == [("base", "O", 0), ("S", "SO", 0), ("T", "OT", 0), ("ST", "SOT", 0)]
+    assert R.against_both(runs, "S", GAMES) == (3.0, 3.0, 3.0)
     short = R.write(out)
     assert "Ranked first of the upgraded arms: `S`" in short and "clears the noise" in short
     report = open(os.path.join(out, "report.md")).read()

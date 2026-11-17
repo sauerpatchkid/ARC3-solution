@@ -66,6 +66,15 @@ data (`EVAL_TRAIN_EVERY`, `EVAL_TRAIN_RECENT`). A 9-arm screen, alone and
 combined, on all 25 games x 1 seed x 5,000 actions. Exploratory; nothing is
 adopted from it.
 
+On 17 Nov 2026: [upgrade screen 3's results](1-goose-upgrades/upgrade-screen3-results.md).
+All 225 runs finished. Levels by 5,000 actions: the adopted Goose 15, and 15
+when run again; all three upgrades together 22 (+7, 95% interval [+1, +13]),
+ranked first, and it clears the noise by the rule written before the runs.
+`map_sched` with more training (21) and `objclick` alone (19) clear it too.
+No single upgrade's effect is settled, and more training costs about 3 times
+the time per action. One seed: a candidate for a registered confirm. One row
+per run: [`upgrade-screen3-runs.csv`](1-goose-upgrades/upgrade-screen3-runs.csv).
+
 `mb_gated_att` is **A0**, the reference every Glassbox result is compared
 against. Its 75 confirm runs (`results/confirm_upgrade/20260927_221915/`) are
 reused, never re-run.
