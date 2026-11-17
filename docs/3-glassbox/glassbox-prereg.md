@@ -1047,3 +1047,19 @@ started.)*
    submodule's local edits. The three sealed files were opened after the
    verdict (8 Nov, logged in `artifacts/registry.json`), as Matt asked on
    7 Nov (plan §7.4 item 19).
+10. **16 Nov 2026, sections 2 and 7 (no change to a registered text or
+    number), written before any run of it.** An exploratory Goose screen at
+    Matt's request (his brief of 16 Nov, "upgrade screen 3";
+    `docs/1-goose-upgrades/upgrade-screen3.md`): 9 arms of the adopted Goose,
+    with and without three new Goose upgrades (`map_sched`, `objclick`,
+    `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT`), on all 25 games x seed 0 x 5,000
+    actions, 225 runs. It plays the A/B-offline and untouched tiers outside a
+    confirm, which section 2 keeps for G3 and G4. That is allowed now because
+    every Glassbox gate has been run (the last, G4, on 7-8 Nov), so no
+    registered test is still to come on those games. The screen uses no
+    Glassbox code (`EVAL_GB` unset), no LLM and no cross-game artifact; no
+    upgrade is changed after its results are seen, and nothing is adopted from
+    it. No registered text or number is changed. Its results are reported by
+    tier (dev and seen, A/B-offline, untouched). After it, the held-out games
+    are no longer unseen for these three upgrades: a later test of them there
+    is a repeat on new seeds, not a held-out test.

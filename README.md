@@ -41,6 +41,8 @@ one switch.
 | **`mb_gated_att`** | Novelty label + return map + the three winners, as one agent | `presets.py` (`--agent mb_gated_att`) | **112** | **adopted 28 Sep** |
 | Carry | Colours that do nothing when clicked, and what shrank before a win, carried to the next level. No LLM | `carry.py` (`EVAL_UPGRADES=...,carry_noops,carry_hints`) | 87 vs 81 on 7 games | **not adopted** (13 Nov): [its registered test](docs/1-goose-upgrades/carry-results.md) failed. Later levels came no sooner (23 level races against 22); no levels lost |
 
+| Upgrade screen 3 | Three more candidates, alone and combined, at a short budget: `map_sched` (a bandit over five map schedules), `objclick` (clicks chosen by shape), train more on fresher data | `upgrades.py` (`EVAL_UPGRADES=...,map_sched` / `objclick`), `train_more.py` (`EVAL_TRAIN_EVERY`, `EVAL_TRAIN_RECENT`) | 25 games x 1 seed x 5,000 actions | exploratory screen, 16-17 Nov: [plan](docs/1-goose-upgrades/upgrade-screen3.md). Nothing adopted from it |
+
 `mb_gated_att` is **A0**, the reference every later result is compared with.
 File by file: [`custom_agents/README.md`](custom_agents/README.md). Three
 [probes](docs/1-goose-upgrades/input-probes.md) of 10 Nov sized further ideas
@@ -247,7 +249,8 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | the online decoration mask: warm-up / recompute cadence | `200` / `250` |
 | `EVAL_RETURN_MAP` | the return map | off |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | map tuning | `200` / `20` / `100` / `1` |
-| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` | unset |
+| `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints`, `map_sched` (in `map_gated`'s place), `objclick` | unset |
+| `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | train every N actions / this many of the newest stored moves in every batch (`train_more.py`) | `5` / `0` |
 | `EVAL_GB` / `EVAL_GB_BOOK` | Glassbox's guide in the agent; the offline run whose book it carries (unset: no LLM rules) | off / unset |
 
 `--agent mb_gated_att` fixes `EVAL_LABEL=novel EVAL_RETURN_MAP=1
@@ -273,8 +276,9 @@ ARC3-solution/
 │   ├── action.py              #   Goose (the CNN agent); features hook in on tagged lines
 │   ├── canon.py               #   Goose upgrade: screen fingerprints, the novelty label
 │   ├── return_map.py          #   Goose upgrade: the return map
-│   ├── upgrades.py            #   Goose upgrades: bars / attempt / map_gated / deadclick
+│   ├── upgrades.py            #   Goose upgrades: bars / attempt / map_gated / deadclick / map_sched / objclick
 │   ├── carry.py               #   Goose upgrade: colour no-ops and goal hints carried between levels
+│   ├── train_more.py          #   Goose upgrade: train more often, on fresher data
 │   ├── presets.py             #   --agent mb_gated_att, the adopted Goose
 │   ├── gridtools.py, random_agent.py, view_utils.py   # shared helpers, the random floor
 │   └── gb/                    #   GLASSBOX: one file per stage (README.md inside)

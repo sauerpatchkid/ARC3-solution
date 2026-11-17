@@ -19,12 +19,14 @@ still the semester-1 baseline.
 | `upgrades.py` | `bars` (progress bars masked), `attempt` (half credit for a screen new this attempt), `map_gated` (walk back only while it pays), `deadclick` (not adopted) | `EVAL_UPGRADES=bars,map_gated,attempt` | screened in two rounds |
 | `presets.py` | **`mb_gated_att`, the adopted Goose (A0)**: the three switches above, fixed under one name | `--agent mb_gated_att` | **112 levels**, adopted 28 Sep |
 | `carry.py` | Carry: colours that do nothing when clicked (`carry_noops`) and what shrank before a win (`carry_hints`), carried to the next level. No LLM; the same moves as Glassbox's LLM-free arm | `EVAL_UPGRADES=...,carry_noops,carry_hints` | **not adopted** (13 Nov): its test failed. Later levels came no sooner (23 level races against 22); 87 vs 81 levels on 7 games, inside the noise |
+| `upgrades.py` | `map_sched`: a bandit over five map schedules (how soon the map steps in, how far it walks back, untried buttons first), in `map_gated`'s place. `objclick`: where a click lands is chosen by shape, not by cell | `EVAL_UPGRADES=bars,map_sched,attempt,objclick` | not adopted: [upgrade screen 3](../docs/1-goose-upgrades/upgrade-screen3.md) (16-17 Nov, exploratory) |
+| `train_more.py` | Train more often, and on fresher data: a gradient step every N actions, with the newest stored moves in every batch | `EVAL_TRAIN_EVERY=1 EVAL_TRAIN_RECENT=16` (defaults `5` and `0`) | not adopted: upgrade screen 3 |
 
 Levels are on all 25 public games × 3 seeds × 100,000 actions. Write-ups:
 [`docs/1-goose-upgrades/`](../docs/1-goose-upgrades/).
 
 `action.py` is the only file that calls the others, and it does so on tagged
-lines: `# [return-map]`, `# [upgrades]`, `# [gb]`. Deleting a tag's lines
+lines: `# [return-map]`, `# [upgrades]`, `# [train]`, `# [gb]`. Deleting a tag's lines
 (`sed -i '/\[upgrades\]/d' custom_agents/action.py`) removes that feature.
 
 ## Shared pieces

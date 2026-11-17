@@ -59,6 +59,13 @@ were lost (87 against 81 on seven games, inside the noise). Level 1, where the
 two arms are the same agent, split 13 against 7: that is the size of the noise.
 The lead seen on 10 Nov did not repeat.
 
+On 16-17 Nov 2026: [upgrade screen 3](1-goose-upgrades/upgrade-screen3.md).
+Three new upgrades, each off by default: `map_sched` (a bandit over five map
+schedules), `objclick` (clicks chosen by shape) and more training on fresher
+data (`EVAL_TRAIN_EVERY`, `EVAL_TRAIN_RECENT`). A 9-arm screen, alone and
+combined, on all 25 games x 1 seed x 5,000 actions. Exploratory; nothing is
+adopted from it.
+
 `mb_gated_att` is **A0**, the reference every Glassbox result is compared
 against. Its 75 confirm runs (`results/confirm_upgrade/20260927_221915/`) are
 reused, never re-run.

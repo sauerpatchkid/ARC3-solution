@@ -11,7 +11,7 @@ The README, the docs and the folders all follow these four, so keep new work in 
    online which actions change the screen), and the semester-2 improvements to
    it. 54 → 79 → 112 levels on 25 games × 3 seeds × 100k.
    Code: `custom_agents/action.py`, `canon.py`, `return_map.py`, `upgrades.py`,
-   `carry.py`, `presets.py` (index: `custom_agents/README.md`). Docs:
+   `carry.py`, `train_more.py`, `presets.py` (index: `custom_agents/README.md`). Docs:
    `docs/1-goose-upgrades/`.
    Launchers: `legacy/goose_experiments/`.
 2. **Glassbox (current)**: Goose plus a local LLM that writes small rules,
@@ -78,6 +78,7 @@ uv run python tools/paired_compare.py --base <manifest>:<arm> --new <manifest>:<
 uv run python tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> \
     [--games a,b] [--by-game]             # WHEN levels came: by budget, AULC, level races; no verdict
 bash experiments/goose/carry_test.sh verdict  # the carry test (finished 13 Nov, FAIL): its tables again; also status
+uv run python experiments/goose/screen3.py status   # upgrade screen 3 (16-17 Nov): also plan | smoke | start | pause | resume | report
 uv run python tools/gb_funnel.py --runs g1,pool_g0b_g1,g3_gb   # what each Glassbox stage did, per game (CPU)
 uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
@@ -112,7 +113,8 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_CANON_WARMUP` / `EVAL_CANON_REFRESH` | `200` / `250` | the online decoration mask |
 | `EVAL_RETURN_MAP` | off | `custom_agents/return_map.py` |
 | `EVAL_MAP_STALL` / `EVAL_MAP_CLICK_TRIES` / `EVAL_MAP_MAX_ROUTE` / `EVAL_MAP_RETURN` | `200` / `20` / `100` / `1` | map tuning (`docs/1-goose-upgrades/option-1-return-map.md`) |
-| `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted) |
+| `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted), `map_sched` (takes `map_gated`'s place; the two together are refused), `objclick` (both: upgrade screen 3, not adopted) |
+| `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | `5` / `0` | train every N actions / this many of the newest stored moves in every batch (`custom_agents/train_more.py`, lines tagged `# [train]`; upgrade screen 3, not adopted) |
 | `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
@@ -179,7 +181,7 @@ exploratory and did not repeat. Write-up:
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 284 live tests.
+status, `make gb-help` each command. 318 live tests.
 
 | Piece | File | State |
 |---|---|---|
@@ -223,6 +225,15 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (13 Nov)
 
+- **Upgrade screen 3 (Matt's overnight job of 16 Nov): started in the night of
+  16-17 Nov.** Three new Goose upgrades behind switches that are off by default
+  (`map_sched`, `objclick`, `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT`), and a
+  9-arm screen of them, alone and combined: 25 games x seed 0 x 5,000 actions,
+  225 runs. Exploratory; nothing is adopted from it. On branch `goose-screen3`
+  (local commits, not pushed). Plan, checks and rule:
+  `docs/1-goose-upgrades/upgrade-screen3.md`; results go to
+  `upgrade-screen3-results.md`. `uv run python experiments/goose/screen3.py
+  status | resume | report`.
 - **Committed and pushed** (Matt, 12 Nov): the tidy-up (`26ddcb6`), the small
   fixes (`e4f0f77`), the re-score and probes (`2443dd3`), the buffer's CPU
   jobs (`44dbcbe`), the carry upgrade (`c2f8d85`), the carry test's launcher

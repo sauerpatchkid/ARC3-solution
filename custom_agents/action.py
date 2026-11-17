@@ -48,6 +48,7 @@ from view_utils import save_action_visualization
 from canon import OnlineCanonicalizer, LevelMemory, DEFAULT_WARMUP, DEFAULT_REFRESH
 from return_map import ReturnMap  # [return-map] Option 1, see custom_agents/return_map.py
 from upgrades import Upgrades  # [upgrades] upgrade screen, see custom_agents/upgrades.py
+from train_more import TrainMore  # [train] EVAL_TRAIN_EVERY / EVAL_TRAIN_RECENT, see custom_agents/train_more.py
 
 class ActionModel(nn.Module):
     """CNN that predicts which actions will result in new frames with shared conv backbone."""
@@ -110,6 +111,7 @@ class ActionModel(nn.Module):
 
 class Action(Agent):
     """Agent using action model to predict which actions lead to new frames."""
+    train_more = None  # [train] None = Goose's own training (one step per 5 actions, a uniform batch)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         # --- Seeding (reproducible when EVAL_SEED is set; see eval_common) ---
@@ -218,6 +220,9 @@ class Action(Agent):
         self.experience_hashes = set()  # Track unique frame+action combinations
         self.batch_size = 64
         self.train_frequency = 5
+        self.train_more = TrainMore.from_env(self.train_frequency, self.batch_size)  # [train] None unless a flag changes a value
+        if self.train_more is not None:  # [train]
+            self.train_frequency = self.train_more.every  # [train]
         
         # Track previous state/action for experience creation
         self.prev_frame = None
@@ -254,6 +259,7 @@ class Action(Agent):
             **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
             **(self.upgrades.config() if self.upgrades is not None else {}),  # [upgrades]
             **(self.gb.config() if self.gb is not None else {}),  # [gb]
+            **(self.train_more.config() if self.train_more is not None else {}),  # [train]
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
             buffer_capacity=self.experience_buffer.maxlen,
@@ -269,6 +275,8 @@ class Action(Agent):
             atexit.register(self.return_map.dump, os.path.join(env_dir, 'return_map_stats.json'))  # [return-map]
         if self.upgrades is not None:  # [upgrades]
             atexit.register(self.upgrades.dump, os.path.join(env_dir, 'upgrades_stats.json'))  # [upgrades]
+        if self.train_more is not None:  # [train] what the two flags did, written at exit
+            atexit.register(self.train_more.dump, os.path.join(env_dir, 'train_stats.json'))  # [train]
         if self.gb is not None:  # [gb]
             atexit.register(self.gb.dump, os.path.join(env_dir, 'glassbox', 's5_stats.json'))  # [gb]
         
@@ -396,6 +404,8 @@ class Action(Agent):
         
         # Sample batch from experience buffer
         batch_indices = np.random.choice(len(self.experience_buffer), self.batch_size, replace=False)
+        if self.train_more is not None:  # [train] the newest stored moves go into every batch
+            batch_indices = self.train_more.batch(batch_indices, len(self.experience_buffer))  # [train]
         batch = [self.experience_buffer[i] for i in batch_indices]
         
         # Prepare batch data — stack the stored colour-index frames on CPU,

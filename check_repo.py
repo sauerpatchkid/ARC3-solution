@@ -51,6 +51,7 @@ BASELINE_FILES = [
     "custom_agents/presets.py",
     "custom_agents/upgrades.py",  # [upgrades]
     "custom_agents/carry.py",  # [upgrades] carry_noops / carry_hints
+    "custom_agents/train_more.py",  # [train] EVAL_TRAIN_EVERY / EVAL_TRAIN_RECENT
 ]
 
 # Modules that only exist once run_local.py has synthesized the harness package,
@@ -60,6 +61,7 @@ PROVIDED_AT_RUNTIME = {"agents", "arc_agi", "arcengine"}
 LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "canon", "return_map",
          "gridtools", "presets", "manifest", "tiers", "registry", "gb",
          "upgrades", "carry",  # [upgrades]
+         "train_more",  # [train]
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
          "analyze_curves", "inspect_corpus", "legacy", "llm_track"}
