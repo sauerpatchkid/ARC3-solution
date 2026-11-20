@@ -97,6 +97,7 @@ uv run python tools/probe_engine.py [--games a,b]              # frames per move
 uv run python experiments/kp/kp_test.py plan           # the Knowledge Planner's GPU runs: also smoke | start | status | pause | resume | verdict (DEV=1: the dev sweep)
 uv run python tools/kp_offline.py takeover             # where the planner works, from recordings (CPU): also induct | funnel
 LADDER=1 uv run python experiments/kp/kp_test.py status   # the four-agent comparison's runs (20 Nov); E21=1 = the explorer's dev sweep (they have no verdict)
+E21TEST=1 uv run python experiments/kp/kp_test.py status  # the explorer's registered test (20 Nov): also plan | start | pause | resume | verdict
 uv run python experiments/kp/explorer_probe.py         # the groupmate's keyboard agents after Goose's level 1, from recordings (CPU)
 uv run python experiments/kp/ladder_chart.py --series "Name=<manifest>:<arm>" ... --out <path>   # one figure of several agents at 5,000 actions; sweep_table.py = the tables
 uv run python -m pytest tests -q              # live tests (~85 s)
@@ -203,7 +204,7 @@ exploratory and did not repeat. Write-up:
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 359 live tests (41 of them the Knowledge Planner's).
+status, `make gb-help` each command. 365 live tests (47 of them the Knowledge Planner's).
 
 | Piece | File | State |
 |---|---|---|
@@ -247,6 +248,25 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (20 Nov)
 
+- **20 Nov, afternoon: THE EXPLORER'S TEST is registered and running
+  (Matt: "commit and push, then run the registered test on all 25 games").**
+  Page, frozen before the first run:
+  `docs/4-knowledge-planner/kp-explorer-test.md`; the pre-registration's note
+  is entry 12 of section 11. `SOT-KP`, `SOT-KP21` (the same with the
+  explorer) and `SOT-KP2` (`SOT-KP` again) x all 25 games x seeds 16 and 17 x
+  5,000 actions = 150 runs, about 5.5 hours, under `results/kp/test_e21/`.
+  **Two rules:** A, more levels (the planner's test's rule: above both
+  controls and above the 97.5th percentile of the chance gap); B, sooner on
+  the levels after the first of the 18 games with keys (level races won
+  minus lost, against the same kind of chance gap). The written expectation:
+  A more likely inside the noise than not (about +3 against a bar of 5 to
+  9), B about even. Code `4e310f7` (hash `bf4882f94f0ade61`), the rules'
+  code `experiments/kp/kp_explorer_verdict.py`. Commands: `E21TEST=1` in
+  front of `kp_test.py` (`status`, `pause`, `resume`, `verdict`).
+  **When every run is in: run the verdict ONCE, write
+  `docs/4-knowledge-planner/kp-explorer-results.md` and update the pages
+  that point to it, then stop before any commit or push.** Nothing is
+  changed or rerun after results are seen; nothing is adopted; no preset.
 - **20 Nov: two exploratory results after the planner's test, both asked for
   by Matt that day. Nothing adopted, no preset, no held-out game touched by
   the explorer. Committed and pushed on 20 Nov (Matt: "commit and push, then

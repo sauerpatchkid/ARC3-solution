@@ -1085,3 +1085,29 @@ started.)*
     results are reported by tier. After it, the held-out games are no longer
     unseen for the planner. For `SOT` they were already played at seed 0
     (entry 10): the test's two baseline arms are a repeat on new seeds.
+12. **20 Nov 2026, sections 2 and 7 (no change to a registered text or
+    number), written before any run of it.** A test at Matt's request (20
+    Nov: "commit and push, then run the registered test on all 25 games"; the
+    test's own page, `docs/4-knowledge-planner/kp-explorer-test.md`, holds its
+    two rules): `SOT-KP` (Goose with upgrade screen 3's three upgrades and the
+    Knowledge Planner), the same with a groupmate's explorer for games with
+    keys (their agent E21, run unedited through `custom_agents/kp_bridge.py`,
+    `[explore] keys = "e21"`), and `SOT-KP` again, on all 25 games x seeds 16
+    and 17 x 5,000 actions, 150 runs. It plays the A/B-offline and untouched
+    tiers outside a confirm, which section 2 keeps for G3 and G4. As for
+    entries 10 and 11, that is allowed because every Glassbox gate has been
+    run. The explorer was chosen and checked by this project on dev and seen
+    games only (`kp-explorer.md`): its probe and the offline tool refuse the
+    other 15 games outside a registered test, and no run or recording of them
+    was made or read for it. Its author, the groupmate, ran E21 on eight games
+    of their own while building it, and five of those are held-out here (ar25,
+    lf52, bp35, cn04, ka59); the test reports those five apart. The list of
+    the 18 games on which Goose can send a key is read from the moves Goose
+    made in the planner's test (entry 11), whose runs are finished. The test
+    uses no Glassbox code (`EVAL_GB` unset), no LLM and no cross-game
+    artifact: every run starts with an empty knowledge store. Nothing is
+    changed after its results are seen, nothing is adopted from it and no
+    preset is created. No registered text or number is changed. Its results
+    are reported by tier. After it, the held-out games are no longer unseen
+    for the explorer. For `SOT-KP` they were already played at seeds 11 and 12
+    (entry 11): the test's two control arms are a repeat on new seeds.
