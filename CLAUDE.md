@@ -228,9 +228,10 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (13 Nov)
 
-- **19 Nov: the Knowledge Planner (KP). Phases 0, 1 (its CPU part) and 2 are
-  done and clean; the next step is the 15-minute GPU smoke, which needs
-  Matt's word.** KP is a groupmate's planner (their agent E20: it learns
+- **19 Nov: the Knowledge Planner (KP). Phases 0 to 3 are done: built,
+  checked on the CPU, smoke and dev sweep run. The test is written down and
+  not started: it needs Matt's word, after a commit and a push.** KP is a
+  groupmate's planner (their agent E20: it learns
   what is clickable, what a click does and which rule ends a level, then
   plans the next level) run unedited behind Goose with screen 3's three
   upgrades (`SOT`). The plan, with every decision Matt made on 19 Nov (5,000
@@ -238,8 +239,12 @@ uninformative) and the frontier showcase (only if the buffer allows).
   `docs/4-knowledge-planner/kp-plan.md`. Do its phases in order.
   **Pacing (Matt, 19 Nov): keep going on a clean pass; stop before every GPU
   run, before any commit or push, and on any miss or surprise.**
-  Branch `kp`, cut from `goose-screen3` at `170d117`; **nothing committed
-  yet** (the test starts only from committed code).
+  Branch `kp`, cut from `goose-screen3` at `170d117`. Local commit
+  `b34051e` (Matt, 19 Nov: "local commit on kp") holds the planner as the
+  smoke and the dev sweep ran it; **not pushed.** Since then, uncommitted:
+  two corrected smoke checks in `kp_test.py`, one line of `kp_verdict.py`,
+  the write-ups below, `kp-test.md` and the pre-registration's entry 11. No
+  file a run loads differs from `b34051e` except `kp_test.py` (the launcher).
   - **Phase 0** (`kp-phase0.md`): the reference (`custom_agents/kp_ref/`,
     four files, byte for byte, never edited) gives the report's numbers here
     (E20 4.83 levels per episode); all 180 dev and seen recordings replay on
@@ -264,11 +269,37 @@ uninformative) and the frontier showcase (only if the buffer allows).
     funnel), `experiments/kp/kp_test.py` (plan, smoke, start, status, pause,
     resume, verdict; `DEV=1` = the dev sweep; `TRIAL=60` = the same on tiny
     runs), `experiments/kp/kp_verdict.py` (the test's rule). 34 new tests.
-  - **Next, each on Matt's word:** the smoke (`kp_test.py smoke`: ft09, lp85,
-    tu93 x seed 14 x `SOT` and `SOT-KP`, 6 runs), then Phase 1.6 on its
-    recordings; the dev sweep (`DEV=1 kp_test.py start`, 28 runs, about 1 h);
-    the freeze (a commit), `kp-test.md` and the pre-registration note; the
-    test (150 runs, about 5.5 h, seeds 11 and 12).
+  - **The smoke** (`kp-bridge-check.md`, 16:09, commit `b34051e`): ft09
+    `SOT-KP` 6 levels (won at action 676) against `SOT` 1; lp85 5 against 2;
+    no error in the planner; 4% to 9% slower per action. Two of its seven
+    checks printed FAIL because they were wrongly written (a training share
+    asked of a run that won in 676 actions; a speed comparison of two runs
+    that did not share the GPU alike); corrected, the same runs pass all
+    seven. **Phase 1.6:** on the smoke's two planner recordings the reference
+    in its own harness makes the same moves (ft09 178 of 178 planned clicks,
+    lp85 721 of 721).
+  - **The dev sweep** (`kp-dev-sweep.md`; `results/kp/dev/20261119_162448/`;
+    exploratory, no rule): 28 of 28 runs, none failed. **`SOT-KP` 36 levels
+    against `SOT` 20** on seven dev games x seeds 14, 15 (6 / 8 / 0). +13 is
+    the planner (ft09 6 and 6 against 2 and 1; lp85 5 against 1, and 0
+    against 0 at seed 15, where neither arm cleared level 1); +3 is chance, on
+    games where the planner did nothing. Level 1 came later in the planner's
+    runs in 7 of 8 decided races: chance (a pair's two recordings are the
+    same until GPU runs part; a CPU check confirms it, see `kp-dev-sweep.md`).
+    Nothing in the agent, the bridge or the settings changed after it.
+  - **The test** (`kp-test.md`, a draft until the freeze): `SOT`, `SOT-KP`,
+    `SOT2` x 25 games x seeds 11, 12 x 5,000 actions = 150 runs, about 5.5 h.
+    Rule: `SOT-KP` above both baselines, and `SOT-KP - SOT` above the 97.5th
+    percentile of the chance gap built from the test's own `SOT2 - SOT`
+    differences. The note on using all 25 games is entry 11 of section 11 of
+    `docs/3-glassbox/glassbox-prereg.md`.
+  - **Next, each on Matt's word:** (1) the freeze: commit the launcher's fix
+    and the write-ups, fill the commit and the code hash into `kp-test.md`,
+    commit that page and the pre-registration note, push; (2) `uv run python
+    experiments/kp/kp_test.py start` (it refuses uncommitted code; `status`,
+    `pause`, `resume`); (3) when all 150 are in, `kp_test.py verdict`, once,
+    then `tools/kp_offline.py takeover --registered` on the test's baseline
+    recordings and `kp-results.md` (Phase 4).
 - **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
   Exploratory, nothing adopted.** Three new Goose upgrades behind switches
   that are off by default: S = `map_sched` (a bandit over five map schedules),

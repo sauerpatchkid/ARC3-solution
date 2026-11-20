@@ -5,9 +5,14 @@
 standard agents are identical on every move on the CPU. Switched on, it won
 ft09 on the CPU in 965 actions (the adopted Goose alone had 1 or 2 levels by
 action 5,000), and the reference in its own harness makes the same 178 planned
-clicks at the same steps. The GPU smoke is the one part not run yet.
+clicks at the same steps. On the GPU, under `SOT`'s flags, the smoke's planner
+runs ended on 6 levels of ft09 against 1 and 5 of lp85 against 2, with no
+error. Two of the smoke's seven checks printed FAIL, both because of how the
+checks were written; corrected, the same six runs pass all seven.
 
-**Status: checks, not tests.** CPU only so far. Nothing is committed.
+**Status: checks, not tests.** The smoke is six runs at one seed on three
+tuned games: it shows the agent runs as built, not what it is worth. Code:
+commit `b34051e` (local, branch `kp`).
 
 The plan: `kp-plan.md`, Phase 1. Recordings and scripts of the CPU checks:
 `results/cpu_check/2026-11-19_kp/` (its `RESULT.md` has the commands).
@@ -19,8 +24,8 @@ The plan: `kp-plan.md`, Phase 1. Recordings and scripts of the CPU checks:
 | 1.2 (c) Passive: `SOT` with `EVAL_KP=1 EVAL_KP_PLAN=0` on cd82 against `SOT` | identical on every move | **PASS.** 495 of 495 |
 | 1.3 End to end with planning: the adopted Goose's flags with `EVAL_KP=1` on ft09, 5,000 actions | *expected:* the game won, levels 2 to 6 by planning, each in under 150 actions | **As expected.** Won at action 965; levels 2 to 6 in 23, 37, 34, 47 and 37 actions |
 | 1.4 The bridge against the reference, on 1.3's recording | the same planned clicks at the same steps, and the same count | **PASS.** 957 of 957 moves, 178 of 178 planned clicks |
-| 1.5 GPU smoke | | not run: it needs Matt's word |
-| 1.6 The bridge against the reference on the smoke's recordings | | after the smoke |
+| 1.5 GPU smoke (Matt's OK, 19 Nov): ft09, lp85, tu93 x seed 14 x `SOT` and `SOT-KP` | no run ends on an error; no error in the planner; `SOT`'s flags and a training step on nearly every action; an `SOT-KP` run at most 1.5 times as long as its `SOT` run; the same time on tu93 | **The runs are as they should be.** Two of the seven checks printed FAIL, and both were wrongly written (below). Corrected, the same six runs **PASS** all seven |
+| 1.6 The bridge against the reference on the smoke's two planner recordings | as 1.4, on both games | **PASS.** ft09 665 of 665 moves and 178 of 178 planned clicks; lp85 4,947 of 4,947 and 721 of 721 |
 | The repo | `make check`; the live tests | **PASS.** 352 tests pass (34 of them new) |
 
 ## What was built
@@ -146,11 +151,69 @@ finished; `verdict` wrote its tables from them.
 7. **The dev sweep may start from uncommitted code** (it says so in its
    `sweep.json`, with a hash of the code). The test may not.
 
-## The GPU smoke: what it will run
+## 1.5 The GPU smoke
 
-`uv run python experiments/kp/kp_test.py smoke`: ft09, lp85 and tu93 x seed 14
-x `SOT` and `SOT-KP` x 5,000 actions. Six runs, 4 at a time, about 15 minutes.
-Then its checks: every run played to its cap or a win; `SOT`'s flags in every
-`run_config.json`; a training step on nearly every action; no error inside the
-planner; an `SOT-KP` run at most 1.5 times as slow per action as its `SOT`
-run; and the same speed on tu93, where the planner is dormant.
+`uv run python experiments/kp/kp_test.py smoke`, 19 Nov 16:09 to 16:21, on
+commit `b34051e`: six runs, 4 at a time, 11.6 minutes. Folder:
+`results/kp/smoke/20261119_160931/`.
+
+| Game | Arm | Levels | Level-ups at action | Actions | ms per action | Training steps per action |
+|---|---|---|---|---|---|---|
+| ft09 | `SOT` | 1 | 493 | 5,000 | 107 | 95% |
+| ft09 | `SOT-KP` | **6, the game won** | 499, 522, 559, 593, 640, 676 | 676 | 117 | 63% |
+| lp85 | `SOT` | 2 | 134, 3,525 | 5,000 | 107 | 95% |
+| lp85 | `SOT-KP` | **5** | 173, 277, 322, 549, 1,485 | 5,000 | 112 | 91% |
+| tu93 | `SOT` | 3 | 1,447, 1,700, 2,684 | 5,000 | 102 | 88% |
+| tu93 | `SOT-KP` | 4 | 1,304, 1,383, 1,926, 3,405 | 5,000 | 31 | 88% |
+
+- **ft09:** Goose cleared level 1 at action 499 and the planner the other five
+  in 177 actions: 135 probes and 43 plan steps, the same 178 clicks as on the
+  CPU.
+- **lp85:** the planner cleared levels 2, 3 and 4 in 104, 45 and 227 actions,
+  the numbers of Phase 0. It gave level 5 up at action 805 (41 wrong
+  predictions). Goose then cleared level 5 at action 1,485. On level 6 the
+  planner had no rule that fits, and Goose did not clear it by action 5,000.
+- **tu93:** the planner was dormant. 4 levels against 3 is two runs of the same
+  agent.
+- **No error inside the planner,** no move went by unseen, every planned click
+  was the move sent, and every screen of ft09 and lp85 sat on its level's slots
+  (666 of 666 and 4,948 of 4,948).
+- **Cost:** the planner's runs took 9% and 4% longer per action on ft09 and
+  lp85. The reference used 9 and 42 seconds of them.
+
+**The two checks that printed FAIL, and why neither is a fault of the runs.**
+
+1. *"A training step on at least 7 actions in 10, in every run":* the planner's
+   ft09 run has 63%. Goose trains only once it holds 64 stored moves, and
+   starts again at every level. The planner cleared levels 2 to 6 in at most
+   47 actions each, so Goose took no training step there: all 424 steps are
+   level 1's. `train_every` is 1 in that run's `run_config.json`, and the three
+   `SOT` runs have 95%, 95% and 88%. The check belongs on the baseline runs,
+   which is what the test's own sanity anchor asks for.
+2. *"On tu93 the two take the same time per action":* 31 ms against 102. The
+   `SOT-KP` run on tu93 was the sixth of six and had the GPU to itself; the
+   `SOT` run shared it with three others. The comparison says nothing about
+   the planner. What it was meant to show is in the run's own record: the
+   dormant planner spent 0 seconds and parsed no screen.
+
+Both checks were corrected in `kp_test.py` once the dev sweep had finished
+(the file is among those a paused sweep checks before it resumes). Training is
+now asked of the `SOT` runs, speed is compared on ft09 and lp85, whose two runs
+start together, and tu93's check reads the dormant planner's own record. Read
+again that way (`kp_test.py smoke --evaluate results/kp/smoke/20261119_160931`,
+no run repeated), the smoke passes all seven.
+
+## 1.6 The bridge against the reference, under `SOT`'s flags
+
+A GPU run cannot be repeated, but its recording can be played again on the
+engine, and the planner's part is deterministic. The smoke's two planner
+recordings were replayed as in 1.4 (`results/kp/phase1_smoke/whole.md`):
+
+| Game | Actions | Moves recorded | Moves replayed | Planned clicks: the run | ... the reference in its own harness |
+|---|---|---|---|---|---|
+| ft09 | 676 | 665 | 665 | 178 | 178 |
+| lp85 | 5,000 | 4,947 | 4,947 | 721 | 721 |
+
+The same moves, to the last one, on both: through five planned levels on
+ft09, and on lp85 through three planned levels, two hand-backs to Goose and
+52 game overs.

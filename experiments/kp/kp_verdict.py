@@ -269,6 +269,8 @@ def write(out, partial=False):
 
     # 4. are the runs what they should be
     every = [r for a in arms for r in runs[a].values()]
+    baseline = [r for a in arms if a != "SOT-KP" for r in runs[a].values()]
+    trained = lambda rs: min(r["tr"].get("train_steps", 0) / r["actions"] for r in rs)
     ms = {a: st.median(1000 * r["seconds"] / r["actions"] for r in runs[a].values()) for a in arms}
     wrong = sorted(r["dir"] for r in every if not sot_flags(r["cfg"]))
     kp_wrong = sorted(r["dir"] for a in arms for r in runs[a].values()
@@ -279,8 +281,8 @@ def write(out, partial=False):
               + (f" (not: {', '.join(wrong[:5])})." if wrong else "."),
               f"- The planner on in the SOT-KP runs only, with the committed settings: "
               f"{'yes' if not kp_wrong else 'NO: ' + ', '.join(kp_wrong[:5])}.",
-              f"- A training step per action, lowest run: "
-              f"{min(r['tr'].get('train_steps', 0) / r['actions'] for r in every):.0%}.",
+              f"- A training step per action, the lowest baseline run: {trained(baseline):.0%}; the lowest SOT-KP run: "
+              f"{trained(kp.values()):.0%} (Goose takes no step on a level the planner clears before 64 moves are stored).",
               f"- Errors inside the planner: {sum((r['kp'] or {}).get('kp_errors', 0) for r in kp.values())} "
               f"in {len(kp)} runs.",
               "- Median time per action: " + ", ".join(f"{a} {ms[a]:.0f} ms" for a in arms)

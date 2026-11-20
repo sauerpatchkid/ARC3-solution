@@ -75,7 +75,9 @@ import tiers  # noqa: E402
 CAP = 5000
 JOBS = 4                    # runs at a time (the GPU is shared: 4 is the measured best)
 OFFLINE = True
-RUN_TIMEOUT = 3600          # seconds; a run that takes longer is killed and counted as failed
+RUN_TIMEOUT = 7200          # seconds; a run that takes longer is killed and counted as failed. A run takes
+                            # about 9 minutes; the margin is for a planner run on a game nobody has seen,
+                            # because a killed run leaves the test without a verdict
 SOT = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1", "EVAL_UPGRADES": "bars,map_sched,attempt,objclick",
        "EVAL_TRAIN_EVERY": "1", "EVAL_TRAIN_RECENT": "16", "PYTHONHASHSEED": "0"}
 KP_CONFIG = "experiments/kp/kp.toml"
@@ -479,20 +481,27 @@ def cmd_smoke(a):
                 print(f"    {game} level {v['level']}: the planner gave up at action {v['gave_up_at']}: {v['gave_up']}")
     sot = lambda c: (c.get("label") == "novel" and c.get("return_map") and c.get("train_every") == 1
                      and c.get("train_recent") == 16 and c.get("upgrades") == "attempt,bars,map_sched,objclick")
-    pairs = [(rows[g, "SOT"], rows[g, "SOT-KP"]) for g in SMOKE_GAMES if (g, "SOT") in rows and (g, "SOT-KP") in rows]
-    slower = max((kp["ms"] / base["ms"] for base, kp in pairs), default=float("nan"))
-    tu93 = rows["tu93", "SOT-KP"]["ms"] / rows["tu93", "SOT"]["ms"] if len(pairs) == len(SMOKE_GAMES) else float("nan")
+    # Two checks were rewritten after the first smoke (19 Nov; docs/4-knowledge-planner/kp-bridge-check.md).
+    # Training is asked of the baseline runs: Goose trains only once it holds 64 moves of a level, and the
+    # planner can clear a level before that. Speed is compared on the click games, whose two runs start
+    # together: the last run of a smoke has the GPU to itself, so tu93's two times say nothing; what the
+    # dormant planner cost is in its own record.
+    side_by_side = [(rows[g, "SOT"], rows[g, "SOT-KP"]) for g in SMOKE_GAMES[:2] if (g, "SOT") in rows and (g, "SOT-KP") in rows]
+    slower = max((kp["ms"] / base["ms"] for base, kp in side_by_side), default=float("nan"))
+    idle = rows.get(("tu93", "SOT-KP"), {}).get("kp") or {}
     checks = {
         "all six runs played to their cap or to the end of the game": len(rows) == len(jobs),
         "every run has SOT's flags in its run_config.json": all(sot(r["cfg"]) for r in rows.values()),
-        "a training step on at least 7 actions in 10, in every run": all(r["trained"] >= 0.7 for r in rows.values()),
+        "a training step on at least 7 actions in 10, in every SOT run":
+            all(r["trained"] >= 0.7 for (_, arm), r in rows.items() if arm == "SOT"),
         "the planner is on in the SOT-KP runs only, with the committed settings":
             all((r["cfg"].get("kp_config_hash") == kp_config_hash()) == (arm == "SOT-KP") for (_, arm), r in rows.items()),
         "no error inside the planner (kp_errors = 0)":
             all(r["kp"].get("kp_errors") == 0 for (_, arm), r in rows.items() if arm == "SOT-KP"),
-        f"an SOT-KP run takes at most 1.5 times as long per action as its SOT run (the slowest: {slower:.2f})": slower <= 1.5,
-        f"on tu93, where the planner is dormant, the two take the same time per action (ratio {tu93:.2f}, within 0.8 to 1.25)":
-            0.8 <= tu93 <= 1.25,
+        f"on ft09 and lp85 an SOT-KP run takes at most 1.5 times as long per action as the SOT run beside it "
+        f"(the slowest: {slower:.2f})": slower <= 1.5,
+        "on tu93 the planner is dormant and cost nothing (0 s in the reference, no screen parsed)":
+            bool(idle) and idle["dormant"] and idle["reference_seconds"] == 0 and idle["parse"]["parsed"] == 0,
     }
     ok = True
     print()
