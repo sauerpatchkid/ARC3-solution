@@ -102,3 +102,10 @@ uv run python experiments/kp/kp_test.py verdict   # once, when every run is in
 ## Changes after the start
 
 None.
+
+After the verdict (20 Nov), for the record: the launcher gained two more run
+sets (`LADDER=1`, `E21=1`) and the bridge an explorer that is off in
+`kp.toml`, so `kp_test.py plan` now prints another code hash than
+`aae8104ab8d0c6bd`. The test's code is commit `527b8a4`. The settings hash of
+`kp.toml` is unchanged (`d468480ec9387b71`), and the rule's code
+(`kp_verdict.py`) was not touched.

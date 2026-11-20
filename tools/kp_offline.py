@@ -30,6 +30,10 @@ run_reference.py's: every unguided arm recorded since 6 Oct 2026, dev and seen
 games only. Games that never offer a click are left out: the planner is
 dormant there. Each episode runs in its own process (PYTHONHASHSEED=0, one
 thread, no GPU). Output: results/kp/phase2/, or --out.
+
+With --config experiments/kp/kp_e21.toml (the explorer, 20 Nov) the games
+without clicks are kept, and a takeover ends when the explorer has nothing
+left to try on a screen (in a real run that move is Goose's).
 """
 import argparse
 import glob
@@ -111,7 +115,7 @@ def play(task):
             row["stopped"] = f"REPLAY MISMATCH before action {int(rec['action_nums'][i])}"
             break
         seen = len(b.levels)
-        _, _, coord = b.override(*unpack(move if move is not None else 0))
+        index, _, coord = b.override(*unpack(move if move is not None else 0))
         if len(b.levels) > seen and "learned" in b.levels[-1]:         # a level was cleared, and the planner learned from it
             done = b.levels[-1]
             clears.append(dict(run._asdict(), level=done["level"], actions=done["left_at"] - done["entered_at"],
@@ -121,9 +125,10 @@ def play(task):
             row["stopped"] = "an error inside the planner (see events.jsonl)"
             break
         if b.took:
-            final = 5 + coord
+            final = index if index < 5 else 5 + coord
         elif move is None:
-            why = b.level["gave_up"] or kp_bridge.why_fell_back(e18, b.agent, b.grid)
+            why = ("the explorer had nothing left to try" if b.keys()
+                   else b.level["gave_up"] or kp_bridge.why_fell_back(e18, b.agent, b.grid))
             row["stopped"] = f"gave up on level {b.level['level']}: {why}"
             break
         else:
@@ -152,7 +157,9 @@ def click_games(runs):
 
 
 def episodes(a, mode):
-    runs = click_games(R.read_runs(a.runs, R.split(a.games), a.registered))
+    runs = R.read_runs(a.runs, R.split(a.games), a.registered)
+    if kp_bridge.load_settings(a.config)["explore"]["keys"] == "none":      # the explorer plays games without clicks too
+        runs = click_games(runs)
     say = lambda r: (f"{r[0]['label']} {r[0]['arm']} {r[0]['game']} s{r[0]['seed']}: {r[0]['levels']} levels, "
                      f"{r[0]['stopped']} ({r[0]['seconds']:.0f} s)")
     done = R.run_all(play, [(r, mode, a.actions, a.out, a.config) for r in runs], a.jobs, say)

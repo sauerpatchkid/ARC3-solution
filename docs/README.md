@@ -138,7 +138,7 @@ no rule, no plan or too many wrong predictions. No LLM.
 The planner is a groupmate's agent (their E20), run unedited through a small
 bridge (`custom_agents/kp_bridge.py`, `EVAL_KP=1`, off by default). Every run
 is Goose with upgrade screen 3's three upgrades (`SOT`), at 5,000 actions. All
-of it is from 19 Nov 2026.
+of it is from 19 and 20 Nov 2026.
 
 - [The plan](4-knowledge-planner/kp-plan.md): the method, the decisions, the phases and the test's draft.
 - [Phase 0, three checks before anything was built](4-knowledge-planner/kp-phase0.md): the planner gives its report's numbers on this machine; 180 recordings replay on the engine move for move; and the go/no-go passed: from Goose's own level 1 the planner won ft09 from 20 of 20 recordings and reached level 4 of lp85 from 15 of 15.
@@ -147,7 +147,9 @@ of it is from 19 Nov 2026.
 - [The dev sweep](4-knowledge-planner/kp-dev-sweep.md) (exploratory): 36 levels against 20 on seven dev games x 2 seeds. +13 is the planner, +3 is chance.
 - [The test, written before its first run](4-knowledge-planner/kp-test.md): `SOT`, `SOT-KP` and `SOT` again on all 25 games x seeds 11 and 12 x 5,000 actions. The planner clears the noise if it is above both baselines and its lead is above the 97.5th percentile of the chance gap.
 - [The test's results](4-knowledge-planner/kp-results.md): **clears the noise**, 62 levels against 44 and 47 (+18 against a bar of 10). ft09 +9 and lp85 +10, the two games the planner was built on; no click on any other game; the 15 held-out games 18 against 17 and 18. A tuned-tier result at 5,000 actions and two seeds. Nothing is adopted.
-- The code: `custom_agents/kp_bridge.py`, `custom_agents/kp_ref/` (the groupmate's four files, never edited), `experiments/kp/`, `tools/kp_offline.py`.
+- [Four agents at the same budget and on the same seeds](4-knowledge-planner/kp-ladder.md) (20 Nov, exploratory): the baseline Goose 8.5 levels a seed, the adopted Goose 16.0, `SOT` 22.0, `SOT` with the planner 31.0, on 25 games x seeds 11 and 12 x 5,000 actions. With a figure and a table of every game.
+- [An explorer for keyboard games](4-knowledge-planner/kp-explorer.md) (20 Nov, exploratory): the planner does nothing on games played with keys. The groupmate's explorer E21, after Goose's level 1, got 63 levels against Goose's 52 on 35 recordings (cd82 and tu93), never fewer; their planner E22 and explorer E24 lost levels. E21 runs behind a switch, off by default. GPU sweep on the ten dev and seen games: 48 levels against 46. Not adopted.
+- The code: `custom_agents/kp_bridge.py`, `custom_agents/kp_ref/` (the groupmate's files, never edited), `experiments/kp/`, `tools/kp_offline.py`.
 
 ## 5. What may come next
 

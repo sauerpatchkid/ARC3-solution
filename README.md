@@ -106,16 +106,18 @@ wrong predictions. No LLM.
 
 The planner is a groupmate's agent (their E20). It runs unedited through a
 small bridge, `custom_agents/kp_bridge.py` (`EVAL_KP=1`, off by default); its
-four files are kept byte for byte in `custom_agents/kp_ref/`. Every run here
+files are kept byte for byte in `custom_agents/kp_ref/`. Every run here
 is Goose with upgrade screen 3's three upgrades (`SOT`), at 5,000 actions.
 
-| Step (19 Nov) | Question | Result |
+| Step (19 and 20 Nov) | Question | Result |
 |---|---|---|
 | Phase 0 (CPU) | Does the planner work from Goose's own level 1? | Yes: from recordings it won ft09 20 times of 20 and reached level 4 of lp85 15 times of 15 |
 | The bridge (CPU) | Does it leave Goose alone when off, and make the planner's own clicks when on? | Off: the same moves as before, on every move. On: the same 178 planned clicks as the planner in its own harness |
 | Offline, the games it may be built on | Which games does it reach? | ft09 and lp85. On cd82, dc22, m0r0 and vc33 it never starts: pieces move |
 | Dev sweep (exploratory) | With and without the planner, 7 games x 2 seeds | 36 vs 20 levels |
 | **The test (registered)** | The same on all 25 games x 2 new seeds, with the baseline run twice to measure chance | **Clears the noise: 62 vs 44 and 47** (+18 against a bar of 10) |
+| Four agents on the test's seeds (exploratory) | The baseline, the adopted Goose, `SOT` and `SOT` with the planner, side by side | 8.5, 16.0, 22.0 and 31.0 levels a seed |
+| The explorer (exploratory) | Can the groupmate's explorer for games with keys (E21) take the levels after the first there? | From recordings: 63 levels against Goose's 52, never fewer. GPU sweep on the ten dev and seen games: 48 against 46 |
 
 **How to read the test.** All of the gain is on ft09 (+9) and lp85 (+10), the
 two games the planner was built on, so it is a tuned-tier result at 5,000
@@ -125,6 +127,15 @@ click, and the 15 held-out games ended 18 against 17 and 18. Nothing is
 adopted and there is no preset; the base it ran on is not adopted either.
 Results: [`kp-results.md`](docs/4-knowledge-planner/kp-results.md); plan and
 every write-up: [`docs/4-knowledge-planner/`](docs/4-knowledge-planner/).
+
+**Since the test (20 Nov, both exploratory).** The four agents on the same
+seeds, with a figure and a table of every game:
+[`kp-ladder.md`](docs/4-knowledge-planner/kp-ladder.md). And an explorer for
+the games the planner cannot play, those with keys: the groupmate's E21,
+behind a switch that is off by default. After Goose's level 1 it clears
+level 2 of cd82, which Goose does not, and reaches the later levels of tu93
+sooner; it changes nothing on the other games it was tried on. Not adopted:
+[`kp-explorer.md`](docs/4-knowledge-planner/kp-explorer.md).
 
 ## Previously tried methods (`legacy/`)
 
@@ -271,6 +282,9 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 - The Knowledge Planner: `EVAL_KP=1` on a `--agent goose` run. Its test:
   `uv run python experiments/kp/kp_test.py plan` (also `status`, `verdict`);
   what it does on recordings, on the CPU: `uv run python tools/kp_offline.py takeover`.
+  With `LADDER=1` or `E21=1` in front, `kp_test.py` acts on the four-agent
+  comparison's runs or on the explorer's sweep. Their figure and tables:
+  `experiments/kp/ladder_chart.py` and `experiments/kp/sweep_table.py`.
 - Hosted API path (unchanged, slower): `make action`. It needs
   `git -C ARC-AGI-3-Agents apply ../harness_patches.patch` once. Don't mix API
   and local numbers: the game seed differs.
@@ -291,7 +305,7 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 | `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints`, `map_sched` (in `map_gated`'s place), `objclick` | unset |
 | `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | train every N actions / this many of the newest stored moves in every batch (`train_more.py`) | `5` / `0` |
 | `EVAL_GB` / `EVAL_GB_BOOK` | Glassbox's guide in the agent; the offline run whose book it carries (unset: no LLM rules) | off / unset |
-| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | the Knowledge Planner behind Goose (`kp_bridge.py`); `EVAL_KP_PLAN=0` = watch and learn only; its settings file. Refused together with `EVAL_GB` | off / on / `experiments/kp/kp.toml` |
+| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | the Knowledge Planner behind Goose (`kp_bridge.py`); `EVAL_KP_PLAN=0` = watch and learn only; its settings file (`experiments/kp/kp_e21.toml`: with the explorer for games with keys). Refused together with `EVAL_GB` | off / on / `experiments/kp/kp.toml` |
 
 `--agent mb_gated_att` fixes `EVAL_LABEL=novel EVAL_RETURN_MAP=1
 EVAL_UPGRADES=bars,map_gated,attempt`. Always run with `PYTHONHASHSEED=0`.
@@ -320,7 +334,7 @@ ARC3-solution/
 │   ├── carry.py               #   Goose upgrade: colour no-ops and goal hints carried between levels
 │   ├── train_more.py          #   Goose upgrade: train more often, on fresher data
 │   ├── presets.py             #   --agent mb_gated_att, the adopted Goose
-│   ├── kp_bridge.py, kp_ref/  #   KNOWLEDGE PLANNER: the bridge, and the groupmate's four files (never edited)
+│   ├── kp_bridge.py, kp_ref/  #   KNOWLEDGE PLANNER: the bridge, and the groupmate's files (never edited)
 │   ├── gridtools.py, random_agent.py, view_utils.py   # shared helpers, the random floor
 │   └── gb/                    #   GLASSBOX: one file per stage (README.md inside)
 ├── legacy/                    # PREVIOUSLY TRIED METHODS, frozen (README.md inside)
@@ -351,7 +365,8 @@ ARC3-solution/
 │                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py,
 │                              #   gb_funnel.py (Glassbox), kp_offline.py (Knowledge Planner)
 ├── experiments/goose/         # carry_test.sh (the carry test), screen3.py (upgrade screen 3)
-├── experiments/kp/            # the Knowledge Planner: kp.toml, kp_test.py (its test), kp_verdict.py, run_reference.py
+├── experiments/kp/            # the Knowledge Planner: kp.toml, kp_e21.toml, kp_test.py (its runs), kp_verdict.py,
+│                              #   run_reference.py, explorer_probe.py, ladder_chart.py, sweep_table.py
 ├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
 ├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest

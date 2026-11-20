@@ -1,0 +1,18 @@
+# kp_e21.toml - the Knowledge Planner's settings with the groupmate's explorer on (20 Nov 2026).
+#
+# kp.toml, and one setting more. kp.toml itself is left as the planner's test of 19 Nov ran it.
+# Use it with EVAL_KP=1 EVAL_KP_CONFIG=experiments/kp/kp_e21.toml (the launcher's arm SOT-KP21).
+# Exploratory: docs/4-knowledge-planner/kp-explorer.md.
+
+[bridge]
+plan = true             # false = watch and learn only, never take a move (also EVAL_KP_PLAN=0)
+parse_cache = 4096      # screens whose objects are remembered. Speed only
+
+[see]
+mask = "none"           # as kp.toml
+
+[explore]
+keys = "e21"            # "none" = the planner alone (kp.toml) | "e21" = on a game with keys, the groupmate's
+                        # explorer E21 (custom_agents/kp_ref/e21_object_explorer.py, unedited) plays the levels
+                        # after the first; Goose plays level 1 and any move E21 has nothing to try on. On a
+                        # game with clicks only nothing changes: E21 calls the planner (E20) itself

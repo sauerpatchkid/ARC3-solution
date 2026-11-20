@@ -1,4 +1,4 @@
-"""kp_games.py - Toggle, one made-up game for the Knowledge Planner's tests.
+"""kp_games.py - Toggle and Walk, two made-up games for the Knowledge Planner's tests.
 
 A tiny engine that answers the way the real one does: every move returns a
 stack of frames, and the move that completes a level returns the solved board
@@ -14,6 +14,10 @@ moves is a game over, and a reset starts the level again.
 
 That is ft09's kind of rule, small enough to read: the reference can learn
 "each pattern describes its neighbourhood" from level 1 and plan level 2.
+
+Walk (at the end of the file) is a game with keys, for the explorer: four keys
+move one piece over a 5 x 5 lattice, and a level ends when it lands on the
+goal piece.
 """
 import numpy as np
 from arcengine import GameAction, GameState
@@ -123,3 +127,60 @@ class Arcade:
 # watches), then the eight clicks that solve it.
 DEAD = click(2, 2)
 LEVEL_1 = [DEAD] * 12 + [tile(dy, dx) for dy, dx in RING]
+
+
+# ---- Walk: a game with keys ----------------------------------------------------------------------------
+PIECE, GOAL = 9, 12
+STEPS = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}      # up, down, left, right
+WALK_LEVELS = [((0, 0), (2, 3)), ((4, 4), (1, 0)), ((0, 4), (4, 1))]                        # (the piece's cell, the goal's)
+UP, DOWN, LEFT, RIGHT = 0, 1, 2, 3          # the agent's indices for the four keys
+# Level 1 as a stand-in for Goose: two moves into the wall, then the five that reach the goal.
+WALK_LEVEL_1 = [UP, LEFT, DOWN, DOWN, RIGHT, RIGHT, RIGHT]
+
+
+class Walk:
+    """Four keys move a 4x4 piece one cell (8 pixels) at a time; the wall stops it. The level ends when
+    the piece lands on the goal. With `clicks`, a click is offered too and does nothing."""
+
+    def __init__(self, budget=60, clicks=False):
+        self.budget = budget
+        self.action_space = [getattr(GameAction, name) for name in STEPS] + ([GameAction.ACTION6] if clicks else [])
+        self.level, self.moves, self.sent = 0, 0, []
+        self.at = WALK_LEVELS[0][0]
+
+    def draw(self):
+        g = np.full((GRID, GRID), BG, np.uint8)
+        for (r, c), colour in ((WALK_LEVELS[self.level][1], GOAL), (self.at, PIECE)):
+            g[8 + 8 * r: 12 + 8 * r, 8 + 8 * c: 12 + 8 * c] = colour
+        return g
+
+    def obs(self, frames, state=GameState.NOT_FINISHED):
+        return Obs(frames, self.level, state, list(self.action_space))
+
+    def reset(self):
+        self.at, self.moves = WALK_LEVELS[self.level][0], 0
+        return self.obs([self.draw()])
+
+    def step(self, action, data=None, reasoning=None):
+        self.sent.append((action.name, dict(data or {}), reasoning))
+        self.moves += 1
+        dr, dc = STEPS.get(action.name, (0, 0))
+        self.at = (min(4, max(0, self.at[0] + dr)), min(4, max(0, self.at[1] + dc)))
+        if self.at == WALK_LEVELS[self.level][1]:
+            solved = self.draw()
+            if self.level == len(WALK_LEVELS) - 1:
+                self.level += 1
+                return Obs([solved], self.level, GameState.WIN, list(self.action_space))
+            self.level, self.moves = self.level + 1, 0
+            self.at = WALK_LEVELS[self.level][0]
+            return self.obs([solved, self.draw()])
+        if self.moves >= self.budget:
+            return self.obs([self.draw()], GameState.GAME_OVER)
+        return self.obs([self.draw()])
+
+    def play(self, index):
+        """One move given as the agent's index: 0-4 a key, 5 + 64*y + x a click."""
+        if index < 5:
+            return self.step(getattr(GameAction, f"ACTION{index + 1}"), {})
+        y, x = divmod(index - 5, GRID)
+        return self.step(GameAction.ACTION6, {"x": x, "y": y})

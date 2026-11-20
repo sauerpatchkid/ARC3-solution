@@ -1,7 +1,8 @@
 """custom_agents/kp_bridge.py: the groupmate's planner run unedited inside Goose.
 
-The game is Toggle (tests/kp_games.py). `drive` makes the calls action.py's
-lines tagged `# [kp]` make, in their order, around it.
+The games are Toggle and, for the explorer, Walk (tests/kp_games.py). `drive`
+makes the calls action.py's lines tagged `# [kp]` make, in their order, around
+one of them.
 """
 import ast
 import hashlib
@@ -22,7 +23,9 @@ import kp_games as G  # noqa: E402
 from conftest import ROOT  # noqa: E402
 
 PATTERN_RULE = "AA|pattern|None|cell|learned"
-HASHES = {      # custom_agents/kp_ref/README.md: the four files as received
+E21 = {"bridge": {"plan": True, "parse_cache": 4096}, "see": {"mask": "none"}, "explore": {"keys": "e21"}}
+HASHES = {      # custom_agents/kp_ref/README.md: the files as received
+    "e21_object_explorer.py": "76b262c953c603399b3fa4522c965e577e273813e9ecc9616c3410f2750d5be9",
     "e18_knowledge_planner.py": "bc48c989e7431c40e59ba2511870b1d89f57171bf5a17e7c9a48623a94605cd4",
     "e19_adaptive_planner.py": "fdf5b446434efaa4b824e646fb45033efcbab111a68987f42e8834e6fffeac83",
     "e20_learned_knowledge.py": "fb370914aed5b25f579adb37479ea3421e5c7452e97ac2accac1b8d10d0b6836",
@@ -136,6 +139,71 @@ def test_a_game_without_clicks_never_wakes_the_reference(tmp_path):
     assert b.agent.step_count == 0 and b.cache.calls == 0 and b.summary()["dormant"]
 
 
+# ---- the explorer (E21), on a game with keys -------------------------------------------------------------
+def test_the_explorer_plays_the_levels_after_the_first_on_a_game_with_keys(tmp_path):
+    b, game = bridge(tmp_path, settings=E21), G.Walk()
+    sent = drive(b, game, goose=G.WALK_LEVEL_1, default=G.UP)
+    assert game.level == 3 and b.n["kp_errors"] == 0                              # the game is won
+    assert sent[:len(G.WALK_LEVEL_1)] == [(m, False) for m in G.WALK_LEVEL_1]     # level 1 is Goose's, move for move
+    assert all(took for _, took in sent[len(G.WALK_LEVEL_1):])                    # every move after it is the explorer's
+    assert all(move < 5 for move, _ in sent)                                      # and it sends keys, as Goose's index
+    s = b.summary(won=True)
+    assert s["keys"] and [v["ended"] for v in s["levels"]] == ["cleared by Goose"] + ["cleared by the explorer"] * 2
+    assert s["levels_by_explorer"] == 2 and s["levels_by_planning"] == 0 and s["planned_not_sent"] == 0
+    assert s["moves"] == {"explorer": len(sent) - len(G.WALK_LEVEL_1), "goose": len(G.WALK_LEVEL_1)}
+    assert s["levels"][0]["moves"] == {"goose": len(G.WALK_LEVEL_1)} and set(s["levels"][1]["moves"]) == {"explorer"}
+    learned = s["explorer_learned"]                                               # what E21 took from the levels it saw cleared
+    assert learned["KM_controlled_kind"].startswith(f"c{G.PIECE}:") and len(learned["level_history"]) == 2
+    assert [g["kind"].split(":")[0] for g in learned["KG_goal_kinds_ranked"]] == [f"c{G.GOAL}"]
+
+
+def test_with_the_explorer_a_game_with_clicks_only_is_still_the_planners(tmp_path):
+    plain = drive(bridge(tmp_path / "a"), G.Toggle())
+    b, game = bridge(tmp_path / "b", settings=E21), G.Toggle()
+    assert drive(b, game) == plain and game.level == 3                # the same moves, and the game is won
+    s = b.summary(won=True)
+    assert not s["keys"] and s["levels_by_planning"] == 2 and s["levels_by_explorer"] == 0 and s["explorer_learned"] is None
+    assert b.agent.store.ranked() == [PATTERN_RULE]
+
+
+def test_with_planning_off_the_explorer_watches_and_never_takes_a_move(tmp_path):
+    b, game = bridge(tmp_path, settings=E21, plan=False), G.Walk()
+    sent = drive(b, game, goose=G.WALK_LEVEL_1, default=G.UP, steps=40)
+    assert not any(took for _, took in sent) and game.level == 1      # Goose's key never reaches level 2's goal
+    assert b.summary()["explorer_learned"]["KT_level_ending_actions"] == {"ACTION4": 1} and b.n["kp_errors"] == 0
+
+
+def test_the_explorer_books_a_click_of_gooses_by_the_piece_under_it(tmp_path):
+    b, game = bridge(tmp_path, settings=E21), G.Walk(clicks=True)
+    obs = game.reset()
+    for counter, (move, kind) in enumerate([(G.click(9, 9), f"c{G.PIECE}"), (G.click(2, 2), "background")]):
+        b.step(obs.frame, 0, obs.available_actions, None, counter)
+        assert b.override(*unpack(move)) == unpack(move) and not b.took           # level 1: Goose's click stands
+        b.record(move)
+        y, x = divmod(move - 5, G.GRID)
+        assert b.agent.last[1].startswith(f"click:{kind}") and b.agent.last[1].endswith(f"@{x},{y}")
+    b.step(obs.frame, 0, obs.available_actions, None, 2)
+    b.override(G.UP, None, None)
+    b.record(G.DOWN)                                                  # another move was sent than the one E21 booked
+    assert b.agent.last is None and b.n["planned_not_sent"] == 1 and b.n["kp_errors"] == 0
+
+
+def test_without_the_explorer_a_game_with_keys_never_wakes_the_reference(tmp_path):
+    b, game = bridge(tmp_path), G.Walk()
+    sent = drive(b, game, goose=G.WALK_LEVEL_1, default=G.UP, steps=40)
+    assert not any(took for _, took in sent) and b.agent.step_count == 0 and b.summary()["dormant"]
+    assert "explorer" not in b.summary()                              # and what a run records is as before
+
+
+def test_the_explorer_draws_no_random_number(tmp_path):
+    before = (torch.random.get_rng_state().clone(), np.random.get_state()[1].copy(), random.getstate())
+    b, game = bridge(tmp_path, settings=E21), G.Walk()
+    drive(b, game, goose=G.WALK_LEVEL_1, default=G.UP)
+    assert game.level == 3
+    assert torch.equal(torch.random.get_rng_state(), before[0])
+    assert np.array_equal(np.random.get_state()[1], before[1]) and random.getstate() == before[2]
+
+
 # ---- moves in and out ----------------------------------------------------------------------------------
 def test_a_click_is_converted_both_ways(tmp_path):
     b, game, booked = bridge(tmp_path), G.Toggle(), []
@@ -224,6 +292,16 @@ def test_from_env_reads_the_settings_and_the_plan_switch(tmp_path, monkeypatch):
     assert K.digest(K.load_settings(str(other))) != K.digest(K.DEFAULTS)
     other.write_text("[see]\nwin_frame = 1\n")
     with pytest.raises(SystemExit, match="win_frame"):               # a setting no code reads is refused
+        K.load_settings(str(other))
+
+
+def test_the_settings_the_planners_test_ran_with_keep_their_hash(tmp_path):
+    assert K.digest(K.load_settings()) == "d468480ec9387b71"         # docs/4-knowledge-planner/kp-test.md, "What is frozen"
+    with_explorer = K.load_settings(os.path.join(ROOT, "experiments", "kp", "kp_e21.toml"))
+    assert with_explorer == E21 and K.digest(with_explorer) != K.digest(K.DEFAULTS)
+    other = tmp_path / "other.toml"
+    other.write_text('[explore]\nkeys = "e22"\n')
+    with pytest.raises(SystemExit, match="keys"):                    # only an explorer that is here can be asked for
         K.load_settings(str(other))
 
 

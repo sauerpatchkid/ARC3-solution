@@ -22,6 +22,22 @@ Without DEV=1 the commands act on THE TEST: three arms x all 25 games x seeds
 act on the dev sweep: SOT and SOT-KP x the carry test's seven games x seeds 14
 and 15 = 28 runs, under results/kp/dev/.
 
+With LADDER=1 (added 20 Nov, after the test; exploratory, no rule) they act on
+the two Gooses the test did not run, on its games, seeds and budget: `goose`
+(the semester-1 baseline, no flag) and `adopted` (the adopted Goose, by its
+preset's flags) x all 25 games x seeds 11 and 12 = 100 runs, under
+results/kp/ladder/. Beside the test's SOT and SOT-KP they make one table of
+four agents on the same seeds. The test's own code is commit 527b8a4.
+
+With E21=1 (20 Nov; exploratory, no rule) they act on the explorer's dev
+sweep: SOT-KP against SOT-KP21 (the same with the groupmate's explorer E21 on
+games with keys, experiments/kp/kp_e21.toml) x the ten dev and seen games x
+seeds 11 and 12 = 40 runs, under results/kp/dev_e21/. The seeds are the
+test's, so on these ten games the new arm stands beside the test's and the
+ladder's arms, and its SOT-KP runs are a second sample of the test's (how far
+two runs of the planner's arm come apart). Its tables come from
+tools/levels_by_budget.py; `verdict` is the test's and the first dev sweep's.
+
 The arms, all on Goose with upgrade screen 3's three upgrades (`SOT`), set by
 flags as screen 3 set them (no preset exists, and a preset refuses other flags):
 
@@ -80,13 +96,27 @@ RUN_TIMEOUT = 7200          # seconds; a run that takes longer is killed and cou
                             # because a killed run leaves the test without a verdict
 SOT = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1", "EVAL_UPGRADES": "bars,map_sched,attempt,objclick",
        "EVAL_TRAIN_EVERY": "1", "EVAL_TRAIN_RECENT": "16", "PYTHONHASHSEED": "0"}
+PLAIN = {"PYTHONHASHSEED": "0"}                                     # `goose` as it is with no flag
+ADOPTED = {"EVAL_LABEL": "novel", "EVAL_RETURN_MAP": "1", "EVAL_UPGRADES": "bars,map_gated,attempt",
+           "PYTHONHASHSEED": "0"}                                   # presets.MB_GATED_ATT, as screen 3's `base` set it
 KP_CONFIG = "experiments/kp/kp.toml"
-ARMS = {"SOT": {}, "SOT-KP": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_CONFIG}, "SOT2": {}}   # in the order they run
+KP_E21_CONFIG = "experiments/kp/kp_e21.toml"                        # kp.toml with the explorer on
+ARMS = {"SOT": {}, "SOT-KP": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_CONFIG}, "SOT2": {},  # in the order they run
+        "goose": {}, "adopted": {},                                 # the ladder's two
+        "SOT-KP21": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_E21_CONFIG}}
+BASES = {"goose": PLAIN, "adopted": ADOPTED}                        # arms that are not built on SOT
 
 DEV = os.getenv("DEV", "0") == "1"
 DEV_GAMES = ("vc33", "ft09", "cd82", "dc22", "m0r0", "lp85", "tu93")    # the carry test's seven; tu93 has no clicks
+LADDER = os.getenv("LADDER", "0") == "1"
+E21 = os.getenv("E21", "0") == "1"
 if DEV:
     NAME, OUT_ROOT, SEEDS, ARM_NAMES = "the dev sweep", "results/kp/dev", (14, 15), ("SOT", "SOT-KP")
+elif LADDER:
+    NAME, OUT_ROOT, SEEDS, ARM_NAMES = "the ladder", "results/kp/ladder", (11, 12), ("goose", "adopted")
+elif E21:
+    NAME, OUT_ROOT, SEEDS, ARM_NAMES = "the explorer's dev sweep", "results/kp/dev_e21", (11, 12), ("SOT-KP", "SOT-KP21")
+    DEV_GAMES = tuple(tiers.BUILD_FROM)     # every game the method may be built on: dev and seen
 else:
     NAME, OUT_ROOT, SEEDS, ARM_NAMES = "THE TEST", "results/kp/test", (11, 12), ("SOT", "SOT-KP", "SOT2")
 SMOKE_ROOT, SMOKE_GAMES, SMOKE_SEED, SMOKE_ARMS = "results/kp/smoke", ("ft09", "lp85", "tu93"), 14, ("SOT", "SOT-KP")
@@ -96,7 +126,7 @@ if TRIAL:
     OUT_ROOT, SMOKE_ROOT = OUT_ROOT.replace("results/kp/", "results/kp/trial/"), "results/kp/trial/smoke"
 # what a run's result depends on: a resume refuses to go on if any of it changed since the start
 CODE = ["custom_agents", "run_local.py", "compute_metrics.py", "eval_common.py", "metrics_common.py", "utils.py",
-        "experiments/kp/kp_test.py", KP_CONFIG]
+        "experiments/kp/kp_test.py", KP_CONFIG, KP_E21_CONFIG]
 TRANSITIONS = re.compile(r"^\[run_local\] transitions: (.+)$", re.M)
 
 Job = namedtuple("Job", "game seed arm cap")
@@ -113,13 +143,13 @@ def game_order():
 
 
 def sweep_jobs():
-    games = [g for g in game_order() if g in DEV_GAMES] if DEV else game_order()
+    games = [g for g in game_order() if g in DEV_GAMES] if DEV or E21 else game_order()
     return [Job(g, s, a, CAP) for g in games for s in SEEDS for a in ARM_NAMES]
 
 
 def arm_env(arm, seed, cap=CAP):
     """The flags of one run of `arm` (EVAL_RESULTS_DIR is added per run)."""
-    return dict(SOT, EVAL_SEED=str(seed), EVAL_MAX_ACTIONS=str(cap), **ARMS[arm])
+    return dict(BASES.get(arm, SOT), EVAL_SEED=str(seed), EVAL_MAX_ACTIONS=str(cap), **ARMS[arm])
 
 
 def clean_env():
@@ -330,7 +360,8 @@ def launch(out):
                      cwd=ROOT, env=clean_env(), stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
     time.sleep(1.5)
     print(f"started detached (pid {worker_pid(out)}); log: {rel(out)}/worker.log")
-    print("  status, pause and resume: the same command with that word" + ("  (keep DEV=1)" if DEV else ""))
+    print("  status, pause and resume: the same command with that word"
+          + ("  (keep DEV=1)" if DEV else "  (keep LADDER=1)" if LADDER else "  (keep E21=1)" if E21 else ""))
 
 
 # ---- the commands ----------------------------------------------------------------------------------
@@ -340,13 +371,15 @@ def cmd_plan(a):
     print(f"{NAME}: {len(ARM_NAMES)} arms x {len(games)} games x seeds {', '.join(map(str, SEEDS))} x {CAP:,} actions "
           f"= {len(jobs)} runs, {a.jobs} at a time, under {OUT_ROOT}/")
     print(f"every run: run_local.py --agent goose{' --offline' if OFFLINE else ''}, with EVAL_SEED=<seed> "
-          f"EVAL_MAX_ACTIONS={CAP} " + " ".join(f"{k}={v}" for k, v in SOT.items()))
+          f"EVAL_MAX_ACTIONS={CAP}" + ("" if LADDER else " " + " ".join(f"{k}={v}" for k, v in SOT.items())))
     for arm in ARM_NAMES:
-        print(f"  {arm:<7} " + (" ".join(f"{k}={v}" for k, v in ARMS[arm].items()) or "nothing more"))
+        flags = dict(BASES.get(arm, {}), **ARMS[arm])
+        print(f"  {arm:<7} " + (" ".join(f"{k}={v}" for k, v in flags.items()) or "nothing more"))
     print(f"planner settings: {KP_CONFIG}, hash {kp_config_hash()}   code the runs depend on: hash {code_hash()}")
     print(f"run order: games outside ({' '.join(games)}), then seeds, then arms ({' '.join(ARM_NAMES)})")
-    print("time: about 8.5 minutes a run with 4 at a time (upgrade screen 3's SOT runs): "
-          f"about {len(jobs) * 8.5 / a.jobs / 60:.1f} h")
+    mins = 2.8 if LADDER else 8.5       # screen 3, 4 at a time: its adopted Goose made 30 actions a second, SOT 9.8
+    print(f"time: about {mins} minutes a run with 4 at a time (upgrade screen 3's runs): "
+          f"about {len(jobs) * mins / a.jobs / 60:.1f} h")
 
 
 def cmd_start(a):
@@ -357,7 +390,7 @@ def cmd_start(a):
         sys.exit(f"a sweep was already started ({rel(cur)}, {len(done_runs(cur))} of {len(sweep_jobs())} runs): "
                  f"use resume, or start --new to begin another")
     dirty = git("status", "--porcelain", "--ignore-submodules=all")
-    if dirty and not (DEV or TRIAL):
+    if dirty and not (DEV or TRIAL or LADDER or E21):
         sys.exit("the test starts only from committed code. Uncommitted or untracked:\n" + dirty)
     out = os.path.join(ROOT, OUT_ROOT, datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.makedirs(os.path.join(out, "logs"))
@@ -433,6 +466,9 @@ def cmd_status(a):
 
 def cmd_verdict(a):
     """The rule lives in kp_verdict.py, which is not among CODE: a fix to a table never blocks a resume."""
+    if LADDER or E21:
+        sys.exit("the rule and its tables are the test's and the first dev sweep's (SOT, SOT-KP, SOT2). For this "
+                 "sweep: tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> --by-game")
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import kp_verdict
     print(kp_verdict.write(current(), a.partial))

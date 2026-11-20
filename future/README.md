@@ -72,6 +72,18 @@ each needs Matt's word.
 | A clean port into separate, tested files | `kp-plan.md`, section 9 (its Phase 6) | 2 to 3 days | Worth it only if the planner stays in the repo, or for runs much longer than 5,000 actions. Nothing at this budget needed it: the planner cost 4% per action |
 | Level 1 by planning: probe and fit the model on level 1 too, with Goose as the fallback | the groupmate's report, its own next step 4 | not sized | The planner starts only after a level is cleared. On sb26 and sc25 every screen sat on the slots, and no arm cleared level 1 in 5,000 actions |
 
+**After the explorer's check (20 Nov).** The planner does nothing on games
+played with keys. The groupmate's explorer for those, E21, is now built behind
+a switch that is off by default
+([`kp-explorer.md`](../docs/4-knowledge-planner/kp-explorer.md)). Not built,
+and each needs Matt's word:
+
+| Idea | Work | What the check says about it |
+|---|---|---|
+| A registered test of the explorer on all 25 games | about 2 GPU-hours for the new arm alone, and an entry in the pre-registration first | So far the gain is on cd82 and tu93, tuned tier: 63 levels against 52 on recordings, 48 against 46 in a GPU sweep. On a held-out game where Goose would have cleared a later level, the explorer could lose it |
+| A planner for games whose pieces move (the groupmate's E22) | not sized | E22 learned a piece it controls, its moves and goal rules from Goose's level 1 on four of six games, and still ended no level on a planned move. On tu93 it cost levels |
+| The explorer on click-only games where the planner does nothing (r11l, s5i5, su15, vc33) | small | On vc33 it lost levels (14 against 17 on 7 recordings): not as it is |
+
 ## Small fixes
 
 Found while reading the code on 10 Nov. None changes what an agent does.

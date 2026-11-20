@@ -38,6 +38,9 @@ of the gain on ft09 and lp85); nothing is adopted. Code:
 `experiments/kp/`, `tools/kp_offline.py`. Docs: `docs/4-knowledge-planner/`.
 Whether it becomes a fifth part, and how it is named and credited, is Matt's
 decision (`kp-plan.md`, 2.3), so the four parts above stand as written.
+On 20 Nov two exploratory results were added to it: four agents on the same
+seeds (`kp-ladder.md`) and the groupmate's explorer for games with keys, E21,
+behind a switch that is off by default (`kp-explorer.md`).
 
 **Simplicity and readability come first** (Matt, 16 Oct). A reader should be
 able to see what each step changed and why: one problem per stage, one stage
@@ -93,6 +96,9 @@ uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a scre
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
 uv run python experiments/kp/kp_test.py plan           # the Knowledge Planner's GPU runs: also smoke | start | status | pause | resume | verdict (DEV=1: the dev sweep)
 uv run python tools/kp_offline.py takeover             # where the planner works, from recordings (CPU): also induct | funnel
+LADDER=1 uv run python experiments/kp/kp_test.py status   # the four-agent comparison's runs (20 Nov); E21=1 = the explorer's dev sweep (they have no verdict)
+uv run python experiments/kp/explorer_probe.py         # the groupmate's keyboard agents after Goose's level 1, from recordings (CPU)
+uv run python experiments/kp/ladder_chart.py --series "Name=<manifest>:<arm>" ... --out <path>   # one figure of several agents at 5,000 actions; sweep_table.py = the tables
 uv run python -m pytest tests -q              # live tests (~85 s)
 uv run python -m pytest legacy/rulebook/tests -q   # frozen Rulebook tests (~40 s)
 make gb-config                                # Glassbox's settings and their hashes
@@ -127,7 +133,7 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted), `map_sched` (takes `map_gated`'s place; the two together are refused), `objclick` (both: upgrade screen 3, not adopted) |
 | `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | `5` / `0` | train every N actions / this many of the newest stored moves in every batch (`custom_agents/train_more.py`, lines tagged `# [train]`; upgrade screen 3, not adopted) |
 | `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
-| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | off / on / `experiments/kp/kp.toml` | the Knowledge Planner's bridge (`custom_agents/kp_bridge.py`): a groupmate's planner plans the levels after the first; `EVAL_KP_PLAN=0` = watch and learn only; hooks tagged `# [kp]`; refused together with `EVAL_GB`; not adopted: its registered test passed on 19 Nov (`docs/4-knowledge-planner/kp-results.md`), no preset |
+| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | off / on / `experiments/kp/kp.toml` | the Knowledge Planner's bridge (`custom_agents/kp_bridge.py`): a groupmate's planner plans the levels after the first; `EVAL_KP_PLAN=0` = watch and learn only; hooks tagged `# [kp]`; refused together with `EVAL_GB`; not adopted: its registered test passed on 19 Nov (`docs/4-knowledge-planner/kp-results.md`), no preset. `EVAL_KP_CONFIG=experiments/kp/kp_e21.toml` = the same with the groupmate's explorer E21 on the levels after the first of games with keys (`[explore] keys = "e21"`; exploratory, 20 Nov, `kp-explorer.md`) |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
@@ -142,8 +148,10 @@ Rulebook v2 closed after CP1: FAIL 2 of 8, 0.0% wrong at T1). **Glassbox: every
 gate is run**, and G4 adopted it on weak evidence. **Now: the buffer, to Tue
 17 Nov**, then the report (final Mon 7 Dec). **19 Nov: the Knowledge Planner
 was built and its registered test passed** (62 levels against 44 and 47 at
-5,000 actions; a tuned-tier result; nothing adopted; see "Now"). The history
-is in `docs/`; this section holds only what a new session needs.
+5,000 actions; a tuned-tier result; nothing adopted; see "Now"). **20 Nov:
+two exploratory additions**, the four agents on the same seeds and an
+explorer for keyboard games (see "Now"). The history is in `docs/`; this
+section holds only what a new session needs.
 
 ### Glassbox's results
 
@@ -195,7 +203,7 @@ exploratory and did not repeat. Write-up:
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 352 live tests (34 of them the Knowledge Planner's).
+status, `make gb-help` each command. 359 live tests (41 of them the Knowledge Planner's).
 
 | Piece | File | State |
 |---|---|---|
@@ -239,6 +247,70 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (20 Nov)
 
+- **20 Nov: two exploratory results after the planner's test, both asked for
+  by Matt that day. Nothing adopted, no preset, no held-out game touched by
+  the explorer. Committed and pushed on 20 Nov (Matt: "commit and push, then
+  run the registered test on all 25 games").**
+  - **Four agents on the same seeds** (`kp-ladder.md`;
+    `results/kp/ladder/20261120_102540/`): the baseline Goose and the adopted
+    Goose were run on the test's games, seeds and budget (100 runs, 10:25 to
+    11:19, none failed). Levels by 5,000 actions on 25 games, a seed:
+    **baseline 8.5 (8, 9), adopted 16.0 (13, 19), `SOT` 22.0 (24, 20; again
+    22, 25), `SOT-KP` 31.0 (28, 34)**. By tier, two seeds summed: dev 7 / 18 /
+    23 / 32, seen 3 / 3 / 4 / 12, A/B-offline 2 / 7 / 11 / 11, untouched 5 /
+    4 / 6 / 7. The same agents at action 5,000 of earlier runs: baseline 10,
+    7, 7; adopted 16, 15, 16 and 15, 18, 16. Launcher: `LADDER=1` in front of
+    `kp_test.py`. Figure and tables: `experiments/kp/ladder_chart.py`,
+    `experiments/kp/sweep_table.py` (`--by-game`: one row per game).
+  - **An explorer for keyboard games** (`kp-explorer.md`). The planner (E20)
+    books clicks only: of the 17 games with a level 1 where it does nothing,
+    13 are played with keys. The groupmate's archive has three more agents
+    for those. From 35 `SOT` recordings of six dev and seen keyboard games
+    (the agent watches Goose's level 1, then plays alone to action 5,000;
+    `experiments/kp/explorer_probe.py`, CPU): **E21, an explorer that
+    searches the screens systematically, 63 levels against Goose's 52,
+    better in 10 recordings and worse in none** (cd82: level 2 from 7 of 7,
+    Goose 0 of 7; tu93: 4 levels from 7 of 7, Goose 4 of 7, each level in
+    fewer actions). With nothing carried (E21b) 62. **E22 (E21 + a movement
+    model, goal rules and a planner) 58: no level ended on a planned move,
+    and it lost levels on tu93. E24 (another explorer) 47.** Also tried and
+    dropped: E21 from the first move with no Goose level 1 (27 against 52),
+    E21 on vc33, a click-only game (14 against 17).
+  - **What was built:** `[explore] keys = "e21"` in the planner's settings,
+    off in `kp.toml` (whose hash is still `d468480ec9387b71`), on in
+    `experiments/kp/kp_e21.toml`. `custom_agents/kp_ref/e21_object_explorer.py`
+    is the groupmate's file, byte for byte (so `kp_ref/` now holds five
+    files; E21 subclasses E20 and calls it unchanged on a click-only game).
+    In `kp_bridge.py` the bridge stands in E21's one place where a move is
+    chosen: level 1 is Goose's move, a later level E21's own until it has
+    nothing left to try. `action.py` is untouched. Checks: 7 new tests on a
+    made-up keyboard game (359 live tests pass); through the real bridge
+    (`tools/kp_offline.py takeover --config experiments/kp/kp_e21.toml`)
+    cd82 and tu93 repeat the probe's action counts in 14 of 14 episodes, and
+    ft09 and lp85 give the planner's own rows in 14 of 14.
+  - **Its dev sweep** (`results/kp/dev_e21/20261120_112115/`; `E21=1` in
+    front of `kp_test.py`): `SOT-KP` against `SOT-KP21` x the ten dev and
+    seen games x seeds 11, 12 x 5,000 actions = 40 runs, 11:21 to 12:45, none
+    failed, no error. **48 levels against 46 (2 better / 18 same / 0
+    worse): cd82 2 and 2 against 1 and 1; every other game the same count.**
+    tu93 4 and 4 in both arms, level 4 by action 3,181 and 2,956 against
+    4,062 and 4,379. On keyboard games the levels after the first came
+    sooner in 8 of 8 level races. ft09 and lp85 the same levels by planning
+    in both arms. +2 is what chance moves these totals by (`SOT-KP` on these
+    ten games: 44 in the test, 46 here), so the count alone settles nothing;
+    the offline check, which repeats exactly, is the evidence.
+  - **Open, Matt's:** whether to register a test of the explorer on all 25
+    games (it needs an entry in the pre-registration first; five of the
+    groupmate's eight "other games" are held-out here: ar25, lf52, bp35,
+    cn04, ka59); naming and credit for E21. Matt's answer the same day: run
+    the registered test.
+  - **In that commit:** `custom_agents/kp_bridge.py`, `custom_agents/kp_ref/`
+    (E21's file, the README), `experiments/kp/` (`kp_test.py`, `kp_e21.toml`,
+    `explorer_probe.py`, `ladder_chart.py`, `sweep_table.py`),
+    `tools/kp_offline.py`, `tests/kp_games.py`, `tests/test_kp_bridge.py`,
+    `docs/4-knowledge-planner/` (`kp-ladder.md`, `kp-explorer.md`, `figures/`,
+    a note in `kp-test.md`), and the pages that point to them. It was pushed
+    with the morning's commit `16ce338` (the planner's test results).
 - **19 Nov: the Knowledge Planner (KP). Every phase of its plan is done (0
   to 4), and its registered test PASSED: `SOT-KP` 62 levels against `SOT` 44
   and `SOT2` 47 on 25 games x seeds 11, 12 x 5,000 actions, +18 against a bar
@@ -259,11 +331,10 @@ uninformative) and the frontier showcase (only if the buffer allows).
   (the planner, as the smoke and the dev sweep ran it), `527b8a4` (the smoke,
   the dev sweep, the launcher's fix: the test's code, hash
   `aae8104ab8d0c6bd`), `f0a1d3a` (the test's registration). No file a run
-  loads differs from `b34051e`. **Committed on 20 Nov (Matt asked), not
-  pushed: the test's results page and the pages that point to it**
-  (`kp-results.md`, `README.md`, `CLAUDE.md`, `docs/README.md`,
-  `custom_agents/README.md`, `future/README.md`); no code changed. Push only
-  when Matt asks.
+  loads differs from `b34051e`. **Committed on 20 Nov as `16ce338` and pushed
+  the same day (Matt asked both): the test's results page and the pages that
+  point to it** (`kp-results.md`, `README.md`, `CLAUDE.md`, `docs/README.md`,
+  `custom_agents/README.md`, `future/README.md`); no code changed.
   - **Phase 0** (`kp-phase0.md`): the reference (`custom_agents/kp_ref/`,
     four files, byte for byte, never edited) gives the report's numbers here
     (E20 4.83 levels per episode); all 180 dev and seen recordings replay on
@@ -342,8 +413,7 @@ uninformative) and the frontier showcase (only if the buffer allows).
     whether the four parts become five (the README and this file name KP
     beside the four parts, without calling it a fifth); whether Phase 5 (an
     LLM proposes goal rules) or Phase 6 (a clean port) is done (both are in
-    `future/README.md`, not built); `SOT`'s own confirm; pushing the results
-    (committed 20 Nov, not pushed).
+    `future/README.md`, not built); `SOT`'s own confirm.
 - **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
   Exploratory, nothing adopted.** Three new Goose upgrades behind switches
   that are off by default: S = `map_sched` (a bandit over five map schedules),
@@ -359,7 +429,8 @@ uninformative) and the frontier showcase (only if the buffer allows).
   result. Plan, checks and rule: `docs/1-goose-upgrades/upgrade-screen3.md`;
   results: `upgrade-screen3-results.md`; one row per run:
   `upgrade-screen3-runs.csv`; recordings: `results/screen3/20261116_235041/`.
-  On branch `goose-screen3`, two local commits, **not pushed**. With the new
+  On branch `goose-screen3`, two commits, pushed to origin on 19 Nov at
+  `170d117` (Matt asked), not merged, no PR. With the new
   switches off, `cpu_check` is identical on every move (goose/ft09 1,970,
   the adopted Goose's flags/tu93 1,960; `results/cpu_check/2026-11-16_screen3/`).
   **Open, Matt's:** whether to run the confirm the results page proposes

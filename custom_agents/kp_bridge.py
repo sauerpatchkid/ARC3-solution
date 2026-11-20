@@ -10,6 +10,8 @@ levels after the first. Plan: docs/4-knowledge-planner/kp-plan.md.
     EVAL_KP=1                 on. Unset (the default), not one line of this file runs
     EVAL_KP_PLAN=0            watch and learn only: the reference never takes a move
     EVAL_KP_CONFIG=<path>     another settings file (default experiments/kp/kp.toml)
+    [explore] keys = "e21"    in that file (experiments/kp/kp_e21.toml has it; kp.toml does not): the
+                              groupmate's explorer E21 plays the levels after the first on games with keys
 
 The reference's files are never edited. install() replaces three functions on
 the loaded module:
@@ -37,6 +39,19 @@ One step, in the order action.py calls the hook (its lines tagged `# [kp]`):
 Until a game first offers a click (ACTION6) the reference is not called at
 all: on a game without clicks the agent is Goose, move for move.
 
+The explorer (added 20 Nov; docs/4-knowledge-planner/kp-explorer.md). The
+problem it fixes: E20 watches clicks only, so on a game played with keys the
+planner does nothing, and Goose alone rarely clears a second level there.
+With `[explore] keys = "e21"` the agent is E21 (kp_ref/e21_object_explorer.py),
+a subclass of E20 that hands a game with clicks only to E20 unchanged. On a
+game with keys E21 tries every move it has not tried on a screen, walks back
+to the nearest screen that still has one, and carries what a cleared level
+taught to the next. It chooses a move in one place, its `_pick`, and the
+bridge stands there (pick): level 1 is Goose's move, a later level is E21's
+own until it has nothing left to try. E21 books the move either way, so it
+learns from Goose's level 1 as it would from its own. The reference is then
+called on every game, with clicks or without.
+
 A run writes <run folder>/kp/: store.json (the reference's own knowledge file,
 rewritten at each level clear), events.jsonl (the reference's two logs with
 the step each line came at, and the bridge's own lines) and kp_stats.json
@@ -47,6 +62,7 @@ with its traceback, counted (`kp_errors`), and switches the planner off for the
 rest of the run. Goose plays on; the run is named in the write-ups.
 """
 import hashlib
+import importlib
 import importlib.machinery
 import importlib.util
 import json
@@ -65,16 +81,19 @@ from gridtools import GRID
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF = os.path.join(HERE, "kp_ref")
 DEFAULT_CONFIG = os.path.join(os.path.dirname(HERE), "experiments", "kp", "kp.toml")
-DEFAULTS = {"bridge": {"plan": True, "parse_cache": 4096}, "see": {"mask": "none"}}
+DEFAULTS = {"bridge": {"plan": True, "parse_cache": 4096}, "see": {"mask": "none"}, "explore": {"keys": "none"}}
 MASKS = ("none", "agent")
+EXPLORERS = ("none", "e21")
+LATER = ("explore",)        # sections added after the planner's test of 19 Nov (see digest)
 CLICK = "ACTION6"
+MOVES = ("ACTION1", "ACTION2", "ACTION3", "ACTION4", "ACTION5", CLICK)      # what Goose can send, in its own order
 GOOSE = object()            # what the stand-in explorer returns: "this move is Goose's"
 
 
 # ---- the reference -----------------------------------------------------------------------------------
-def load_reference():
-    """The reference's three modules, imported as they are. They import pandas
-    at the top and use it only in their own main(): where pandas is not
+def load(*names):
+    """The reference's modules of these names, imported as they are. They import
+    pandas at the top and use it only in their own main(): where pandas is not
     installed, an empty stand-in takes its name while they load, so no
     dependency is added. The stand-in is taken away again at once: torch looks
     pandas up by name the first time an optimizer is built, and a module left
@@ -86,13 +105,20 @@ def load_reference():
     if stand_in:
         sys.modules["pandas"] = importlib.util.module_from_spec(importlib.machinery.ModuleSpec("pandas", None))
     try:
-        import e18_knowledge_planner as e18
-        import e19_adaptive_planner as e19
-        import e20_learned_knowledge as e20
+        return tuple(importlib.import_module(name) for name in names)
     finally:
         if stand_in:
             del sys.modules["pandas"]
-    return e18, e19, e20
+
+
+def load_reference():
+    """E18, E19 and E20: the planner."""
+    return load("e18_knowledge_planner", "e19_adaptive_planner", "e20_learned_knowledge")
+
+
+def load_explorer():
+    """E21: the explorer for games with keys (module doc)."""
+    return load("e21_object_explorer")[0]
 
 
 def goose_moves(self, obs, legal):
@@ -224,11 +250,17 @@ class Bridge:
         self.settings = settings or load_settings()
         self.e18, _, e20 = load_reference()
         self.cache = install(self.e18, self.settings["bridge"]["parse_cache"])
-        self.agent = e20.LearnedKnowledgeAgent(seed=0, knowledge_path=os.path.join(out_dir, "store.json"))
+        self.explorer = self.settings["explore"]["keys"] == "e21"
+        self.e21 = load_explorer() if self.explorer else None       # E21 is E20 on a game with clicks only
+        self.agent = (self.e21.ObjectExplorerAgent if self.explorer else e20.LearnedKnowledgeAgent)(
+            seed=0, knowledge_path=os.path.join(out_dir, "store.json"))
         self.agent.reset()
+        if self.explorer:
+            self.agent._pick = self.pick        # E21's one place where a move is chosen
         if not plan:                            # it watches and learns, and never proposes
             self.agent._plan_act = lambda grid, legal: None
-        self.on, self.clicks = True, False      # off after an error; dormant until the game first offers a click
+        self.on, self.clicks = True, self.explorer      # off after an error; dormant until the game first offers a
+        self.sampled, self.chose = None, False          # click (with the explorer, never). Goose's sampled move; did E21 choose
         self.frames, self.grid, self.score, self.legal, self.counter = None, None, 0, [], 0
         self.took, self.planned = False, None   # did the reference take this move, and which click
         self.sent, self.game_over = None, False     # Goose's counter at the last move sent; a game over since
@@ -242,12 +274,15 @@ class Bridge:
             return
         try:
             self.frames, self.score, self.counter = frames, int(score), counter
-            self.legal = [Legal(a.name) for a in available_actions if a.name != "RESET"]
+            self.legal = [Legal(a.name) for a in available_actions
+                          if a.name != "RESET" and (a.name in MOVES or not self.explorer)]     # E21 tries what it is offered
             self.clicks = self.clicks or any(a.is_complex() for a in self.legal)
             if self.settings["see"]["mask"] == "agent":
                 self.cache.mask = mask
             if self.sent is not None and counter != self.sent + 1 and not self.game_over:
                 self.agent.pending = None       # a move went by that no hook saw: this screen is not the pending click's result
+                if self.explorer:
+                    self.agent.last = None      # nor the result of the move E21 booked
                 self.n["skipped_steps"] += 1
                 self.event("a move went by unseen: the pending click was dropped")
             self.game_over = False
@@ -262,9 +297,12 @@ class Bridge:
             obs = Obs(self.frames, self.score)
             self.grid = self.e18.get_grid(obs)
             cleared = self.level_change()
+            self.sampled, self.chose = (action_idx, coords, coord_idx), False
             t0 = time.perf_counter()
             action, data, raw, _ = self.agent.act(obs, self.legal)
             self.act_seconds += time.perf_counter() - t0
+            if self.keys():                     # a game with keys under the explorer: E21's own path
+                return self.explorer_move(action, data)
             self.took = action is not GOOSE
             self.after_act()
             if cleared:                         # the reference has now learned from the level it saw cleared
@@ -289,7 +327,12 @@ class Bridge:
             return
         try:
             self.sent = self.counter
-            if self.took:
+            if self.keys():
+                if sent != self.planned:        # E21 booked a move that was not the one sent: it learns nothing from it
+                    self.agent.last = None
+                    self.n["planned_not_sent"] += 1
+                    self.event("the move E21 booked was not the move sent")
+            elif self.took:
                 if sent != self.planned:        # this hook is the last override; if that ever changes, learn nothing from it
                     self.agent.pending, self.agent.plan = None, []
                     self.n["planned_not_sent"] += 1
@@ -310,6 +353,60 @@ class Bridge:
         except Exception:
             self.fail()
 
+    # ---- the explorer (E21), on a game with keys -------------------------------------------------------
+    def keys(self):
+        """Is this a game with keys under the explorer? E21 settles it on its first call."""
+        return self.explorer and self.agent.click_only is False
+
+    def pick(self, node, parts, grid, legal):
+        """In place of E21's _pick, where it chooses a move. Level 1 is Goose's, and so is a step on
+        which the explorer has nothing left to try; a later level is the explorer's. What this
+        returns E21 books as the move made, in its own words: a key's name, or
+        click:<the clicked piece's kind>@x,y."""
+        if self.plan and self.agent.level >= 1:
+            akey = type(self.agent)._pick(self.agent, node, parts, grid, legal)
+            if akey is not None:
+                self.chose = True
+                return akey
+        action_idx, coords, _ = self.sampled
+        if action_idx < 5:
+            return MOVES[action_idx]
+        y, x = coords
+        return f"click:{self.kind_at(grid, x, y)}@{x},{y}"
+
+    def kind_at(self, grid, x, y):
+        """E21's name for the piece under a click of Goose's (it books clicks by the kind of piece)."""
+        colour = int(grid[y, x])
+        if colour not in self.agent.bg:
+            for ys, xs in self.e18._components(grid == colour):
+                if ((ys == y) & (xs == x)).any():
+                    return self.e21.Part(ys, xs, colour).kind
+        return "background"
+
+    def explorer_move(self, action, data):
+        """The move to send on a game with keys: the explorer's own, or Goose's as it was sampled."""
+        self.took = self.chose
+        who = "explorer" if self.took else "goose"
+        self.level["screens"] += 1
+        self.level["moves"][who] = self.level["moves"].get(who, 0) + 1
+        self.n[who + "_moves"] += 1
+        if not self.took:
+            action_idx, _, coord_idx = self.sampled
+            self.planned = action_idx if action_idx < 5 else 5 + coord_idx
+            return self.sampled
+        if action.is_complex():
+            x, y = int(data["x"]), int(data["y"])
+            self.planned = 5 + GRID * y + x
+            return 5, (y, x), GRID * y + x
+        self.planned = MOVES.index(action.name)
+        return self.planned, None, None
+
+    def ended(self):
+        """Who had the move that cleared the level."""
+        if self.keys():
+            return "cleared by the explorer" if self.took else "cleared by Goose"
+        return "cleared by planning" if self.agent.mode == "plan" else "cleared by Goose"
+
     # ---- bookkeeping -----------------------------------------------------------------------------------
     def level_change(self):
         """One record per level. Called before the reference acts, so at a level-up its mode is still
@@ -319,11 +416,13 @@ class Bridge:
             return None
         before = None
         if self.level is not None:
-            self.close_level("cleared by planning" if self.agent.mode == "plan" else "cleared by Goose")
+            self.close_level(self.ended())
             if self.agent.layout is not None:
                 before = (self.agent.layout, self.agent.store.ranked()[:1], len(self.agent.knowledge_log))
         self.level = dict(level=self.score + 1, entered_at=self.counter, screens=0, screens_that_fit=0,
                           clicks={}, gave_up="", gave_up_at=None, ended="", left_at=None)
+        if self.explorer:
+            self.level["moves"] = {}            # on a game with keys: how many moves were the explorer's, how many Goose's
         return before
 
     def learned(self, layout, top_before, seen):
@@ -388,10 +487,13 @@ class Bridge:
                 "kp_settings": self.settings}
 
     def summary(self, won=False):
-        levels = self.levels + ([dict(self.level, ended=("cleared by planning" if self.agent.mode == "plan"
-                                                         else "cleared by Goose") if won else "not cleared",
+        levels = self.levels + ([dict(self.level, ended=self.ended() if won else "not cleared",
                                       left_at=self.counter)] if self.level is not None else [])
-        return dict(game=self.game_id, plan=self.plan, config_hash=digest(self.settings),
+        explorer = dict(explorer="e21", keys=self.keys(),
+                        levels_by_explorer=sum(v["ended"] == "cleared by the explorer" for v in levels),
+                        moves={k: self.n[k + "_moves"] for k in ("explorer", "goose")},
+                        explorer_learned=self.agent.xk.to_json() if self.keys() else None) if self.explorer else {}
+        return dict(explorer, game=self.game_id, plan=self.plan, config_hash=digest(self.settings),
                     kp_errors=self.n["kp_errors"], dormant=not self.clicks,
                     levels_by_planning=sum(v["ended"] == "cleared by planning" for v in levels),
                     levels_by_goose=sum(v["ended"] == "cleared by Goose" for v in levels),
@@ -437,11 +539,16 @@ def load_settings(path=DEFAULT_CONFIG):
             settings[section][key] = value
     if settings["see"]["mask"] not in MASKS:
         raise SystemExit(f"{path}: [see] mask must be one of {', '.join(MASKS)}")
+    if settings["explore"]["keys"] not in EXPLORERS:
+        raise SystemExit(f"{path}: [explore] keys must be one of {', '.join(EXPLORERS)}")
     return settings
 
 
 def digest(settings):
-    """A short, stable hash of the settings, for run_config.json."""
+    """A short, stable hash of the settings, for run_config.json. A section added after the planner's
+    test (LATER) is hashed only where it departs from its default, so the settings that test ran
+    with keep the hash it recorded (d468480ec9387b71)."""
+    settings = {k: v for k, v in settings.items() if k not in LATER or v != DEFAULTS[k]}
     text = json.dumps(settings, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 

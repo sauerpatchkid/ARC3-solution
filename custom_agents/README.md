@@ -39,7 +39,7 @@ Goose. Off by default. Write-ups:
 | File | What it is | Switch | Result |
 |---|---|---|---|
 | `kp_bridge.py` | The bridge: it loads the planner, shows it every screen Goose sees, books Goose's own clicks with it, and sends the planner's click when it has one. An error inside the planner switches it off for the rest of the run | `EVAL_KP=1` (`EVAL_KP_PLAN=0`: watch and learn only; settings in `experiments/kp/kp.toml`) | **not adopted**: its [registered test](../docs/4-knowledge-planner/kp-results.md) passed on 19 Nov. Goose with the screen 3 upgrades, 25 games x 2 seeds x 5,000 actions: 62 levels with the planner against 44 and 47 without. All of the gain is on ft09 and lp85, the games it was built on |
-| `kp_ref/` | The groupmate's four files (their agents E18, E19, E20 and the knowledge bank), byte for byte. **Never edited**; a test checks their hashes | loaded by the bridge only | |
+| `kp_ref/` | The groupmate's files, byte for byte: their agents E18, E19 and E20 (the planner), the knowledge bank, and E21, an explorer for games with keys. **Never edited**; a test checks their hashes | loaded by the bridge only. E21 only with `[explore] keys = "e21"` in the settings (`experiments/kp/kp_e21.toml`; off in `kp.toml`) | E21: **not adopted**, exploratory (20 Nov). After Goose's level 1 it cleared level 2 of cd82 and reached tu93's later levels sooner; [48 levels against 46](../docs/4-knowledge-planner/kp-explorer.md) on the ten dev and seen games |
 
 ## Shared pieces
 
