@@ -147,8 +147,8 @@ the code of `b34051e`. Two things beside the runs:
 
 ## What it means for the test
 
-- **ft09 carries.** Six levels in every planner run so far: four on the GPU,
-  one on the CPU.
+- **ft09 carries.** Six levels in every planner run so far: three on the GPU
+  (the smoke's and this sweep's two), one on the CPU.
 - **lp85 is 0 or 5.** It depends on whether Goose clears level 1, which it did
   not at one seed of two here.
 - **A gap of 3 levels on 11 pairs came from nothing.** On the test's 50 pairs,

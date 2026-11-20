@@ -229,9 +229,11 @@ uninformative) and the frontier showcase (only if the buffer allows).
 ### Now (13 Nov)
 
 - **19 Nov: the Knowledge Planner (KP). Phases 0 to 3 are done: built,
-  checked on the CPU, smoke and dev sweep run. The test is written down and
-  not started: it needs Matt's word, after a commit and a push.** KP is a
-  groupmate's planner (their agent E20: it learns
+  checked on the CPU, smoke and dev sweep run. The test is registered
+  (`kp-test.md`) and starts on Matt's word of 19 Nov ("commit, push kp to
+  origin, and start the test"): 150 runs, about 5.5 hours. See whether it is
+  running with `uv run python experiments/kp/kp_test.py status`; no commit
+  and no CPU job while it runs.** KP is a groupmate's planner (their agent E20: it learns
   what is clickable, what a click does and which rule ends a level, then
   plans the next level) run unedited behind Goose with screen 3's three
   upgrades (`SOT`). The plan, with every decision Matt made on 19 Nov (5,000
@@ -239,12 +241,11 @@ uninformative) and the frontier showcase (only if the buffer allows).
   `docs/4-knowledge-planner/kp-plan.md`. Do its phases in order.
   **Pacing (Matt, 19 Nov): keep going on a clean pass; stop before every GPU
   run, before any commit or push, and on any miss or surprise.**
-  Branch `kp`, cut from `goose-screen3` at `170d117`. Local commit
-  `b34051e` (Matt, 19 Nov: "local commit on kp") holds the planner as the
-  smoke and the dev sweep ran it; **not pushed.** Since then, uncommitted:
-  two corrected smoke checks in `kp_test.py`, one line of `kp_verdict.py`,
-  the write-ups below, `kp-test.md` and the pre-registration's entry 11. No
-  file a run loads differs from `b34051e` except `kp_test.py` (the launcher).
+  Branch `kp`, cut from `goose-screen3` at `170d117`, **pushed to origin on
+  19 Nov** (Matt asked), not merged, no PR. Commits: `b34051e` (the planner,
+  as the smoke and the dev sweep ran it), `527b8a4` (the smoke, the dev
+  sweep, the launcher's fix: the test's code, hash `aae8104ab8d0c6bd`), then
+  the test's registration. No file a run loads differs from `b34051e`.
   - **Phase 0** (`kp-phase0.md`): the reference (`custom_agents/kp_ref/`,
     four files, byte for byte, never edited) gives the report's numbers here
     (E20 4.83 levels per episode); all 180 dev and seen recordings replay on
@@ -287,19 +288,20 @@ uninformative) and the frontier showcase (only if the buffer allows).
     runs in 7 of 8 decided races: chance (a pair's two recordings are the
     same until GPU runs part; a CPU check confirms it, see `kp-dev-sweep.md`).
     Nothing in the agent, the bridge or the settings changed after it.
-  - **The test** (`kp-test.md`, a draft until the freeze): `SOT`, `SOT-KP`,
+  - **The test** (`kp-test.md`, frozen 19 Nov): `SOT`, `SOT-KP`,
     `SOT2` x 25 games x seeds 11, 12 x 5,000 actions = 150 runs, about 5.5 h.
     Rule: `SOT-KP` above both baselines, and `SOT-KP - SOT` above the 97.5th
     percentile of the chance gap built from the test's own `SOT2 - SOT`
     differences. The note on using all 25 games is entry 11 of section 11 of
     `docs/3-glassbox/glassbox-prereg.md`.
-  - **Next, each on Matt's word:** (1) the freeze: commit the launcher's fix
-    and the write-ups, fill the commit and the code hash into `kp-test.md`,
-    commit that page and the pre-registration note, push; (2) `uv run python
-    experiments/kp/kp_test.py start` (it refuses uncommitted code; `status`,
-    `pause`, `resume`); (3) when all 150 are in, `kp_test.py verdict`, once,
-    then `tools/kp_offline.py takeover --registered` on the test's baseline
-    recordings and `kp-results.md` (Phase 4).
+  - **Next:** when all 150 runs are in (`kp_test.py status`), (1)
+    `uv run python experiments/kp/kp_test.py verdict`, once; (2)
+    `uv run python tools/kp_offline.py takeover --registered` on the test's
+    `SOT` and `SOT2` recordings, all tiers; (3) `kp-results.md`: the verdict,
+    the tables of the plan's section 7, and what the written expectation got
+    right and wrong; (4) the docs of the plan's section 13. A run that failed
+    twice is in `failed.tsv`; `resume` tries it again. Commit and push only
+    when Matt asks. What a pass leads to is his (plan 2.3): no preset.
 - **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
   Exploratory, nothing adopted.** Three new Goose upgrades behind switches
   that are off by default: S = `map_sched` (a bandit over five map schedules),

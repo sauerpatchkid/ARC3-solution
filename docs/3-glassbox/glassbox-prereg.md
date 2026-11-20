@@ -1063,3 +1063,25 @@ started.)*
     tier (dev and seen, A/B-offline, untouched). After it, the held-out games
     are no longer unseen for these three upgrades: a later test of them there
     is a repeat on new seeds, not a held-out test.
+11. **19 Nov 2026, sections 2 and 7 (no change to a registered text or
+    number), written before any run of it.** A test at Matt's request (his
+    decisions of 19 Nov; `docs/4-knowledge-planner/kp-plan.md`, and the test's
+    own page, `kp-test.md`, which holds its rule): Goose with upgrade screen
+    3's three upgrades (`SOT`), the same with the Knowledge Planner (a
+    groupmate's planner, run unedited through `custom_agents/kp_bridge.py`,
+    `EVAL_KP=1`), and `SOT` again, on all 25 games x seeds 11 and 12 x 5,000
+    actions, 150 runs. It plays the A/B-offline and untouched tiers outside a
+    confirm, which section 2 keeps for G3 and G4. As for entry 10, that is
+    allowed because every Glassbox gate has been run. The planner was built
+    and checked on dev and seen games only (`kp-phase0.md`,
+    `kp-offline-dev.md`, `kp-dev-sweep.md`). Its tools refuse the other 15
+    games outside the test, and no run or recording of them was made or read
+    for it; the list of games that offer no click, which names re86 and wa30,
+    is from the engine probe's table of 10 Nov. The test uses no Glassbox
+    code (`EVAL_GB` unset; the two are refused together), no LLM and no
+    cross-game artifact: every run starts with an empty knowledge store.
+    Nothing is changed after its results are seen, nothing is adopted from it
+    and no preset is created. No registered text or number is changed. Its
+    results are reported by tier. After it, the held-out games are no longer
+    unseen for the planner. For `SOT` they were already played at seed 0
+    (entry 10): the test's two baseline arms are a repeat on new seeds.
