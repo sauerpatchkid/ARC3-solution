@@ -38,6 +38,12 @@ ladder's arms, and its SOT-KP runs are a second sample of the test's (how far
 two runs of the planner's arm come apart). Its tables come from
 tools/levels_by_budget.py; `verdict` is the test's and the first dev sweep's.
 
+With E21TEST=1 they act on THE EXPLORER'S TEST (registered 20 Nov,
+docs/4-knowledge-planner/kp-explorer-test.md): SOT-KP, SOT-KP21 and SOT-KP
+again (SOT-KP2, to measure chance) x all 25 games x seeds 16 and 17 = 150
+runs, under results/kp/test_e21/. Like the planner's test it starts only from
+committed code; its rule is experiments/kp/kp_explorer_verdict.py.
+
 The arms, all on Goose with upgrade screen 3's three upgrades (`SOT`), set by
 flags as screen 3 set them (no preset exists, and a preset refuses other flags):
 
@@ -103,13 +109,15 @@ KP_CONFIG = "experiments/kp/kp.toml"
 KP_E21_CONFIG = "experiments/kp/kp_e21.toml"                        # kp.toml with the explorer on
 ARMS = {"SOT": {}, "SOT-KP": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_CONFIG}, "SOT2": {},  # in the order they run
         "goose": {}, "adopted": {},                                 # the ladder's two
-        "SOT-KP21": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_E21_CONFIG}}
+        "SOT-KP21": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_E21_CONFIG},
+        "SOT-KP2": {"EVAL_KP": "1", "EVAL_KP_CONFIG": KP_CONFIG}}   # SOT-KP again, in the explorer's test
 BASES = {"goose": PLAIN, "adopted": ADOPTED}                        # arms that are not built on SOT
 
 DEV = os.getenv("DEV", "0") == "1"
 DEV_GAMES = ("vc33", "ft09", "cd82", "dc22", "m0r0", "lp85", "tu93")    # the carry test's seven; tu93 has no clicks
 LADDER = os.getenv("LADDER", "0") == "1"
 E21 = os.getenv("E21", "0") == "1"
+E21TEST = os.getenv("E21TEST", "0") == "1"
 if DEV:
     NAME, OUT_ROOT, SEEDS, ARM_NAMES = "the dev sweep", "results/kp/dev", (14, 15), ("SOT", "SOT-KP")
 elif LADDER:
@@ -117,6 +125,8 @@ elif LADDER:
 elif E21:
     NAME, OUT_ROOT, SEEDS, ARM_NAMES = "the explorer's dev sweep", "results/kp/dev_e21", (11, 12), ("SOT-KP", "SOT-KP21")
     DEV_GAMES = tuple(tiers.BUILD_FROM)     # every game the method may be built on: dev and seen
+elif E21TEST:
+    NAME, OUT_ROOT, SEEDS, ARM_NAMES = "THE EXPLORER'S TEST", "results/kp/test_e21", (16, 17), ("SOT-KP", "SOT-KP21", "SOT-KP2")
 else:
     NAME, OUT_ROOT, SEEDS, ARM_NAMES = "THE TEST", "results/kp/test", (11, 12), ("SOT", "SOT-KP", "SOT2")
 SMOKE_ROOT, SMOKE_GAMES, SMOKE_SEED, SMOKE_ARMS = "results/kp/smoke", ("ft09", "lp85", "tu93"), 14, ("SOT", "SOT-KP")
@@ -361,7 +371,8 @@ def launch(out):
     time.sleep(1.5)
     print(f"started detached (pid {worker_pid(out)}); log: {rel(out)}/worker.log")
     print("  status, pause and resume: the same command with that word"
-          + ("  (keep DEV=1)" if DEV else "  (keep LADDER=1)" if LADDER else "  (keep E21=1)" if E21 else ""))
+          + ("  (keep DEV=1)" if DEV else "  (keep LADDER=1)" if LADDER else "  (keep E21=1)" if E21
+             else "  (keep E21TEST=1)" if E21TEST else ""))
 
 
 # ---- the commands ----------------------------------------------------------------------------------
@@ -470,6 +481,10 @@ def cmd_verdict(a):
         sys.exit("the rule and its tables are the test's and the first dev sweep's (SOT, SOT-KP, SOT2). For this "
                  "sweep: tools/levels_by_budget.py --base <manifest>:<arm> --new <manifest>:<arm> --by-game")
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    if E21TEST:                             # the explorer's test has its own rule
+        import kp_explorer_verdict
+        print(kp_explorer_verdict.write(current(), a.partial))
+        return
     import kp_verdict
     print(kp_verdict.write(current(), a.partial))
 
