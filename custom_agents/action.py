@@ -195,6 +195,11 @@ class Action(Agent):
             self.gb = s5_act.from_env(self.game_id, self.seed, os.path.join(env_dir, "glassbox"))  # [gb]
             if self.return_map is not None:  # [gb] buttons the book's no-op rules cover count as tried
                 self.return_map = self.gb.wrap_map(self.return_map)  # [gb]
+        # Knowledge planner (custom_agents/kp_bridge.py): off unless EVAL_KP=1.  # [kp]
+        self.kp = None  # [kp]
+        if env_flag("EVAL_KP", False):  # [kp]
+            import kp_bridge  # [kp]
+            self.kp = kp_bridge.from_env(self.game_id, self.seed, os.path.join(env_dir, "kp"))  # [kp]
         self._label_n = 0      # experiences stored, and how many were positive,
         self._label_pos = 0    # under whichever label is active (TensorBoard)
         self._degenerate_samples = 0   # times the sampler had to fall back to uniform
@@ -259,6 +264,7 @@ class Action(Agent):
             **(self.return_map.config() if self.return_map is not None else {}),  # [return-map]
             **(self.upgrades.config() if self.upgrades is not None else {}),  # [upgrades]
             **(self.gb.config() if self.gb is not None else {}),  # [gb]
+            **(self.kp.config() if self.kp is not None else {}),  # [kp]
             **(self.train_more.config() if self.train_more is not None else {}),  # [train]
             train_frequency=self.train_frequency,
             batch_size=self.batch_size,
@@ -279,6 +285,8 @@ class Action(Agent):
             atexit.register(self.train_more.dump, os.path.join(env_dir, 'train_stats.json'))  # [train]
         if self.gb is not None:  # [gb]
             atexit.register(self.gb.dump, os.path.join(env_dir, 'glassbox', 's5_stats.json'))  # [gb]
+        if self.kp is not None:  # [kp]
+            atexit.register(self.kp.dump, os.path.join(env_dir, 'kp', 'kp_stats.json'))  # [kp]
         
         print(f"Action agent logging to: {tensorboard_dir}")
         self.logger.info(f"Action agent initialized for game_id: {self.game_id}")
@@ -576,6 +584,8 @@ class Action(Agent):
                 self.return_map.on_game_over()  # [return-map]
             if self.upgrades is not None and latest_frame.state == GameState.GAME_OVER:  # [upgrades]
                 self.upgrades.on_game_over()  # [upgrades]
+            if self.kp is not None and latest_frame.state == GameState.GAME_OVER:  # [kp]
+                self.kp.on_game_over()  # [kp]
             # Reset previous tracking on game reset
             self.prev_frame = None
             self.prev_action_idx = None
@@ -614,6 +624,10 @@ class Action(Agent):
         if self.gb is not None:  # [gb] S5: the last move, or a new level's first screen (before the map sees it)
             self.gb.step(self.prev_frame_raw if self.prev_frame is not None else None, self.prev_action_idx,  # [gb]
                          current_frame_raw, self.current_score, self.canon.mask if self.canon is not None else None)  # [gb]
+        if self.kp is not None:  # [kp] the last move's result: the whole stack, a level-up's solved board is in it
+            self.kp.step(latest_frame.frame, latest_frame.score, latest_frame.available_actions,  # [kp]
+                         self.upgrades.live_mask(self.canon.mask) if self.upgrades is not None and self.canon is not None  # [kp]
+                         else (self.canon.mask if self.canon is not None else None), self.action_counter)  # [kp]
         if self.return_map is not None:  # [return-map]
             if not self.memory_on and self.prev_frame_raw is not None:  # [return-map] keep the mask current
                 self.canon.update(self.prev_frame_raw, current_frame_raw)  # [return-map]
@@ -695,6 +709,8 @@ class Action(Agent):
                     action_idx, coords, coord_idx, all_probs, current_frame_raw)  # [gb]
             if self.return_map is not None:  # [return-map] a route step or an untried button
                 action_idx, coords, coord_idx = self.return_map.override(action_idx, coords, coord_idx)  # [return-map]
+            if self.kp is not None:  # [kp] a probe, a verify press or a plan step takes the move (the last word)
+                action_idx, coords, coord_idx = self.kp.override(action_idx, coords, coord_idx)  # [kp]
             
             if action_idx < 5:
                 # Selected ACTION1-ACTION5
@@ -718,6 +734,8 @@ class Action(Agent):
             self.prev_action_idx = 5 + coord_idx  # Unified action space
         if self.return_map is not None:  # [return-map]
             self.return_map.record(self.prev_action_idx)  # [return-map]
+        if self.kp is not None:  # [kp] the move actually sent
+            self.kp.record(self.prev_action_idx)  # [kp]
         
         
         # Train model periodically

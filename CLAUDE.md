@@ -82,6 +82,8 @@ uv run python experiments/goose/screen3.py status   # upgrade screen 3 (16-17 No
 uv run python tools/gb_funnel.py --runs g1,pool_g0b_g1,g3_gb   # what each Glassbox stage did, per game (CPU)
 uv run python tools/frozen_moves.py --runs <manifest>:<arm>    # moves on a screen nothing changed (CPU)
 uv run python tools/probe_engine.py [--games a,b]              # frames per move, what ACTION7 does (CPU)
+uv run python experiments/kp/kp_test.py plan           # the Knowledge Planner's GPU runs: also smoke | start | status | pause | resume | verdict (DEV=1: the dev sweep)
+uv run python tools/kp_offline.py takeover             # where the planner works, from recordings (CPU): also induct | funnel
 uv run python -m pytest tests -q              # live tests (~85 s)
 uv run python -m pytest legacy/rulebook/tests -q   # frozen Rulebook tests (~40 s)
 make gb-config                                # Glassbox's settings and their hashes
@@ -116,6 +118,7 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted), `map_sched` (takes `map_gated`'s place; the two together are refused), `objclick` (both: upgrade screen 3, not adopted) |
 | `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | `5` / `0` | train every N actions / this many of the newest stored moves in every batch (`custom_agents/train_more.py`, lines tagged `# [train]`; upgrade screen 3, not adopted) |
 | `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
+| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | off / on / `experiments/kp/kp.toml` | the Knowledge Planner's bridge (`custom_agents/kp_bridge.py`): a groupmate's planner plans the levels after the first; `EVAL_KP_PLAN=0` = watch and learn only; hooks tagged `# [kp]`; refused together with `EVAL_GB`; not adopted, its test is not run yet |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
@@ -181,7 +184,7 @@ exploratory and did not repeat. Write-up:
 ### What is built
 
 `custom_agents/gb/`, one file per stage. `gb/README.md` has each file's full
-status, `make gb-help` each command. 318 live tests.
+status, `make gb-help` each command. 352 live tests (34 of them the Knowledge Planner's).
 
 | Piece | File | State |
 |---|---|---|
@@ -225,6 +228,47 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (13 Nov)
 
+- **19 Nov: the Knowledge Planner (KP). Phases 0, 1 (its CPU part) and 2 are
+  done and clean; the next step is the 15-minute GPU smoke, which needs
+  Matt's word.** KP is a groupmate's planner (their agent E20: it learns
+  what is clickable, what a click does and which rule ends a level, then
+  plans the next level) run unedited behind Goose with screen 3's three
+  upgrades (`SOT`). The plan, with every decision Matt made on 19 Nov (5,000
+  actions a run, 2 seeds, `SOT` as the base, all 25 games):
+  `docs/4-knowledge-planner/kp-plan.md`. Do its phases in order.
+  **Pacing (Matt, 19 Nov): keep going on a clean pass; stop before every GPU
+  run, before any commit or push, and on any miss or surprise.**
+  Branch `kp`, cut from `goose-screen3` at `170d117`; **nothing committed
+  yet** (the test starts only from committed code).
+  - **Phase 0** (`kp-phase0.md`): the reference (`custom_agents/kp_ref/`,
+    four files, byte for byte, never edited) gives the report's numbers here
+    (E20 4.83 levels per episode); all 180 dev and seen recordings replay on
+    the engine move for move (886,873 moves); **the go/no-go passed:** after
+    Goose's own recorded level 1 the planner won ft09 from 20 of 20 prefixes
+    and reached level 4 of lp85 from 15 of 15.
+  - **Phase 1, CPU part** (`kp-bridge-check.md`): `custom_agents/kp_bridge.py`
+    and 18 lines tagged `# [kp]` in `action.py`. With `EVAL_KP` unset,
+    `cpu_check` is identical on every move (goose/ft09 1,970, the adopted
+    Goose's flags/tu93 1,960); under `SOT`'s flags the dormant run (tu93, 490)
+    and the passive run (cd82, 495) are identical too. With planning on, the
+    adopted Goose's flags **won ft09 on the CPU in 965 actions**, and the
+    reference in its own harness makes the same 178 planned clicks.
+    Recordings: `results/cpu_check/2026-11-19_kp/`.
+  - **Phase 2** (`kp-offline-dev.md`): on the six dev and seen click games the
+    planner reaches ft09 and lp85 only. On cd82, dc22, m0r0 and vc33 it never
+    starts: pieces move, so screens leave the level's slots. One setting
+    tried (`mask = "agent"`: 172 levels against 246, it loses ft09), none
+    adopted: **the test's planner is E20 unmodified.**
+  - **Tools:** `experiments/kp/run_reference.py` (repro, replay-check,
+    prefix, prefix --whole), `tools/kp_offline.py` (takeover, induct,
+    funnel), `experiments/kp/kp_test.py` (plan, smoke, start, status, pause,
+    resume, verdict; `DEV=1` = the dev sweep; `TRIAL=60` = the same on tiny
+    runs), `experiments/kp/kp_verdict.py` (the test's rule). 34 new tests.
+  - **Next, each on Matt's word:** the smoke (`kp_test.py smoke`: ft09, lp85,
+    tu93 x seed 14 x `SOT` and `SOT-KP`, 6 runs), then Phase 1.6 on its
+    recordings; the dev sweep (`DEV=1 kp_test.py start`, 28 runs, about 1 h);
+    the freeze (a commit), `kp-test.md` and the pre-registration note; the
+    test (150 runs, about 5.5 h, seeds 11 and 12).
 - **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
   Exploratory, nothing adopted.** Three new Goose upgrades behind switches
   that are off by default: S = `map_sched` (a bandit over five map schedules),

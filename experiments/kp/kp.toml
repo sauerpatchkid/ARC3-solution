@@ -1,0 +1,16 @@
+# kp.toml - the Knowledge Planner's settings (custom_agents/kp_bridge.py reads every one of them).
+#
+# Every default is the reference's behaviour: with this file as it is, the planner is the
+# groupmate's E20, unmodified. A value that departs from it is switched on only by the adoption
+# rule of the plan's Phase 2 (docs/4-knowledge-planner/kp-plan.md), and the write-ups then say
+# "E20 with <setting>". The hash of these settings goes into every run's run_config.json
+# (kp_config_hash). EVAL_KP_CONFIG=<path> names another file.
+
+[bridge]
+plan = true             # false = watch and learn only, never take a move (also EVAL_KP_PLAN=0)
+parse_cache = 4096      # screens whose objects are remembered. Speed only
+
+[see]
+mask = "none"           # "none" = the reference | "agent" = Goose's decoration mask is painted over
+                        # before a screen is parsed. Tried in Phase 2 and not adopted: it loses levels
+                        # on ft09 (docs/4-knowledge-planner/kp-offline-dev.md, section 5)

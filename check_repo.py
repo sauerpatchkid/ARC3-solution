@@ -62,6 +62,7 @@ LOCAL = {"eval_common", "metrics_common", "utils", "view_utils", "action", "cano
          "gridtools", "presets", "manifest", "tiers", "registry", "gb",
          "upgrades", "carry",  # [upgrades]
          "train_more",  # [train]
+         "kp_bridge",  # [kp] the Knowledge Planner's bridge (custom_agents/kp_bridge.py)
          "random_agent", "custom_agents", "custom_agent", "benchmark",
          "compare", "run_local", "compute_metrics", "summarize_overnight",
          "analyze_curves", "inspect_corpus", "legacy", "llm_track"}
@@ -98,10 +99,11 @@ def imported_modules(path):
     return out
 
 
-def untagged_gb_imports(path):
-    """Line numbers where a file imports the Glassbox package (gb) on a line
-    that is not tagged `# [gb]`. Glassbox is off by default and removable: the
-    agent may reach it only through tagged hook lines (sed -i '/\\[gb\\]/d')."""
+def untagged_imports(path, package="gb", tag="# [gb]"):
+    """Line numbers where a file imports `package` on a line that is not
+    tagged `tag`. Glassbox (gb) is off by default and removable: the agent may
+    reach it only through tagged hook lines (sed -i '/\\[gb\\]/d'). The
+    Knowledge Planner's bridge (kp_bridge, `# [kp]`) is held to the same rule."""
     src = open(path).read()
     lines = src.splitlines()
     bad = []
@@ -111,7 +113,7 @@ def untagged_gb_imports(path):
             names = [a.name for a in node.names]
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             names = [node.module]
-        if any(n == "gb" or n.startswith("gb.") for n in names) and "# [gb]" not in lines[node.lineno - 1]:
+        if any(n == package or n.startswith(package + ".") for n in names) and tag not in lines[node.lineno - 1]:
             bad.append(node.lineno)
     return bad
 
@@ -142,9 +144,13 @@ def check_isolation():
           f"offenders: {', '.join(bad)}" if bad else
           f"{len(files)} files clean")
     gb_lines = [f"{rel}:{n}" for rel in BASELINE_FILES if os.path.exists(os.path.join(ROOT, rel))
-                for n in untagged_gb_imports(os.path.join(ROOT, rel))]
+                for n in untagged_imports(os.path.join(ROOT, rel))]
     check("the baseline imports Glassbox (gb) only on lines tagged # [gb]", not gb_lines,
           f"offenders: {', '.join(gb_lines)}" if gb_lines else "clean")
+    kp_lines = [f"{rel}:{n}" for rel in BASELINE_FILES if os.path.exists(os.path.join(ROOT, rel))  # [kp]
+                for n in untagged_imports(os.path.join(ROOT, rel), "kp_bridge", "# [kp]")]  # [kp]
+    check("the baseline imports the Knowledge Planner (kp_bridge) only on lines tagged # [kp]", not kp_lines,  # [kp]
+          f"offenders: {', '.join(kp_lines)}" if kp_lines else "clean")  # [kp]
     bad_tool = [rel for rel in BASELINE_TOOLING
                 if os.path.exists(os.path.join(ROOT, rel))
                 and LLM_INVOCATION.search(open(os.path.join(ROOT, rel)).read())]
