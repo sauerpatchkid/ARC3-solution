@@ -5,6 +5,7 @@ The docs folders are numbered in the order things happened:
 1. **[Goose upgrades](1-goose-upgrades/)**: improvements to the exploring agent itself. No LLM.
 2. **[LLM history](2-llm-history/)**: the previously tried methods, and why each one stopped. Their code is frozen in `legacy/`.
 3. **[Glassbox](3-glassbox/)**: the current method, built on what parts 1 and 2 taught.
+4. **[Knowledge Planner](4-knowledge-planner/)**: a groupmate's planner, run unedited behind Goose, for the levels after the first. No LLM.
 
 What may come next is not here: it is in [`future/`](../future/README.md) until it
 is built and tested, and its write-up then joins folder 1 or 3. The root
@@ -127,7 +128,28 @@ It is split into stages that each fix one problem and can be tested alone:
 - [The funnel](3-glassbox/funnel.md) (12 Nov, the report's table, from finished runs): of a dev game's changing cases S1 describes 83%, an admitted rule gets 57% and the book gets the whole screen on 28% (pooled book, mean over 8 games); 78%, 40% and 5% on the held-out games. Seeing is not the main loss; writing exact, trusted rules is. Online, rule survival is 92% and what steers Goose is almost all the LLM-free colour rule. Also there: G4's replay check (the replay carries the 66 colours the runs carried, 65 at the same level).
 - The code: [`custom_agents/gb/`](../custom_agents/gb/README.md).
 
-## 4. What may come next
+## 4. Knowledge Planner: a planner for the levels after the first
+
+Goose plays level 1. At each level clear the planner learns what is clickable,
+what a click does and which rule is true only on the solved board, and it
+plans the next level to that rule. It hands a level back to Goose when it has
+no rule, no plan or too many wrong predictions. No LLM.
+
+The planner is a groupmate's agent (their E20), run unedited through a small
+bridge (`custom_agents/kp_bridge.py`, `EVAL_KP=1`, off by default). Every run
+is Goose with upgrade screen 3's three upgrades (`SOT`), at 5,000 actions. All
+of it is from 19 Nov 2026.
+
+- [The plan](4-knowledge-planner/kp-plan.md): the method, the decisions, the phases and the test's draft.
+- [Phase 0, three checks before anything was built](4-knowledge-planner/kp-phase0.md): the planner gives its report's numbers on this machine; 180 recordings replay on the engine move for move; and the go/no-go passed: from Goose's own level 1 the planner won ft09 from 20 of 20 recordings and reached level 4 of lp85 from 15 of 15.
+- [The bridge, checked](4-knowledge-planner/kp-bridge-check.md): with `EVAL_KP` unset both standard agents take the same moves as before (1,970 of 1,970 and 1,960 of 1,960 on the CPU). With it on, the bridge makes the planner's own clicks (178 of 178 on ft09, 721 of 721 on lp85). Also the GPU smoke.
+- [Where it works and where it does not](4-knowledge-planner/kp-offline-dev.md) (exploratory, the ten games it may be built on): it reaches ft09 and lp85. On cd82, dc22, m0r0 and vc33 it never starts, because pieces move and the screen leaves the level's slots. One setting was tried and none adopted, so the planner is E20 unmodified.
+- [The dev sweep](4-knowledge-planner/kp-dev-sweep.md) (exploratory): 36 levels against 20 on seven dev games x 2 seeds. +13 is the planner, +3 is chance.
+- [The test, written before its first run](4-knowledge-planner/kp-test.md): `SOT`, `SOT-KP` and `SOT` again on all 25 games x seeds 11 and 12 x 5,000 actions. The planner clears the noise if it is above both baselines and its lead is above the 97.5th percentile of the chance gap.
+- [The test's results](4-knowledge-planner/kp-results.md): **clears the noise**, 62 levels against 44 and 47 (+18 against a bar of 10). ft09 +9 and lp85 +10, the two games the planner was built on; no click on any other game; the 15 held-out games 18 against 17 and 18. A tuned-tier result at 5,000 actions and two seeds. Nothing is adopted.
+- The code: `custom_agents/kp_bridge.py`, `custom_agents/kp_ref/` (the groupmate's four files, never edited), `experiments/kp/`, `tools/kp_offline.py`.
+
+## 5. What may come next
 
 [`future/README.md`](../future/README.md): this week's items (to 17 Nov), the nine
 ideas from the review of 10 Nov 2026

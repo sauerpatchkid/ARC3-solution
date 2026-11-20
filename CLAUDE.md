@@ -30,6 +30,15 @@ The README, the docs and the folders all follow these four, so keep new work in 
 The `docs/` folders are numbered in the order things happened (1 Goose
 upgrades, 2 LLM history, 3 Glassbox), which is why Glassbox's folder is `3-`.
 
+**Since 19 Nov there is also the Knowledge Planner (KP):** a groupmate's
+planner, run unedited behind Goose, for the levels after the first. No LLM.
+Its registered test passed (62 levels against 44 and 47 at 5,000 actions, all
+of the gain on ft09 and lp85); nothing is adopted. Code:
+`custom_agents/kp_bridge.py`, `custom_agents/kp_ref/` (never edited),
+`experiments/kp/`, `tools/kp_offline.py`. Docs: `docs/4-knowledge-planner/`.
+Whether it becomes a fifth part, and how it is named and credited, is Matt's
+decision (`kp-plan.md`, 2.3), so the four parts above stand as written.
+
 **Simplicity and readability come first** (Matt, 16 Oct). A reader should be
 able to see what each step changed and why: one problem per stage, one stage
 per file, one write-up per result, numbers next to every claim.
@@ -118,21 +127,23 @@ upgrade-screen*, upgrade-confirm). `make clean` needs `CONFIRM=yes`.
 | `EVAL_UPGRADES` | unset | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints` (the last two: `custom_agents/carry.py`, not adopted), `map_sched` (takes `map_gated`'s place; the two together are refused), `objclick` (both: upgrade screen 3, not adopted) |
 | `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | `5` / `0` | train every N actions / this many of the newest stored moves in every batch (`custom_agents/train_more.py`, lines tagged `# [train]`; upgrade screen 3, not adopted) |
 | `EVAL_GB` / `EVAL_GB_BOOK` | off / unset | Glassbox's S5 guide in the agent (`gb/s5_act.py`); the book = an offline run under `results/glassbox/` (unset: GB-free); hooks tagged `# [gb]` |
-| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | off / on / `experiments/kp/kp.toml` | the Knowledge Planner's bridge (`custom_agents/kp_bridge.py`): a groupmate's planner plans the levels after the first; `EVAL_KP_PLAN=0` = watch and learn only; hooks tagged `# [kp]`; refused together with `EVAL_GB`; not adopted, its test is not run yet |
+| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | off / on / `experiments/kp/kp.toml` | the Knowledge Planner's bridge (`custom_agents/kp_bridge.py`): a groupmate's planner plans the levels after the first; `EVAL_KP_PLAN=0` = watch and learn only; hooks tagged `# [kp]`; refused together with `EVAL_GB`; not adopted: its registered test passed on 19 Nov (`docs/4-knowledge-planner/kp-results.md`), no preset |
 
 Always run with `PYTHONHASHSEED=0`. Removed on 2026-10-06, each stops the run
 with a pointer to its git tag: `EVAL_MASK_TRIED` and the upgrades `graded`,
 `map_objects`, `map_diverse`.
 
-## Where things stand (13 Nov 2026)
+## Where things stand (20 Nov 2026)
 
 **Goose upgrades: done** (`mb_gated_att` adopted 28 Sep, 112 levels; the carry
 upgrade was tested 12-13 Nov and **failed**, so it is not adopted).
 **Previously tried methods: closed** (Coach NO-GO; Rulebook v1 FAIL, 2 of 8;
 Rulebook v2 closed after CP1: FAIL 2 of 8, 0.0% wrong at T1). **Glassbox: every
 gate is run**, and G4 adopted it on weak evidence. **Now: the buffer, to Tue
-17 Nov**, then the report (final Mon 7 Dec). The history is in `docs/`; this
-section holds only what a new session needs.
+17 Nov**, then the report (final Mon 7 Dec). **19 Nov: the Knowledge Planner
+was built and its registered test passed** (62 levels against 44 and 47 at
+5,000 actions; a tuned-tier result; nothing adopted; see "Now"). The history
+is in `docs/`; this section holds only what a new session needs.
 
 ### Glassbox's results
 
@@ -226,26 +237,33 @@ Nov** (Matt, 3 Nov), then 2-3 weeks of write-up. Course: final report Mon 7 Dec.
 Cut: the online ablations (±2.6 levels of noise per 16 runs makes 8-run arms
 uninformative) and the frontier showcase (only if the buffer allows).
 
-### Now (13 Nov)
+### Now (20 Nov)
 
-- **19 Nov: the Knowledge Planner (KP). Phases 0 to 3 are done: built,
-  checked on the CPU, smoke and dev sweep run. The test is registered
-  (`kp-test.md`) and starts on Matt's word of 19 Nov ("commit, push kp to
-  origin, and start the test"): 150 runs, about 5.5 hours. See whether it is
-  running with `uv run python experiments/kp/kp_test.py status`; no commit
-  and no CPU job while it runs.** KP is a groupmate's planner (their agent E20: it learns
-  what is clickable, what a click does and which rule ends a level, then
-  plans the next level) run unedited behind Goose with screen 3's three
-  upgrades (`SOT`). The plan, with every decision Matt made on 19 Nov (5,000
-  actions a run, 2 seeds, `SOT` as the base, all 25 games):
-  `docs/4-knowledge-planner/kp-plan.md`. Do its phases in order.
+- **19 Nov: the Knowledge Planner (KP). Every phase of its plan is done (0
+  to 4), and its registered test PASSED: `SOT-KP` 62 levels against `SOT` 44
+  and `SOT2` 47 on 25 games x seeds 11, 12 x 5,000 actions, +18 against a bar
+  of 10. All of the gain is on ft09 (+9) and lp85 (+10), the games the planner
+  was built on; on the other 23 games it made no click (the 15 held-out
+  games: 18 against 17 and 18). A tuned-tier result at 5,000 actions and two
+  seeds. Nothing adopted, no preset. Write-up:
+  `docs/4-knowledge-planner/kp-results.md`.** KP is a groupmate's planner
+  (their agent E20: it learns what is clickable, what a click does and which
+  rule ends a level, then plans the next level) run unedited behind Goose with
+  screen 3's three upgrades (`SOT`). The plan, with every decision Matt made
+  on 19 Nov (5,000 actions a run, 2 seeds, `SOT` as the base, all 25 games):
+  `docs/4-knowledge-planner/kp-plan.md`.
   **Pacing (Matt, 19 Nov): keep going on a clean pass; stop before every GPU
   run, before any commit or push, and on any miss or surprise.**
   Branch `kp`, cut from `goose-screen3` at `170d117`, **pushed to origin on
-  19 Nov** (Matt asked), not merged, no PR. Commits: `b34051e` (the planner,
-  as the smoke and the dev sweep ran it), `527b8a4` (the smoke, the dev
-  sweep, the launcher's fix: the test's code, hash `aae8104ab8d0c6bd`), then
-  the test's registration. No file a run loads differs from `b34051e`.
+  19 Nov at `f0a1d3a`** (Matt asked), not merged, no PR. Commits: `b34051e`
+  (the planner, as the smoke and the dev sweep ran it), `527b8a4` (the smoke,
+  the dev sweep, the launcher's fix: the test's code, hash
+  `aae8104ab8d0c6bd`), `f0a1d3a` (the test's registration). No file a run
+  loads differs from `b34051e`. **Committed on 20 Nov (Matt asked), not
+  pushed: the test's results page and the pages that point to it**
+  (`kp-results.md`, `README.md`, `CLAUDE.md`, `docs/README.md`,
+  `custom_agents/README.md`, `future/README.md`); no code changed. Push only
+  when Matt asks.
   - **Phase 0** (`kp-phase0.md`): the reference (`custom_agents/kp_ref/`,
     four files, byte for byte, never edited) gives the report's numbers here
     (E20 4.83 levels per episode); all 180 dev and seen recordings replay on
@@ -288,20 +306,44 @@ uninformative) and the frontier showcase (only if the buffer allows).
     runs in 7 of 8 decided races: chance (a pair's two recordings are the
     same until GPU runs part; a CPU check confirms it, see `kp-dev-sweep.md`).
     Nothing in the agent, the bridge or the settings changed after it.
-  - **The test** (`kp-test.md`, frozen 19 Nov): `SOT`, `SOT-KP`,
-    `SOT2` x 25 games x seeds 11, 12 x 5,000 actions = 150 runs, about 5.5 h.
-    Rule: `SOT-KP` above both baselines, and `SOT-KP - SOT` above the 97.5th
-    percentile of the chance gap built from the test's own `SOT2 - SOT`
-    differences. The note on using all 25 games is entry 11 of section 11 of
+  - **The test** (`kp-test.md`, frozen 19 Nov;
+    `results/kp/test/20261119_181131/`): `SOT`, `SOT-KP`, `SOT2` x 25 games x
+    seeds 11, 12 x 5,000 actions = 150 runs, 18:11 to 23:53 on 19 Nov, none
+    failed or retried, no error inside the planner. Rule: `SOT-KP` above both
+    baselines, and `SOT-KP - SOT` above the 97.5th percentile of the chance
+    gap built from the test's own `SOT2 - SOT` differences. The note on using
+    all 25 games is entry 11 of section 11 of
     `docs/3-glassbox/glassbox-prereg.md`.
-  - **Next:** when all 150 runs are in (`kp_test.py status`), (1)
-    `uv run python experiments/kp/kp_test.py verdict`, once; (2)
-    `uv run python tools/kp_offline.py takeover --registered` on the test's
-    `SOT` and `SOT2` recordings, all tiers; (3) `kp-results.md`: the verdict,
-    the tables of the plan's section 7, and what the written expectation got
-    right and wrong; (4) the docs of the plan's section 13. A run that failed
-    twice is in `failed.tsv`; `resume` tries it again. Commit and push only
-    when Matt asks. What a pass leads to is his (plan 2.3): no preset.
+  - **Its result** (`kp-results.md`; the verdict run once, 19 Nov 23:54):
+    **CLEARS THE NOISE.** 62 against 44 and 47; +18 against a bar of 10 (most
+    of the bar is one pair: `SOT2` cleared 5 levels of lp85 unaided at seed
+    12). ft09: 6 and 6 against 2 and 1, won at action 793 and 763 with the
+    same 178 clicks as ever. lp85: 5 and 7 against 1 and 1; at seed 12 it
+    planned levels 6 and 7 for the first time; it gives level 5 up every time
+    (41 wrong predictions). On the other 23 games it made no click: 38 levels
+    against 39 and 37. By tier: dev 32 against 23 and 22, seen 12 against 4
+    and 7, A/B-offline 11 / 11 / 11, untouched 7 against 6 and 7. The lead is
+    +23 by 1,000 actions. The interval with games resampled is [-4, +48], as
+    the test page said it would be. `SOT` repeats its screen 3 score on new
+    seeds (24, 20, 22 and 25 a seed, against 22).
+  - **Why nothing on the 13 held-out click games:** on 8 the screen does not
+    stay on a level's slots (under 20% of level 1's screens fit); on 3 (sb26,
+    sc25, tn36) no arm cleared level 1, though on sb26 and sc25 every screen
+    fits; on 2 (ka59, lf52) no goal rule was confirmed. lf52 came closest:
+    from 2 of 4 baseline recordings the planner learned lp85's rule, made one
+    probe on level 2, and the screen left the slots.
+  - **The offline takeover on the test's baselines** (`results/kp/phase4/`;
+    76 recordings, 57 with a level 1, no error): the planner won ft09 from 4
+    of 4 and reached level 4 of lp85 from 4 of 4, with the per-level actions
+    of the online runs; no level on any other game.
+  - **Open, Matt's (plan 2.3), nothing decided:** what the pass leads to (no
+    preset exists; one would carry `SOT`'s three switches, and `SOT` is not
+    adopted); how the report names the method and credits the groupmate, and
+    whether the four parts become five (the README and this file name KP
+    beside the four parts, without calling it a fifth); whether Phase 5 (an
+    LLM proposes goal rules) or Phase 6 (a clean port) is done (both are in
+    `future/README.md`, not built); `SOT`'s own confirm; pushing the results
+    (committed 20 Nov, not pushed).
 - **17 Nov: upgrade screen 3 is finished (Matt's overnight job of 16 Nov).
   Exploratory, nothing adopted.** Three new Goose upgrades behind switches
   that are off by default: S = `map_sched` (a bandit over five map schedules),

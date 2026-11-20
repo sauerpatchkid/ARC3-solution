@@ -18,11 +18,17 @@ Levels are counted on all 25 public games × 3 seeds × 100,000 actions each
 are numbered in the order things happened; [`docs/README.md`](docs/README.md)
 is the full map, with every step and its result.
 
+**Also here, since 19 Nov: the [Knowledge Planner](#knowledge-planner).** A
+groupmate's planner, run unedited behind Goose. Its registered test passed:
+**62 levels against 44 and 47** by 5,000 actions, all of the gain on two
+games. Not adopted. Whether it becomes a fifth part, and under what name, is
+not decided.
+
 **Everything new is off by default.** An unflagged `--agent goose` run is the
 semester-1 baseline, verified move for move. Each feature's lines in
 `custom_agents/action.py` carry a tag (`# [return-map]`, `# [upgrades]`,
-`# [gb]`); deleting a tag's lines (`sed -i '/\[return-map\]/d' ...`) removes
-that feature.
+`# [train]`, `# [gb]`, `# [kp]`); deleting a tag's lines
+(`sed -i '/\[return-map\]/d' ...`) removes that feature.
 
 ---
 
@@ -89,6 +95,36 @@ levels and goal hints, and 5 of the 9 extra levels came from there. G4 had no
 LLM-free arm; in G2 that arm did as well as the guided one (35 vs 34). Plan,
 gates and every write-up: [`docs/3-glassbox/`](docs/3-glassbox/); commands:
 `make gb-help`.
+
+## Knowledge Planner
+
+Goose plays level 1. A planner then takes the later levels. At each level
+clear it learns three things: what is clickable, what a click does, and which
+rule is true only on the solved board. It plans the next level to that rule,
+and hands the level back to Goose when it has no rule, no plan or too many
+wrong predictions. No LLM.
+
+The planner is a groupmate's agent (their E20). It runs unedited through a
+small bridge, `custom_agents/kp_bridge.py` (`EVAL_KP=1`, off by default); its
+four files are kept byte for byte in `custom_agents/kp_ref/`. Every run here
+is Goose with upgrade screen 3's three upgrades (`SOT`), at 5,000 actions.
+
+| Step (19 Nov) | Question | Result |
+|---|---|---|
+| Phase 0 (CPU) | Does the planner work from Goose's own level 1? | Yes: from recordings it won ft09 20 times of 20 and reached level 4 of lp85 15 times of 15 |
+| The bridge (CPU) | Does it leave Goose alone when off, and make the planner's own clicks when on? | Off: the same moves as before, on every move. On: the same 178 planned clicks as the planner in its own harness |
+| Offline, the games it may be built on | Which games does it reach? | ft09 and lp85. On cd82, dc22, m0r0 and vc33 it never starts: pieces move |
+| Dev sweep (exploratory) | With and without the planner, 7 games x 2 seeds | 36 vs 20 levels |
+| **The test (registered)** | The same on all 25 games x 2 new seeds, with the baseline run twice to measure chance | **Clears the noise: 62 vs 44 and 47** (+18 against a bar of 10) |
+
+**How to read the test.** All of the gain is on ft09 (+9) and lp85 (+10), the
+two games the planner was built on, so it is a tuned-tier result at 5,000
+actions and two seeds. There it turns later levels from thousands of actions
+into tens: ft09 is won in under 800 actions. On the other 23 games it made no
+click, and the 15 held-out games ended 18 against 17 and 18. Nothing is
+adopted and there is no preset; the base it ran on is not adopted either.
+Results: [`kp-results.md`](docs/4-knowledge-planner/kp-results.md); plan and
+every write-up: [`docs/4-knowledge-planner/`](docs/4-knowledge-planner/).
 
 ## Previously tried methods (`legacy/`)
 
@@ -232,6 +268,9 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 - Glassbox has its own commands, one per stage: `make gb-help`. The guided
   agent is `mb_gated_att` with `EVAL_GB=1 EVAL_GB_BOOK=<an offline run>`; the
   book lives under `results/glassbox/`, outside git.
+- The Knowledge Planner: `EVAL_KP=1` on a `--agent goose` run. Its test:
+  `uv run python experiments/kp/kp_test.py plan` (also `status`, `verdict`);
+  what it does on recordings, on the CPU: `uv run python tools/kp_offline.py takeover`.
 - Hosted API path (unchanged, slower): `make action`. It needs
   `git -C ARC-AGI-3-Agents apply ../harness_patches.patch` once. Don't mix API
   and local numbers: the game seed differs.
@@ -252,6 +291,7 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 | `EVAL_UPGRADES` | comma list from `bars`, `attempt`, `map_gated`, `deadclick`, `carry_noops`, `carry_hints`, `map_sched` (in `map_gated`'s place), `objclick` | unset |
 | `EVAL_TRAIN_EVERY` / `EVAL_TRAIN_RECENT` | train every N actions / this many of the newest stored moves in every batch (`train_more.py`) | `5` / `0` |
 | `EVAL_GB` / `EVAL_GB_BOOK` | Glassbox's guide in the agent; the offline run whose book it carries (unset: no LLM rules) | off / unset |
+| `EVAL_KP` / `EVAL_KP_PLAN` / `EVAL_KP_CONFIG` | the Knowledge Planner behind Goose (`kp_bridge.py`); `EVAL_KP_PLAN=0` = watch and learn only; its settings file. Refused together with `EVAL_GB` | off / on / `experiments/kp/kp.toml` |
 
 `--agent mb_gated_att` fixes `EVAL_LABEL=novel EVAL_RETURN_MAP=1
 EVAL_UPGRADES=bars,map_gated,attempt`. Always run with `PYTHONHASHSEED=0`.
@@ -280,12 +320,13 @@ ARC3-solution/
 │   ├── carry.py               #   Goose upgrade: colour no-ops and goal hints carried between levels
 │   ├── train_more.py          #   Goose upgrade: train more often, on fresher data
 │   ├── presets.py             #   --agent mb_gated_att, the adopted Goose
+│   ├── kp_bridge.py, kp_ref/  #   KNOWLEDGE PLANNER: the bridge, and the groupmate's four files (never edited)
 │   ├── gridtools.py, random_agent.py, view_utils.py   # shared helpers, the random floor
 │   └── gb/                    #   GLASSBOX: one file per stage (README.md inside)
 ├── legacy/                    # PREVIOUSLY TRIED METHODS, frozen (README.md inside)
 ├── future/                    # FUTURE METHODS, not built (README.md inside)
 ├── docs/                      # every write-up: README.md (the map), 1-goose-upgrades/,
-│                              #   2-llm-history/, 3-glassbox/, reports/
+│                              #   2-llm-history/, 3-glassbox/, 4-knowledge-planner/, reports/
 │
 ├── run_local.py               # run one agent on one game (the local engine)
 ├── run_curriculum.py          # several games in a row, one persistent brain
@@ -308,8 +349,9 @@ ARC3-solution/
 ├── tools/                     # paired_compare.py (verdicts), levels_by_budget.py (when levels came),
 │                              #   cpu_check.py (did it change?), frozen_moves.py, probe_engine.py
 │                              #   (probes), artifacts.py, gb_offline.py, gb_sweep.py, gb_gate.py,
-│                              #   gb_funnel.py (Glassbox)
-├── experiments/goose/         # carry_test.sh: the carry test, started, paused and resumed
+│                              #   gb_funnel.py (Glassbox), kp_offline.py (Knowledge Planner)
+├── experiments/goose/         # carry_test.sh (the carry test), screen3.py (upgrade screen 3)
+├── experiments/kp/            # the Knowledge Planner: kp.toml, kp_test.py (its test), kp_verdict.py, run_reference.py
 ├── experiments/glassbox/      # glassbox.toml (every setting) and gb.mk (make gb-help)
 ├── experiments/llm/           # the local LLM server and its environment
 ├── tests/                     # pytest

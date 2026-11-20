@@ -60,6 +60,18 @@ now read that way.
 | LLM plans at stalls, checked by the game | List 3, item 2 | 3 to 4 days | about 12 | no |
 | A small prior trained on solved-level traces | List 3, item 3 | 1 to 2 weeks | Colab | no (future work) |
 
+## After the Knowledge Planner's test (19 Nov 2026)
+
+The planner's [test](../docs/4-knowledge-planner/kp-results.md) passed on two
+games and reached no other. Three ideas follow from it. None is built, and
+each needs Matt's word.
+
+| Idea | From | Work | What the test says about it |
+|---|---|---|---|
+| An LLM proposes goal rules where no built-in rule fits | [`kp-plan.md`](../docs/4-knowledge-planner/kp-plan.md), section 8 (its Phase 5) | 2 to 3 days; about one GPU-hour of LLM time a game; maybe the instructor's OK | Its gate is a game it may be built on where the slots held, the model settled and no built-in rule fitted. None was found: the slots held on ft09 and lp85 only, and a rule was consistent at every clear there. The nearest thing is lp85's level 6 (seed 11) and level 8 (seed 12), where no rule the planner had left fitted |
+| A clean port into separate, tested files | `kp-plan.md`, section 9 (its Phase 6) | 2 to 3 days | Worth it only if the planner stays in the repo, or for runs much longer than 5,000 actions. Nothing at this budget needed it: the planner cost 4% per action |
+| Level 1 by planning: probe and fit the model on level 1 too, with Goose as the fallback | the groupmate's report, its own next step 4 | not sized | The planner starts only after a level is cleared. On sb26 and sc25 every screen sat on the slots, and no arm cleared level 1 in 5,000 actions |
+
 ## Small fixes
 
 Found while reading the code on 10 Nov. None changes what an agent does.

@@ -1,8 +1,9 @@
 # custom_agents/: every agent
 
-Two things live here: **Goose and its improvements** (the files in this
-folder) and **Glassbox** (the `gb/` folder, which has its own
-[README](gb/README.md)).
+Three things live here: **Goose and its improvements** (the files in this
+folder), **Glassbox** (the `gb/` folder, which has its own
+[README](gb/README.md)) and the **Knowledge Planner** (`kp_bridge.py` and the
+`kp_ref/` folder).
 
 ## Goose and its improvements
 
@@ -26,8 +27,19 @@ Levels are on all 25 public games × 3 seeds × 100,000 actions. Write-ups:
 [`docs/1-goose-upgrades/`](../docs/1-goose-upgrades/).
 
 `action.py` is the only file that calls the others, and it does so on tagged
-lines: `# [return-map]`, `# [upgrades]`, `# [train]`, `# [gb]`. Deleting a tag's lines
+lines: `# [return-map]`, `# [upgrades]`, `# [train]`, `# [gb]`, `# [kp]`. Deleting a tag's lines
 (`sed -i '/\[upgrades\]/d' custom_agents/action.py`) removes that feature.
+
+## The Knowledge Planner
+
+A groupmate's planner for the levels after the first, run unedited behind
+Goose. Off by default. Write-ups:
+[`docs/4-knowledge-planner/`](../docs/4-knowledge-planner/).
+
+| File | What it is | Switch | Result |
+|---|---|---|---|
+| `kp_bridge.py` | The bridge: it loads the planner, shows it every screen Goose sees, books Goose's own clicks with it, and sends the planner's click when it has one. An error inside the planner switches it off for the rest of the run | `EVAL_KP=1` (`EVAL_KP_PLAN=0`: watch and learn only; settings in `experiments/kp/kp.toml`) | **not adopted**: its [registered test](../docs/4-knowledge-planner/kp-results.md) passed on 19 Nov. Goose with the screen 3 upgrades, 25 games x 2 seeds x 5,000 actions: 62 levels with the planner against 44 and 47 without. All of the gain is on ft09 and lp85, the games it was built on |
+| `kp_ref/` | The groupmate's four files (their agents E18, E19, E20 and the knowledge bank), byte for byte. **Never edited**; a test checks their hashes | loaded by the bridge only | |
 
 ## Shared pieces
 
