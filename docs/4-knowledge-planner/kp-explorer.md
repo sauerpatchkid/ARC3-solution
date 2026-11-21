@@ -17,6 +17,13 @@ built on, and cd82 is one the groupmate built E21 on. No rule was written
 before the runs. Nothing is adopted, there is no preset, and no held-out game
 was touched.
 
+**20 Nov, later: its registered test.** Matt asked for a test on all 25 games
+the same day. It stayed inside the noise on both of its rules: 59 levels
+against 58 and 57, and sooner in 4 level races of 5, which is under that
+rule's bar. The explorer cleared cd82's level 2 and tu93's levels 2 to 4
+again, and no level on any other game:
+[`kp-explorer-results.md`](kp-explorer-results.md).
+
 Asked by Matt on 20 Nov: can the groupmate's agents for the other games do
 more now that Goose clears a level 1 for them to learn from, and can anything
 in the data improve on them? The planner's own test is `kp-results.md`.
@@ -201,9 +208,9 @@ The five agents on these ten games, levels a seed: baseline 5.0, adopted
 
 ## Open, Matt's
 
-- Whether to register a test on all 25 games (it needs its own entry in the
-  pre-registration first, and five of the groupmate's eight other games are
-  held-out games here: ar25, lf52, bp35, cn04, ka59).
+- ~~Whether to register a test on all 25 games.~~ Registered and run on 20
+  Nov at Matt's word (entry 12 of the pre-registration's section 11):
+  [`kp-explorer-results.md`](kp-explorer-results.md).
 - Naming and credit: E21 is the groupmate's code, as E20 is.
 
 ## Run it again

@@ -12,7 +12,7 @@ per seed), and the levels completed against actions taken (a line per agent, the
                  "Adopted Goose=results/confirm_upgrade/20260927_221915/manifest.tsv:mb_gated_att" \\
                  "SOT Goose=results/kp/test/20261119_181131/manifest.tsv:SOT" \\
                  "SOT Goose + E20 planner=results/kp/test/20261119_181131/manifest.tsv:SOT-KP" \\
-        [--games a,b] [--budget 5000] [--title "..."] [--note "..."]
+        [--games a,b] [--budget 5000] [--title "..."] [--note "..."] [--colours 4,5,6]
 
 A series is LABEL=MANIFEST:ARM; several MANIFEST:ARM joined by "+" pool their runs under one label (two runs
 of the same agent). It writes <out>.png and <out>.csv (the same numbers as a table). It gives no verdict:
@@ -20,6 +20,9 @@ it only draws what the runs' metrics.json files say (levelup_events, on the acti
 
 Colours and marks follow the chart rules the project's other figures use: a fixed colour order checked for
 colour-blind separation, a 2-point line, a legend plus a label at each line's end, text in ink colours only.
+An agent keeps its colour from one figure to the next: --colours gives each series its place in that order
+(the baseline 1, the adopted Goose 2, SOT 3, SOT with the planner 4, with the explorer too 5) when a figure
+leaves some of the agents out.
 """
 import argparse
 import csv
@@ -49,7 +52,7 @@ def read_series(text, games):
             key = f"{seed}" if i == 0 else f"{seed} (run {i + 1})"      # a second run of a seed is its own dot
             by_seed.setdefault(key, []).extend(int(a) for a, _ in ups)
             n_runs[key] = n_runs.get(key, 0) + 1
-    return label, by_seed, n_runs
+    return label, dict(sorted(by_seed.items())), n_runs       # the seeds in one order in every column
 
 
 def rounded_column(ax, x, height, width, colour, radius_pts=4):
@@ -77,7 +80,7 @@ def two_lines(label):
                        for part in label.split(" + "))
 
 
-def draw(series, budget, out, title, note, n_games):
+def draw(series, budget, out, title, note, n_games, colours):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -106,7 +109,7 @@ def draw(series, budget, out, title, note, n_games):
     # left: a column per agent (the mean over its seeds), a dot per seed, the mean on the cap
     left.set_xlim(-0.6, len(series) - 0.4)
     for i, (label, by_seed, _) in enumerate(series):
-        rounded_column(left, i, means[i], 0.46, SERIES[i])
+        rounded_column(left, i, means[i], 0.46, colours[i])
         totals = [level_at([(a, 0) for a in ups], budget) for ups in by_seed.values()]
         spread = [i + (k - (len(totals) - 1) / 2) * 0.11 for k in range(len(totals))]
         left.scatter(spread, totals, s=34, color=INK, edgecolor=SURFACE, linewidth=1.3, zorder=5)
@@ -122,15 +125,26 @@ def draw(series, budget, out, title, note, n_games):
     ends = []
     for i, (label, by_seed, _) in enumerate(series):
         ys = [sum(level_at([(a, 0) for a in ups], t) for ups in by_seed.values()) / len(by_seed) for t in ts]
-        right.plot(ts, ys, color=SERIES[i], linewidth=2, solid_capstyle="round", solid_joinstyle="round", label=label,
+        right.plot(ts, ys, color=colours[i], linewidth=2, solid_capstyle="round", solid_joinstyle="round", label=label,
                    zorder=4)
-        right.scatter([ts[-1]], [ys[-1]], s=46, color=SERIES[i], edgecolor=SURFACE, linewidth=1.5, zorder=5)
+        right.scatter([ts[-1]], [ys[-1]], s=46, color=colours[i], edgecolor=SURFACE, linewidth=1.5, zorder=5)
         ends.append((ys[-1], label))
     gap = ymax * 0.055                  # end labels: keep the order, push apart the ones that would touch
     ends.sort()
     placed = []
     for y, _ in ends:
         placed.append(y if not placed else max(y, placed[-1] + gap))
+    first = 0                           # a group that was pushed apart is centred on its own points, so that
+    while first < len(placed):          # no label's leader crosses the label under it
+        last = first
+        while last + 1 < len(placed) and placed[last + 1] > ends[last + 1][0] + 1e-9:
+            last += 1
+        shift = (placed[last] - ends[last][0]) / 2
+        if first:
+            shift = min(shift, placed[first] - placed[first - 1] - gap)
+        for k in range(first, last + 1):
+            placed[k] -= shift
+        first = last + 1
     for (y, label), y_text in zip(ends, placed):
         right.annotate(f"{label}  {y:.1f}", xy=(budget, y), xytext=(budget * 1.025, y_text), va="center", fontsize=9,
                        color=INK2, arrowprops=dict(arrowstyle="-", color=AXIS, linewidth=0.8) if abs(y_text - y) > 1e-9
@@ -160,9 +174,13 @@ def main():
     ap.add_argument("--budget", type=int, default=5000)
     ap.add_argument("--title", default="Levels completed by 5,000 actions")
     ap.add_argument("--note", default="")
+    ap.add_argument("--colours", default="", help="each series' place in the colour order, 1 to 6 (default: 1,2,3,...)")
     a = ap.parse_args()
     if len(a.series) > len(SERIES):
         sys.exit(f"at most {len(SERIES)} series: more would need colours that cannot be told apart")
+    places = [int(k) for k in a.colours.split(",") if k] or list(range(1, len(a.series) + 1))
+    if len(places) != len(a.series) or len(set(places)) != len(places) or not all(1 <= k <= len(SERIES) for k in places):
+        sys.exit(f"--colours takes one place for each series, each different, from 1 to {len(SERIES)}")
     os.chdir(ROOT)
     games = [g for g in a.games.split(",") if g] or None
     series = [read_series(s, games) for s in a.series]
@@ -170,7 +188,7 @@ def main():
     if len(n_games) != 1:
         sys.exit(f"the series do not cover the same number of games a seed: {sorted(n_games)}")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    draw(series, a.budget, a.out, a.title, a.note, n_games.pop())
+    draw(series, a.budget, a.out, a.title, a.note, n_games.pop(), [SERIES[k - 1] for k in places])
     with open(a.out + ".csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["agent", "seed", "levels_by_1000", "levels_by_2000", f"levels_by_{a.budget}"])

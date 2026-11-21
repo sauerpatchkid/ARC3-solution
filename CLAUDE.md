@@ -40,7 +40,9 @@ Whether it becomes a fifth part, and how it is named and credited, is Matt's
 decision (`kp-plan.md`, 2.3), so the four parts above stand as written.
 On 20 Nov two exploratory results were added to it: four agents on the same
 seeds (`kp-ladder.md`) and the groupmate's explorer for games with keys, E21,
-behind a switch that is off by default (`kp-explorer.md`).
+behind a switch that is off by default (`kp-explorer.md`). The explorer's
+registered test on all 25 games, run the same day, stayed inside the noise on
+both of its rules (59 levels against 58 and 57; `kp-explorer-results.md`).
 
 **Simplicity and readability come first** (Matt, 16 Oct). A reader should be
 able to see what each step changed and why: one problem per stage, one stage
@@ -97,7 +99,7 @@ uv run python tools/probe_engine.py [--games a,b]              # frames per move
 uv run python experiments/kp/kp_test.py plan           # the Knowledge Planner's GPU runs: also smoke | start | status | pause | resume | verdict (DEV=1: the dev sweep)
 uv run python tools/kp_offline.py takeover             # where the planner works, from recordings (CPU): also induct | funnel
 LADDER=1 uv run python experiments/kp/kp_test.py status   # the four-agent comparison's runs (20 Nov); E21=1 = the explorer's dev sweep (they have no verdict)
-E21TEST=1 uv run python experiments/kp/kp_test.py status  # the explorer's registered test (20 Nov): also plan | start | pause | resume | verdict
+E21TEST=1 uv run python experiments/kp/kp_test.py verdict # the explorer's registered test (finished 20 Nov, inside the noise on both rules): its tables again; also plan | status
 uv run python experiments/kp/explorer_probe.py         # the groupmate's keyboard agents after Goose's level 1, from recordings (CPU)
 uv run python experiments/kp/ladder_chart.py --series "Name=<manifest>:<arm>" ... --out <path>   # one figure of several agents at 5,000 actions; sweep_table.py = the tables
 uv run python -m pytest tests -q              # live tests (~85 s)
@@ -151,8 +153,10 @@ gate is run**, and G4 adopted it on weak evidence. **Now: the buffer, to Tue
 was built and its registered test passed** (62 levels against 44 and 47 at
 5,000 actions; a tuned-tier result; nothing adopted; see "Now"). **20 Nov:
 two exploratory additions**, the four agents on the same seeds and an
-explorer for keyboard games (see "Now"). The history is in `docs/`; this
-section holds only what a new session needs.
+explorer for keyboard games (see "Now"). **20 Nov, evening: the explorer's
+registered test stayed inside the noise on both rules** (59 levels against 58
+and 57; nothing adopted). The history is in `docs/`; this section holds only
+what a new session needs.
 
 ### Glassbox's results
 
@@ -248,25 +252,49 @@ uninformative) and the frontier showcase (only if the buffer allows).
 
 ### Now (20 Nov)
 
-- **20 Nov, afternoon: THE EXPLORER'S TEST is registered and running
-  (Matt: "commit and push, then run the registered test on all 25 games").**
-  Page, frozen before the first run:
-  `docs/4-knowledge-planner/kp-explorer-test.md`; the pre-registration's note
-  is entry 12 of section 11. `SOT-KP`, `SOT-KP21` (the same with the
-  explorer) and `SOT-KP2` (`SOT-KP` again) x all 25 games x seeds 16 and 17 x
-  5,000 actions = 150 runs, about 5.5 hours, under `results/kp/test_e21/`.
-  **Two rules:** A, more levels (the planner's test's rule: above both
-  controls and above the 97.5th percentile of the chance gap); B, sooner on
-  the levels after the first of the 18 games with keys (level races won
-  minus lost, against the same kind of chance gap). The written expectation:
-  A more likely inside the noise than not (about +3 against a bar of 5 to
-  9), B about even. Code `4e310f7` (hash `bf4882f94f0ade61`), the rules'
-  code `experiments/kp/kp_explorer_verdict.py`. Commands: `E21TEST=1` in
-  front of `kp_test.py` (`status`, `pause`, `resume`, `verdict`).
-  **When every run is in: run the verdict ONCE, write
-  `docs/4-knowledge-planner/kp-explorer-results.md` and update the pages
-  that point to it, then stop before any commit or push.** Nothing is
-  changed or rerun after results are seen; nothing is adopted; no preset.
+- **20 Nov, evening: THE EXPLORER'S TEST is finished: INSIDE THE NOISE on
+  both rules. Nothing adopted, no preset.** (Matt, 20 Nov: "commit and push,
+  then run the registered test on all 25 games".) `SOT-KP`, `SOT-KP21` (the
+  same with the explorer) and `SOT-KP2` (`SOT-KP` again) x all 25 games x
+  seeds 16 and 17 x 5,000 actions = 150 runs, 13:48 to 19:21, none failed or
+  retried, no error (`results/kp/test_e21/20261120_134836/`). The verdict was
+  run once, at 19:22. Write-up:
+  `docs/4-knowledge-planner/kp-explorer-results.md`; the test's page, frozen
+  before the first run: `kp-explorer-test.md` (entry 12 of section 11 of the
+  pre-registration). Code `4e310f7` (hash `bf4882f94f0ade61`); the rules'
+  code `experiments/kp/kp_explorer_verdict.py`.
+  - **Rule A, more levels: 59 against 58 and 57**, +1 against a bar of 9.
+  - **Rule B, sooner on the levels after the first of the 18 games with
+    keys:** level races won minus lost +3 against `SOT-KP` (4 of 5) and +7
+    against `SOT-KP2` (7 of 8), against a bar of 4. One control run cleared
+    no level 1 of tu93, so three races did not take place.
+  - **What the explorer did:** 8 levels, all on cd82 (level 2 at both seeds;
+    no control run cleared it) and tu93 (levels 2 to 4 at both seeds, in 29,
+    519, 686 and 32, 556, 686 actions). On ten other games with keys, five of
+    them held-out, it entered 14 later levels and cleared none; in the
+    controls Goose entered 34 there and cleared none. On six games with keys
+    it never played (no level 1 in its arm). Level 1 is Goose's in every arm
+    and moved the totals as much as the explorer did (22, 18 and 19 runs with
+    a level 1 on the games with keys). The planner did the same in all three
+    arms (ft09 won six times of six, 16 levels by planning an arm). No cost
+    in time.
+  - **The lead at 1,000 actions (37 against 29 and 31) is chance:** the
+    explorer had cleared no level by then, and the interval with games
+    resampled ([+3, +15]) still did not reach zero. That interval is no
+    guard against two runs of one agent differing.
+  - **The written expectation:** A inside the noise (right); B about even,
+    leaning to a pass (wrong).
+  - **Committed and pushed on 20 Nov, evening (Matt: "make sure everything
+    previously is committed and pushed"):** the
+    results page and `figures/explorer_test.png`, the pages that point to it
+    (`README.md`, `docs/README.md`, `custom_agents/README.md`,
+    `future/README.md`, `kp-explorer.md`, this file), and
+    `experiments/kp/ladder_chart.py` (a `--colours` option, so an agent keeps
+    its colour from one figure to the next; the seeds in one order; end
+    labels that do not cross). No file a run loads changed.
+  - **Open, Matt's:** whether the explorer's switch stays in the code (it is
+    off by default); how the report words the result; naming and credit for
+    E21.
 - **20 Nov: two exploratory results after the planner's test, both asked for
   by Matt that day. Nothing adopted, no preset, no held-out game touched by
   the explorer. Committed and pushed on 20 Nov (Matt: "commit and push, then
@@ -323,7 +351,7 @@ uninformative) and the frontier showcase (only if the buffer allows).
     games (it needs an entry in the pre-registration first; five of the
     groupmate's eight "other games" are held-out here: ar25, lf52, bp35,
     cn04, ka59); naming and credit for E21. Matt's answer the same day: run
-    the registered test.
+    the registered test. It is finished (the item above).
   - **In that commit:** `custom_agents/kp_bridge.py`, `custom_agents/kp_ref/`
     (E21's file, the README), `experiments/kp/` (`kp_test.py`, `kp_e21.toml`,
     `explorer_probe.py`, `ladder_chart.py`, `sweep_table.py`),

@@ -118,6 +118,7 @@ is Goose with upgrade screen 3's three upgrades (`SOT`), at 5,000 actions.
 | **The test (registered)** | The same on all 25 games x 2 new seeds, with the baseline run twice to measure chance | **Clears the noise: 62 vs 44 and 47** (+18 against a bar of 10) |
 | Four agents on the test's seeds (exploratory) | The baseline, the adopted Goose, `SOT` and `SOT` with the planner, side by side | 8.5, 16.0, 22.0 and 31.0 levels a seed |
 | The explorer (exploratory) | Can the groupmate's explorer for games with keys (E21) take the levels after the first there? | From recordings: 63 levels against Goose's 52, never fewer. GPU sweep on the ten dev and seen games: 48 against 46 |
+| **The explorer's test (registered)** | `SOT` with the planner, with and without the explorer, on all 25 games x 2 new seeds, with the control run twice | **Inside the noise on both rules: 59 vs 58 and 57** (+1 against a bar of 9); sooner in 4 level races of 5 (+3 against a bar of 4) |
 
 **How to read the test.** All of the gain is on ft09 (+9) and lp85 (+10), the
 two games the planner was built on, so it is a tuned-tier result at 5,000
@@ -128,14 +129,20 @@ adopted and there is no preset; the base it ran on is not adopted either.
 Results: [`kp-results.md`](docs/4-knowledge-planner/kp-results.md); plan and
 every write-up: [`docs/4-knowledge-planner/`](docs/4-knowledge-planner/).
 
-**Since the test (20 Nov, both exploratory).** The four agents on the same
-seeds, with a figure and a table of every game:
+**Since the test (20 Nov).** The four agents on the same seeds, with a
+figure and a table of every game (exploratory):
 [`kp-ladder.md`](docs/4-knowledge-planner/kp-ladder.md). And an explorer for
 the games the planner cannot play, those with keys: the groupmate's E21,
 behind a switch that is off by default. After Goose's level 1 it clears
 level 2 of cd82, which Goose does not, and reaches the later levels of tu93
-sooner; it changes nothing on the other games it was tried on. Not adopted:
-[`kp-explorer.md`](docs/4-knowledge-planner/kp-explorer.md).
+sooner; it changes nothing on the other games it was tried on
+([`kp-explorer.md`](docs/4-knowledge-planner/kp-explorer.md), exploratory).
+**Its registered test on all 25 games stayed inside the noise on both
+rules:** 59 levels against 58 and 57, and sooner in 4 level races of 5, which
+is under that rule's bar. It did the same again on cd82 and tu93 and cleared
+no level on any other game, the held-out ones included
+([`kp-explorer-results.md`](docs/4-knowledge-planner/kp-explorer-results.md)).
+Not adopted.
 
 ## Previously tried methods (`legacy/`)
 
@@ -282,8 +289,9 @@ uv run python compute_metrics.py results/runs/<ts>/ft09/transitions \
 - The Knowledge Planner: `EVAL_KP=1` on a `--agent goose` run. Its test:
   `uv run python experiments/kp/kp_test.py plan` (also `status`, `verdict`);
   what it does on recordings, on the CPU: `uv run python tools/kp_offline.py takeover`.
-  With `LADDER=1` or `E21=1` in front, `kp_test.py` acts on the four-agent
-  comparison's runs or on the explorer's sweep. Their figure and tables:
+  With `LADDER=1`, `E21=1` or `E21TEST=1` in front, `kp_test.py` acts on the
+  four-agent comparison's runs, on the explorer's sweep or on the explorer's
+  registered test. Their figure and tables:
   `experiments/kp/ladder_chart.py` and `experiments/kp/sweep_table.py`.
 - Hosted API path (unchanged, slower): `make action`. It needs
   `git -C ARC-AGI-3-Agents apply ../harness_patches.patch` once. Don't mix API
